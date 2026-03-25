@@ -36,6 +36,12 @@ class ClauseType(str, enum.Enum):
     force_majeure = "force_majeure"
     governing_law = "governing_law"
     dispute_resolution = "dispute_resolution"
+    billing = "billing"
+    re_attendance = "re_attendance"
+    evidence = "evidence"
+    service_credit = "service_credit"
+    nrswa = "nrswa"
+    safety = "safety"
 
 
 class BillableCategory(str, enum.Enum):
@@ -56,13 +62,21 @@ class WorkCategory(str, enum.Enum):
     hv_switching = "hv_switching"
     lv_fault_repair = "lv_fault_repair"
     cable_jointing = "cable_jointing"
+    cable_jointing_hv = "cable_jointing_hv"
+    cable_jointing_lv = "cable_jointing_lv"
     overhead_lines = "overhead_lines"
+    overhead_line_repair = "overhead_line_repair"
     substation_maintenance = "substation_maintenance"
     metering = "metering"
+    metering_installation = "metering_installation"
     connections = "connections"
+    new_connection = "new_connection"
     tree_cutting = "tree_cutting"
     civils = "civils"
+    civils_excavation = "civils_excavation"
     reinstatement = "reinstatement"
+    reinstatement_temporary = "reinstatement_temporary"
+    reinstatement_permanent = "reinstatement_permanent"
 
 
 class BillingPrerequisite(str, enum.Enum):

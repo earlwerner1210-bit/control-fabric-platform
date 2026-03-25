@@ -6,9 +6,13 @@ import uuid
 from dataclasses import dataclass, field
 
 from app.domain_packs.contract_margin.schemas import (
+    BillingGate,
+    BillingPrerequisite,
     ParsedContract, ExtractedClause, ClauseSegment, SLAEntry, RateCardEntry,
     Obligation, PenaltyCondition, BillableEvent, ScopeBoundaryObject,
     ClauseType,
+    RecoveryType,
+    PriorityLevel,
 )
 
 
@@ -27,6 +31,8 @@ class ContractCompileResult:
     obligations: list[dict] = field(default_factory=list)
     penalties: list[dict] = field(default_factory=list)
     scope_boundaries: list[dict] = field(default_factory=list)
+    billing_gates: list[dict] = field(default_factory=list)
+    recovery_recommendations: list[dict] = field(default_factory=list)
     control_object_payloads: list[dict] = field(default_factory=list)
 
 
@@ -92,6 +98,11 @@ class ContractCompiler:
         obligations = self.compile_obligations(contract)
         penalties = self.compile_penalties(contract)
         scope_boundaries = self.compile_scope_boundaries(contract.scope_boundaries)
+        billing_gates = self.compile_billing_gates(contract)
+        recovery_recommendations = self.compile_recovery_recommendations(
+            leakage_triggers=[],
+            rate_card=rate_card_entries,
+        )
 
         # Aggregate all payloads for downstream consumers
         control_objects: list[dict] = []
@@ -107,6 +118,10 @@ class ContractCompiler:
             control_objects.append({"type": "penalty_condition", "payload": pen})
         for sb in scope_boundaries:
             control_objects.append({"type": "scope_boundary", "payload": sb})
+        for bg in billing_gates:
+            control_objects.append({"type": "billing_gate", "payload": bg})
+        for rr in recovery_recommendations:
+            control_objects.append({"type": "recovery_recommendation", "payload": rr})
 
         return ContractCompileResult(
             clauses=clauses,
@@ -115,6 +130,8 @@ class ContractCompiler:
             obligations=obligations,
             penalties=penalties,
             scope_boundaries=scope_boundaries,
+            billing_gates=billing_gates,
+            recovery_recommendations=recovery_recommendations,
             control_object_payloads=control_objects,
         )
 
@@ -451,6 +468,174 @@ class ContractCompiler:
                 "is_restrictive": is_restrictive,
                 "has_conditions": has_conditions,
                 "activity_count": len(boundary.activities),
+            })
+
+        return results
+
+    # -- billing gate compilation -------------------------------------------
+
+    def compile_billing_gates(self, contract: ParsedContract) -> list[dict]:
+        """Compile billing gate control objects from contract prerequisites.
+
+        Identifies billing prerequisites from clauses and creates gate objects:
+        - daywork_sheet_signed
+        - completion_certificate
+        - customer_sign_off
+        - as_built_submitted
+        - permit_closed_out
+        - prior_approval
+        - purchase_order
+        - variation_order
+        """
+        _GATE_KEYWORDS: dict[str, BillingPrerequisite] = {
+            "prior approval": BillingPrerequisite.prior_approval,
+            "purchase order": BillingPrerequisite.purchase_order,
+            "variation order": BillingPrerequisite.variation_order,
+            "daywork sheet": BillingPrerequisite.daywork_sheet_signed,
+            "completion certificate": BillingPrerequisite.completion_certificate,
+            "customer sign-off": BillingPrerequisite.customer_sign_off,
+            "customer sign off": BillingPrerequisite.customer_sign_off,
+            "as-built": BillingPrerequisite.as_built_submitted,
+            "as built": BillingPrerequisite.as_built_submitted,
+            "permit": BillingPrerequisite.permit_closed_out,
+        }
+
+        results: list[dict] = []
+        seen: set[str] = set()
+
+        for clause in contract.clauses:
+            lower = clause.text.lower()
+            for keyword, gate_type in _GATE_KEYWORDS.items():
+                if keyword in lower and gate_type.value not in seen:
+                    results.append({
+                        "control_id": str(uuid.uuid4()),
+                        "control_type": "billing_gate",
+                        "gate_type": gate_type.value,
+                        "description": f"Billing prerequisite from clause {clause.id}: {clause.text[:120]}",
+                        "clause_id": clause.id,
+                        "section": clause.section,
+                        "satisfied": False,
+                        "evidence_ref": "",
+                    })
+                    seen.add(gate_type.value)
+
+        # Also scan clause segments
+        for seg in contract.clause_segments:
+            lower = seg.text.lower()
+            for keyword, gate_type in _GATE_KEYWORDS.items():
+                if keyword in lower and gate_type.value not in seen:
+                    results.append({
+                        "control_id": str(uuid.uuid4()),
+                        "control_type": "billing_gate",
+                        "gate_type": gate_type.value,
+                        "description": f"Billing prerequisite from segment {seg.id}: {seg.text[:120]}",
+                        "clause_id": seg.parent_clause_id or seg.id,
+                        "section": seg.section_ref,
+                        "satisfied": False,
+                        "evidence_ref": "",
+                    })
+                    seen.add(gate_type.value)
+
+        return results
+
+    # -- recovery recommendation compilation --------------------------------
+
+    def compile_recovery_recommendations(
+        self,
+        leakage_triggers: list[dict],
+        rate_card: list[dict],
+    ) -> list[dict]:
+        """Compile recovery recommendations from leakage triggers.
+
+        For each leakage trigger, recommend:
+        - backbill: for unbilled completed work
+        - rate_adjustment: for rate mismatches
+        - change_order: for unpriced variations
+        - scope_clarification: for ambiguous scope
+
+        Include estimated_recovery_value where calculable.
+        """
+        _TRIGGER_TYPE_MAP: dict[str, tuple[str, str, str]] = {
+            "unbilled_work": (
+                RecoveryType.backbill.value,
+                "Backbill for unbilled completed work",
+                PriorityLevel.high.value,
+            ),
+            "missing_invoice": (
+                RecoveryType.backbill.value,
+                "Backbill for missing invoice",
+                PriorityLevel.high.value,
+            ),
+            "rate_mismatch": (
+                RecoveryType.rate_adjustment.value,
+                "Rate adjustment for rate mismatch",
+                PriorityLevel.medium.value,
+            ),
+            "rate_undercharge": (
+                RecoveryType.rate_adjustment.value,
+                "Rate adjustment for under-charged work",
+                PriorityLevel.medium.value,
+            ),
+            "unpriced_variation": (
+                RecoveryType.change_order.value,
+                "Change order for unpriced variation",
+                PriorityLevel.high.value,
+            ),
+            "scope_creep": (
+                RecoveryType.change_order.value,
+                "Change order for out-of-scope work performed",
+                PriorityLevel.high.value,
+            ),
+            "ambiguous_scope": (
+                RecoveryType.scope_clarification.value,
+                "Scope clarification to prevent future leakage",
+                PriorityLevel.low.value,
+            ),
+            "scope_gap": (
+                RecoveryType.scope_clarification.value,
+                "Scope clarification for gap in contract coverage",
+                PriorityLevel.medium.value,
+            ),
+        }
+
+        results: list[dict] = []
+
+        # Build a rate lookup for estimating recovery values
+        rate_lookup: dict[str, float] = {}
+        for rc in rate_card:
+            activity = rc.get("activity", "")
+            rate_val = rc.get("rate", 0.0)
+            if activity and rate_val:
+                rate_lookup[activity] = rate_val
+
+        for trigger in leakage_triggers:
+            trigger_type = trigger.get("trigger_type", "")
+            mapping = _TRIGGER_TYPE_MAP.get(trigger_type)
+
+            if mapping:
+                recovery_type, description, priority = mapping
+            else:
+                recovery_type = RecoveryType.scope_clarification.value
+                description = f"Review trigger: {trigger.get('description', trigger_type)}"
+                priority = PriorityLevel.low.value
+
+            estimated_value = trigger.get("estimated_impact_value", 0.0)
+            if not estimated_value and trigger.get("activity") in rate_lookup:
+                estimated_value = rate_lookup[trigger["activity"]]
+
+            clause_refs = trigger.get("clause_refs", [])
+
+            results.append({
+                "control_id": str(uuid.uuid4()),
+                "control_type": "recovery_recommendation",
+                "recommendation_type": recovery_type,
+                "description": description,
+                "trigger_type": trigger_type,
+                "trigger_description": trigger.get("description", ""),
+                "estimated_recovery_value": estimated_value,
+                "priority": priority,
+                "clause_refs": clause_refs,
+                "confidence": trigger.get("confidence", 0.7),
             })
 
         return results

@@ -1,0 +1,106 @@
+{
+  "scenario": "spen_hv_switching_billability",
+  "description": "Complete contract-to-margin scenario for SPEN HV switching work",
+  "contract": {
+    "document_type": "managed_services_agreement",
+    "title": "Managed Field Services — SP Energy Networks",
+    "parties": ["SP Energy Networks Limited", "Vodafone Limited"],
+    "effective_date": "2025-04-01",
+    "expiry_date": "2030-03-31",
+    "clauses": [
+      {"id": "CL-001", "type": "scope", "text": "Provider shall deliver planned and emergency HV switching, cable jointing, LV fault repair, overhead line maintenance, metering, and new connections across the SPEN Central Belt licence area.", "section": "2.1"},
+      {"id": "CL-002", "type": "obligation", "text": "All HV switching operations require an HV Authorised Person with valid ECS card. Minimum two-person crew for all HV work.", "section": "3.1"},
+      {"id": "CL-003", "type": "obligation", "text": "Provider must obtain signed daywork sheets within 48 hours of work completion. Unsigned daywork sheets are non-billable.", "section": "3.4"},
+      {"id": "CL-004", "type": "rate", "text": "HV Switching: £320.00 per operation. Emergency multiplier: 1.5x. Overtime: 1.3x. Weekend/Bank Holiday: 1.5x.", "section": "5.1"},
+      {"id": "CL-005", "type": "sla", "text": "Emergency response: 2 hours. Urgent response: 4 hours. Planned work: schedule adherence 95%.", "section": "4.1"},
+      {"id": "CL-006", "type": "penalty", "text": "Failure to meet emergency response SLA: 5% of monthly invoice per breach. Cap: 30% monthly.", "section": "7.1"},
+      {"id": "CL-007", "type": "obligation", "text": "Prior approval required for any single work order exceeding £5,000. Variation orders require written change order before commencement.", "section": "3.7"},
+      {"id": "CL-008", "type": "scope", "text": "Out of scope: generation plant maintenance, transmission network (132kV+), customer premises internal wiring.", "section": "2.3"}
+    ],
+    "sla_table": [
+      {"priority": "emergency", "response_time_hours": 2, "resolution_time_hours": 8, "availability": "24x7"},
+      {"priority": "urgent", "response_time_hours": 4, "resolution_time_hours": 24, "availability": "24x7"},
+      {"priority": "planned", "response_time_hours": 48, "resolution_time_hours": 168, "availability": "business_hours"}
+    ],
+    "rate_card": [
+      {"activity": "hv_switching", "unit": "each", "rate": 320.00, "currency": "GBP", "overtime_multiplier": 1.3},
+      {"activity": "cable_jointing_11kv", "unit": "each", "rate": 485.00, "currency": "GBP"},
+      {"activity": "cable_jointing_lv", "unit": "each", "rate": 285.00, "currency": "GBP"},
+      {"activity": "lv_fault_repair", "unit": "each", "rate": 275.00, "currency": "GBP"},
+      {"activity": "metering_installation", "unit": "each", "rate": 165.00, "currency": "GBP"}
+    ]
+  },
+  "work_orders": [
+    {
+      "work_order_id": "SPEN-WO-2026-0501",
+      "work_order_type": "planned",
+      "work_category": "hv_switching",
+      "description": "11kV ring main unit switching for planned maintenance — Pollokshields substation",
+      "status": "completed",
+      "site": {"name": "Pollokshields East Substation", "address": "42 Albert Road, Glasgow G42 8DN"},
+      "engineer": {
+        "id": "ENG-101",
+        "name": "Alasdair MacGregor",
+        "skills": ["hv_switching", "lv_fault_repair"],
+        "certifications": [
+          {"type": "hv_authorized_person", "expiry": "2027-06-30"},
+          {"type": "ecs_card", "expiry": "2027-12-31"},
+          {"type": "first_aid_at_work", "expiry": "2027-03-15"}
+        ]
+      },
+      "schedule": {"scheduled_date": "2026-03-20", "time_window": "09:00-13:00"},
+      "billable_items": [{"description": "HV switching operation", "rate": 320.00, "quantity": 1, "unit": "each"}],
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "permit_closed_out": true
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-0502",
+      "work_order_type": "emergency",
+      "work_category": "lv_fault_repair",
+      "description": "Emergency LV fault — customer supply loss at 15 Byres Road",
+      "status": "completed",
+      "engineer": {
+        "id": "ENG-102",
+        "name": "Jamie Campbell",
+        "skills": ["lv_fault_repair"],
+        "certifications": [{"type": "ecs_card", "expiry": "2027-12-31"}]
+      },
+      "billable_items": [{"description": "LV fault repair", "rate": 275.00, "quantity": 1, "unit": "each"}],
+      "completion_evidence": {
+        "daywork_sheet_signed": false,
+        "completion_certificate": true
+      }
+    }
+  ],
+  "incidents": [
+    {
+      "incident_id": "VF-INC-2026-01050",
+      "title": "Customer supply loss — 15 Byres Road Glasgow",
+      "priority": "P2",
+      "severity": 2,
+      "state": "resolved",
+      "category": "supply_interruption",
+      "affected_services": ["residential_supply"],
+      "assigned_to": "field_operations",
+      "timeline": [
+        {"timestamp": "2026-03-20T14:30:00Z", "event": "Customer reported supply loss"},
+        {"timestamp": "2026-03-20T14:45:00Z", "event": "Dispatched to SPEN-WO-2026-0502"},
+        {"timestamp": "2026-03-20T16:30:00Z", "event": "Fault isolated and repaired"},
+        {"timestamp": "2026-03-20T17:00:00Z", "event": "Supply restored, customer confirmed"}
+      ]
+    }
+  ],
+  "expected_outcomes": {
+    "wo_0501_billable": true,
+    "wo_0501_rate": 320.00,
+    "wo_0502_billable": false,
+    "wo_0502_reason": "missing_daywork_sheet",
+    "leakage_detected": true,
+    "leakage_type": "unsigned_daywork_prevents_billing",
+    "penalty_risk": false,
+    "cross_pack_links": 2
+  }
+}

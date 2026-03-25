@@ -305,5 +305,175 @@ async def main() -> None:
             await engine.dispose()
 
 
+def run_wave1_demo():
+    """Run Wave 1 contract-margin scenario using seed fixtures.
+
+    This function loads the Wave 1 fixtures and demonstrates how to use
+    them with the domain-pack parsers and rule engines. It does not
+    require a running database.
+    """
+    import sys as _sys
+
+    # Ensure project root is on path
+    _sys.path.insert(0, str(PROJECT_ROOT))
+
+    from app.domain_packs.contract_margin.parsers import ContractParser, SPENRateCardParser
+    from app.domain_packs.contract_margin.compiler import ContractCompiler
+    from app.domain_packs.contract_margin.rules import (
+        BillabilityRuleEngine,
+        LeakageRuleEngine,
+        RecoveryRecommendationEngine,
+    )
+    from app.domain_packs.reconciliation import (
+        ContractWorkOrderLinker,
+        MarginEvidenceAssembler,
+    )
+
+    fixtures_dir = DATA_DIR / "fixtures"
+
+    # ---------------------------------------------------------------
+    # 1. Load fixtures
+    # ---------------------------------------------------------------
+    print("=== Wave 1 Demo: Contract-Margin Scenario ===\n")
+
+    contract_margin = _load_json(fixtures_dir / "wave1_contract_margin.json")
+    margin_leakage = _load_json(fixtures_dir / "wave1_margin_leakage.json")
+    penalty_scenario = _load_json(fixtures_dir / "wave1_penalty_scenario.json")
+
+    print(f"  Loaded scenario: {contract_margin['scenario']}")
+    print(f"  Loaded leakage scenario: {margin_leakage['scenario']}")
+    print(f"  Loaded penalty scenario: {penalty_scenario['scenario']}")
+
+    # ---------------------------------------------------------------
+    # 2. Parse contract
+    # ---------------------------------------------------------------
+    parser = ContractParser()
+    parsed = parser.parse_contract(contract_margin["contract"])
+    print(f"\n--- Parsed Contract ---")
+    print(f"  Title: {parsed.title}")
+    print(f"  Parties: {', '.join(parsed.parties)}")
+    print(f"  Clauses: {len(parsed.clauses)}")
+    print(f"  Rate card entries: {len(parsed.rate_card)}")
+    print(f"  SLA entries: {len(parsed.sla_table)}")
+
+    # ---------------------------------------------------------------
+    # 3. Compile contract
+    # ---------------------------------------------------------------
+    compiler = ContractCompiler()
+    compiled = compiler.compile(parsed)
+    print(f"\n--- Compiled Control Objects ---")
+    print(f"  Clause objects: {len(compiled.clauses)}")
+    print(f"  SLA entries: {len(compiled.sla_entries)}")
+    print(f"  Rate card entries: {len(compiled.rate_card_entries)}")
+    print(f"  Obligations: {len(compiled.obligations)}")
+    print(f"  Penalties: {len(compiled.penalties)}")
+    print(f"  Total control objects: {len(compiled.control_object_payloads)}")
+
+    # ---------------------------------------------------------------
+    # 4. Run billability checks on each work order
+    # ---------------------------------------------------------------
+    billability_engine = BillabilityRuleEngine()
+    obligations = [{"text": c.text, "description": c.text} for c in parsed.clauses]
+
+    print(f"\n--- Billability Checks ---")
+    for wo in contract_margin["work_orders"]:
+        for item in wo.get("billable_items", []):
+            activity = item["description"].lower().replace(" ", "_")
+            decision = billability_engine.evaluate(
+                activity=activity,
+                rate_card=parsed.rate_card,
+                obligations=obligations,
+            )
+            status = "BILLABLE" if decision.billable else "NON-BILLABLE"
+            print(f"  {wo['work_order_id']} / {item['description']}: {status} "
+                  f"(rate={decision.rate_applied}, confidence={decision.confidence:.2f})")
+
+    # ---------------------------------------------------------------
+    # 5. Run leakage detection
+    # ---------------------------------------------------------------
+    leakage_engine = LeakageRuleEngine()
+    triggers = leakage_engine.evaluate(
+        [], work_history=margin_leakage["work_history"]
+    )
+    print(f"\n--- Leakage Detection ---")
+    print(f"  Total triggers: {len(triggers)}")
+    for t in triggers:
+        print(f"  [{t.severity.upper()}] {t.trigger_type}: {t.description}")
+
+    # ---------------------------------------------------------------
+    # 6. Generate recovery recommendations
+    # ---------------------------------------------------------------
+    recovery_engine = RecoveryRecommendationEngine()
+    recommendations = recovery_engine.build_recommendations(
+        leakage_triggers=triggers,
+        contract_objects=[],
+        rate_card=[],
+    )
+    print(f"\n--- Recovery Recommendations ---")
+    print(f"  Total recommendations: {len(recommendations)}")
+    for r in recommendations:
+        print(f"  [{r.priority.value.upper()}] {r.recommendation_type.value}: {r.description}")
+
+    # ---------------------------------------------------------------
+    # 7. Cross-pack reconciliation
+    # ---------------------------------------------------------------
+    contract_objects = [
+        {"type": "rate_card", "activity": rc.activity, "rate": rc.rate,
+         "unit": rc.unit, "id": rc.activity}
+        for rc in parsed.rate_card
+    ]
+    linker = ContractWorkOrderLinker()
+
+    print(f"\n--- Cross-Pack Reconciliation ---")
+    total_links = 0
+    for wo in contract_margin["work_orders"]:
+        links = linker.link(contract_objects, wo)
+        total_links += len(links)
+        for link in links:
+            print(f"  {link.source_id} -> {link.target_id} ({link.link_type}, "
+                  f"confidence={link.confidence:.3f})")
+    print(f"  Total cross-pack links: {total_links}")
+
+    # ---------------------------------------------------------------
+    # 8. Evidence bundle assembly
+    # ---------------------------------------------------------------
+    work_history = [
+        {"work_order_id": wo["work_order_id"], "description": wo["description"],
+         "activity": wo.get("work_category", ""), "status": wo.get("status", "")}
+        for wo in contract_margin["work_orders"]
+    ]
+    trigger_dicts = [t.model_dump() for t in triggers]
+    assembler = MarginEvidenceAssembler()
+    bundle = assembler.assemble(contract_objects, work_history, trigger_dicts)
+    print(f"\n--- Evidence Bundle ---")
+    print(f"  Bundle ID: {bundle.bundle_id}")
+    print(f"  Domains: {', '.join(bundle.domains)}")
+    print(f"  Evidence items: {bundle.total_items}")
+    print(f"  Confidence: {bundle.confidence:.3f}")
+
+    # ---------------------------------------------------------------
+    # 9. Penalty scenario summary
+    # ---------------------------------------------------------------
+    print(f"\n--- Penalty Scenario ---")
+    breaches = penalty_scenario["breach_events"]
+    total_pct = sum(b["penalty_percentage"] for b in breaches if b["breach"])
+    cap = penalty_scenario["expected_outcomes"]["cap_percentage"]
+    capped_pct = min(total_pct, cap)
+    monthly = penalty_scenario["monthly_invoice_value"]
+    exposure = monthly * capped_pct / 100
+    print(f"  Total breaches: {len(breaches)}")
+    print(f"  Uncapped penalty: {total_pct}%")
+    print(f"  Cap: {cap}%")
+    print(f"  Penalty exposure: £{exposure:,.2f}")
+    print(f"  Service improvement plan triggered: {capped_pct >= 20}")
+
+    print(f"\n=== Wave 1 Demo Complete ===")
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    import sys as _main_sys
+
+    if len(_main_sys.argv) > 1 and _main_sys.argv[1] == "--demo":
+        run_wave1_demo()
+    else:
+        asyncio.run(main())

@@ -22,6 +22,7 @@ from app.schemas.workflows import (
     IncidentDispatchOutput,
     MarginDiagnosisInput,
     MarginDiagnosisOutput,
+    ReconciliationSummaryOutput,
     SPENBillabilityInput,
     SPENBillabilityOutput,
     SPENReadinessInput,
@@ -29,10 +30,12 @@ from app.schemas.workflows import (
     VodafoneIncidentTriageInput,
     VodafoneIncidentTriageOutput,
     WorkflowCaseResponse,
+    WorkflowTimelineEntry,
     WorkOrderReadinessInput,
     WorkOrderReadinessOutput,
 )
 from app.services.audit.service import AuditService
+from app.services.reporting.service import ReportingService
 from app.workflows.orchestrator import WorkflowOrchestrator
 
 router = APIRouter(prefix="/cases", tags=["cases"])
@@ -157,6 +160,54 @@ async def get_case_validations(
     )
     validations = result.scalars().all()
     return [ValidationResultResponse.model_validate(v) for v in validations]
+
+
+@router.get("/{case_id}/timeline", response_model=list[WorkflowTimelineEntry])
+async def get_case_timeline(
+    case_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    ctx: TenantContext = Depends(get_current_user),
+):
+    """Get ordered audit timeline for a workflow case."""
+    svc = AuditService(db)
+    timeline = await svc.get_workflow_timeline(case_id, ctx.tenant_id)
+    return timeline
+
+
+@router.get("/{case_id}/report", response_model=dict)
+async def get_case_report(
+    case_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    ctx: TenantContext = Depends(get_current_user),
+):
+    """Get full margin report for a completed case."""
+    svc = ReportingService(db)
+    report = await svc.generate_margin_report(ctx.tenant_id, case_id)
+    if "error" in report:
+        raise HTTPException(status_code=404, detail=report["error"])
+    return report
+
+
+@router.get("/{case_id}/reconciliation", response_model=ReconciliationSummaryOutput)
+async def get_case_reconciliation(
+    case_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    ctx: TenantContext = Depends(get_current_user),
+):
+    """Get reconciliation summary for a case."""
+    svc = ReportingService(db)
+    report = await svc.generate_reconciliation_report(ctx.tenant_id, case_id)
+    if "error" in report:
+        raise HTTPException(status_code=404, detail=report["error"])
+    return ReconciliationSummaryOutput(
+        case_id=uuid.UUID(report["case_id"]),
+        links_found=report.get("links_found", 0),
+        conflicts_found=report.get("conflicts_found", 0),
+        leakage_patterns_found=report.get("leakage_patterns_found", 0),
+        verdict=report.get("verdict", ""),
+        conflicts=report.get("conflicts", []),
+        evidence_chain_status=report.get("evidence_chain_status", "unknown"),
+    )
 
 
 @router.get("", response_model=PaginatedResponse[WorkflowCaseResponse])

@@ -119,7 +119,7 @@ def _parse_datetime(value: Any) -> datetime | None:
 def _extract_activities(description: str) -> set[str]:
     """Extract a rough set of normalised 'activity tokens' from free text."""
     tokens: set[str] = set()
-    for word in description.lower().replace(",", " ").replace(".", " ").split():
+    for word in description.lower().replace(",", " ").replace(".", " ").replace("_", " ").replace("-", " ").split():
         cleaned = word.strip()
         if len(cleaned) > 2:
             tokens.add(cleaned)

@@ -47,8 +47,8 @@ class ContractParser:
             )
             for i, c in enumerate(data.get("clauses", []))
         ]
-        sla_table = [SLAEntry(**s) for s in data.get("sla_table", [])]
-        rate_card = [RateCardEntry(**r) for r in data.get("rate_card", [])]
+        sla_table = [self._normalize_sla_entry(s) for s in data.get("sla_table", [])]
+        rate_card = [self._normalize_rate_entry(r) for r in data.get("rate_card", [])]
 
         return ParsedContract(
             document_type=data.get("document_type", "contract"),
@@ -57,6 +57,42 @@ class ContractParser:
             clauses=clauses,
             sla_table=sla_table,
             rate_card=rate_card,
+        )
+
+    @staticmethod
+    def _normalize_sla_entry(raw: dict) -> SLAEntry:
+        """Normalize SLA entry from various field naming conventions."""
+        priority = raw.get("priority") or raw.get("category", "")
+        response_hours = raw.get("response_time_hours")
+        if response_hours is None and raw.get("response_time_minutes") is not None:
+            response_hours = raw["response_time_minutes"] / 60.0
+        if response_hours is None:
+            response_hours = 0.0
+        resolution_hours = raw.get("resolution_time_hours") or 0.0
+        return SLAEntry(
+            priority=priority,
+            response_time_hours=response_hours,
+            resolution_time_hours=resolution_hours,
+            availability=raw.get("availability", "business_hours"),
+            penalty_percentage=raw.get("penalty_percentage"),
+            measurement_window=raw.get("measurement_window", "monthly"),
+        )
+
+    @staticmethod
+    def _normalize_rate_entry(raw: dict) -> RateCardEntry:
+        """Normalize rate card entry from various field naming conventions."""
+        activity = raw.get("activity") or raw.get("activity_code") or raw.get("description", "")
+        rate = raw.get("rate") or raw.get("base_rate", 0.0)
+        return RateCardEntry(
+            activity=activity,
+            unit=raw.get("unit", "each"),
+            rate=rate,
+            currency=raw.get("currency", "USD"),
+            effective_from=raw.get("effective_from"),
+            effective_to=raw.get("effective_to"),
+            escalation_rate=raw.get("escalation_rate"),
+            minimum_charge=raw.get("minimum_charge"),
+            overtime_multiplier=raw.get("overtime_multiplier"),
         )
 
     def _parse_from_text(self, text: str) -> ParsedContract:
@@ -158,6 +194,289 @@ class ContractParser:
             )
             for r in rate_card
         ]
+
+    # -- new Wave-1 extraction methods -------------------------------------
+
+    def extract_headings(self, text: str) -> list[dict]:
+        """Extract document section headings with hierarchy.
+
+        Returns list of dicts with:
+        - heading_text: str
+        - level: int (1=major, 2=sub, 3=sub-sub)
+        - section_number: str (e.g. "3.1", "3.1.2")
+        - offset_start: int
+        - offset_end: int
+        """
+        headings: list[dict] = []
+
+        # Pattern 1: numbered sections like "1.", "1.1", "1.1.1" followed by text
+        numbered_pattern = re.compile(
+            r'^[ \t]*((\d+(?:\.\d+)*)\.?)\s+([^\n]+)',
+            re.MULTILINE,
+        )
+        for match in numbered_pattern.finditer(text):
+            section_number = match.group(2)
+            heading_text = match.group(3).strip()
+            # Skip lines that look like body text (very long) or numeric-only
+            if len(heading_text) > 200 or not heading_text:
+                continue
+            dot_count = section_number.count(".")
+            level = min(dot_count + 1, 3)
+
+            headings.append({
+                "heading_text": heading_text,
+                "level": level,
+                "section_number": section_number,
+                "offset_start": match.start(),
+                "offset_end": match.end(),
+            })
+
+        # Pattern 2: "SECTION 1", "Article 1", "Schedule A/1"
+        named_pattern = re.compile(
+            r'^[ \t]*((?:SECTION|Article|Schedule)\s+([A-Za-z0-9]+))[:\s.\-]+\s*([^\n]*)',
+            re.MULTILINE | re.IGNORECASE,
+        )
+        for match in named_pattern.finditer(text):
+            section_id = match.group(2).strip()
+            heading_text = match.group(3).strip() if match.group(3).strip() else match.group(1).strip()
+            headings.append({
+                "heading_text": heading_text,
+                "level": 1,
+                "section_number": section_id,
+                "offset_start": match.start(),
+                "offset_end": match.end(),
+            })
+
+        # Sort by offset_start for document order
+        headings.sort(key=lambda h: h["offset_start"])
+        return headings
+
+    def extract_clause_segments(self, text: str) -> list[ClauseSegment]:
+        """Extract fine-grained clause segments with positional offsets.
+
+        Each segment preserves clause_number, heading, text content,
+        clause_type (inferred from keywords), section_ref,
+        parent_clause_id (for nested clauses), source offsets, and confidence.
+        """
+        segments: list[ClauseSegment] = []
+
+        # Split text by section numbers (e.g. "1.", "1.1", "1.1.1")
+        section_pattern = re.compile(
+            r'^[ \t]*((\d+(?:\.\d+)*)\.?)\s+',
+            re.MULTILINE,
+        )
+        matches = list(section_pattern.finditer(text))
+        if not matches:
+            return segments
+
+        for idx, match in enumerate(matches):
+            section_number = match.group(2)
+            offset_start = match.start()
+            # Content goes until the next section or end of text
+            if idx + 1 < len(matches):
+                offset_end = matches[idx + 1].start()
+            else:
+                offset_end = len(text)
+
+            raw_content = text[match.end():offset_end].strip()
+            if not raw_content:
+                continue
+
+            # Extract heading: first line of content (if short enough)
+            lines = raw_content.split("\n", 1)
+            first_line = lines[0].strip()
+            heading = first_line if len(first_line) <= 120 else ""
+            body_text = raw_content
+
+            # Determine clause type by keyword matching
+            clause_type = self._classify_clause(body_text)
+
+            # Confidence based on keyword strength
+            confidence = self._compute_segment_confidence(body_text, clause_type)
+
+            # Determine parent clause id (e.g. "3.1" is child of "3")
+            parent_clause_id: str | None = None
+            parts = section_number.split(".")
+            if len(parts) > 1:
+                parent_number = ".".join(parts[:-1])
+                parent_clause_id = f"SEG-{parent_number}"
+
+            segment_id = f"SEG-{section_number}"
+
+            segments.append(ClauseSegment(
+                id=segment_id,
+                clause_number=section_number,
+                heading=heading,
+                text=body_text,
+                clause_type=clause_type,
+                section_ref=section_number,
+                parent_clause_id=parent_clause_id,
+                source_offset_start=offset_start,
+                source_offset_end=offset_end,
+                confidence=confidence,
+            ))
+
+        return segments
+
+    def _compute_segment_confidence(self, text: str, clause_type: ClauseType) -> float:
+        """Compute confidence score based on keyword strength for a clause segment."""
+        lower = text.lower()
+        # Strong keyword matches yield higher confidence
+        strong_keywords = {
+            ClauseType.obligation: ["shall", "must", "required to", "obligated"],
+            ClauseType.penalty: ["penalty", "liquidated damages", "breach"],
+            ClauseType.sla: ["response time", "resolution time", "service level"],
+            ClauseType.rate: ["rate", "price per", "fee schedule"],
+            ClauseType.scope: ["in scope", "out of scope", "deliverables"],
+            ClauseType.termination: ["terminate", "termination for cause"],
+        }
+        keywords = strong_keywords.get(clause_type, [])
+        if not keywords:
+            return 0.6
+
+        match_count = sum(1 for kw in keywords if kw in lower)
+        if match_count >= 2:
+            return 0.95
+        if match_count == 1:
+            return 0.80
+        return 0.60
+
+    def extract_scope_boundaries(self, text: str | dict) -> list[ScopeBoundaryObject]:
+        """Extract scope boundaries from contract text.
+
+        Looks for:
+        - "in scope" / "included" / "shall provide" -> in_scope
+        - "out of scope" / "excluded" / "shall not include" -> out_of_scope
+        - "conditional" / "subject to" / "upon request" -> conditional
+
+        Returns ScopeBoundaryObject instances with activities, conditions, clause_refs.
+        """
+        if isinstance(text, dict):
+            text = str(text)
+
+        boundaries: list[ScopeBoundaryObject] = []
+
+        _SCOPE_PATTERNS: list[tuple[re.Pattern, ScopeType]] = [
+            (re.compile(
+                r'(?:in[\s-]scope|included|shall\s+provide|services?\s+include)[:\s]*([^\n.]+)',
+                re.IGNORECASE,
+            ), ScopeType.in_scope),
+            (re.compile(
+                r'(?:out[\s-]of[\s-]scope|excluded|shall\s+not\s+include|not\s+included)[:\s]*([^\n.]+)',
+                re.IGNORECASE,
+            ), ScopeType.out_of_scope),
+            (re.compile(
+                r'(?:conditional(?:ly)?|subject\s+to|upon\s+request|where\s+approved)[:\s]*([^\n.]+)',
+                re.IGNORECASE,
+            ), ScopeType.conditional),
+        ]
+
+        for pattern, scope_type in _SCOPE_PATTERNS:
+            for match in pattern.finditer(text):
+                raw = match.group(1).strip()
+                # Split comma/semicolon-separated activities
+                activities = [
+                    a.strip()
+                    for a in re.split(r'[,;]', raw)
+                    if a.strip()
+                ]
+
+                # Extract conditions for conditional scope
+                conditions: list[str] = []
+                if scope_type == ScopeType.conditional:
+                    cond_match = re.search(
+                        r'(?:subject\s+to|provided\s+that|if|where)\s+(.+?)(?:\.|$)',
+                        match.group(0),
+                        re.IGNORECASE,
+                    )
+                    if cond_match:
+                        conditions.append(cond_match.group(1).strip())
+
+                # Try to find a nearby section reference
+                clause_refs: list[str] = []
+                preceding = text[max(0, match.start() - 200):match.start()]
+                ref_match = re.search(r'(\d+\.\d+(?:\.\d+)?)', preceding)
+                if ref_match:
+                    clause_refs.append(ref_match.group(1))
+
+                description = raw[:200] if raw else match.group(0).strip()[:200]
+
+                boundaries.append(ScopeBoundaryObject(
+                    scope_type=scope_type,
+                    description=description,
+                    conditions=conditions,
+                    clause_refs=clause_refs,
+                    activities=activities,
+                ))
+
+        return boundaries
+
+    def extract_payment_terms(self, text: str | dict) -> dict:
+        """Extract payment terms from contract text.
+
+        Returns dict with:
+        - payment_period_days: int (e.g. 30, 60, 90)
+        - currency: str
+        - invoicing_frequency: str (monthly, quarterly)
+        - late_payment_interest: float | None
+        - retention_percentage: float | None
+        """
+        if isinstance(text, dict):
+            text = str(text)
+
+        result: dict[str, Any] = {
+            "payment_period_days": 30,
+            "currency": "USD",
+            "invoicing_frequency": "monthly",
+            "late_payment_interest": None,
+            "retention_percentage": None,
+        }
+
+        # Payment period: "net 30", "within 30 days", "30 days from invoice"
+        period_match = re.search(
+            r'(?:net\s+(\d+)|within\s+(\d+)\s+days|(\d+)\s+days\s+(?:from|of|after)\s+(?:invoice|receipt))',
+            text,
+            re.IGNORECASE,
+        )
+        if period_match:
+            days = period_match.group(1) or period_match.group(2) or period_match.group(3)
+            result["payment_period_days"] = int(days)
+
+        # Currency
+        currency_match = re.search(r'\b(USD|GBP|EUR|AUD|CAD)\b', text, re.IGNORECASE)
+        if currency_match:
+            result["currency"] = currency_match.group(1).upper()
+
+        # Invoicing frequency
+        if re.search(r'\bquarterly\b', text, re.IGNORECASE):
+            result["invoicing_frequency"] = "quarterly"
+        elif re.search(r'\bannually\b|\bannual\b', text, re.IGNORECASE):
+            result["invoicing_frequency"] = "annually"
+        elif re.search(r'\bweekly\b', text, re.IGNORECASE):
+            result["invoicing_frequency"] = "weekly"
+        elif re.search(r'\bmonthly\b', text, re.IGNORECASE):
+            result["invoicing_frequency"] = "monthly"
+
+        # Late payment interest: "interest at 2%", "2% per month late"
+        interest_match = re.search(
+            r'(?:interest|late\s+payment)[^.]*?(\d+(?:\.\d+)?)\s*%',
+            text,
+            re.IGNORECASE,
+        )
+        if interest_match:
+            result["late_payment_interest"] = float(interest_match.group(1))
+
+        # Retention: "5% retention", "retention of 5%"
+        retention_match = re.search(
+            r'(?:retention\s+(?:of\s+)?|retain\s+)(\d+(?:\.\d+)?)\s*%|(\d+(?:\.\d+)?)\s*%\s*retention',
+            text,
+            re.IGNORECASE,
+        )
+        if retention_match:
+            pct = retention_match.group(1) or retention_match.group(2)
+            result["retention_percentage"] = float(pct)
+
+        return result
 
     def _classify_clause(self, text: str) -> ClauseType:
         lower = text.lower()

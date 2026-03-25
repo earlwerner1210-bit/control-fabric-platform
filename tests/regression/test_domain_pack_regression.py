@@ -143,10 +143,19 @@ class TestContractMarginRegression:
             if not activity:
                 pytest.skip("No activity in eval case")
 
+            # Parse optional work_date
+            work_date = None
+            if payload.get("work_date"):
+                from datetime import date as _date
+                work_date = _date.fromisoformat(payload["work_date"])
+
             result = billability_engine.evaluate(
                 activity=activity,
                 rate_card=rate_card,
                 obligations=obligations,
+                prior_claims=payload.get("prior_claims"),
+                work_date=work_date,
+                has_approval=payload.get("has_approval", False),
             )
 
         expected_billable = case["expected_output"]["billable"]

@@ -217,3 +217,41 @@ class VodafoneIncidentTriageOutput(BaseSchema):
     closure_ready: bool = False
     closure_blockers: list[str] = []
     recommended_actions: list[str] = []
+
+
+# ── Extended output schemas (Wave 1) ──────────────────────────────
+
+
+class MarginDiagnosisDetailOutput(BaseSchema):
+    """Detailed margin diagnosis output with reconciliation data."""
+
+    case_id: uuid.UUID
+    verdict: MarginVerdict
+    leakage_drivers: list[str] = []
+    recovery_recommendations: list[dict] = []
+    evidence_object_ids: list[uuid.UUID] = []
+    executive_summary: str | None = None
+    billability_details: dict | None = None
+    penalty_exposure: dict | None = None
+    reconciliation_summary: dict | None = None
+    validation_status: str | None = None
+    validation_details: list[dict] = []
+    audit_event_count: int = 0
+
+
+class WorkflowTimelineEntry(BaseSchema):
+    timestamp: datetime
+    event_type: str
+    stage: str
+    detail: str
+    actor: str | None = None
+
+
+class ReconciliationSummaryOutput(BaseSchema):
+    case_id: uuid.UUID
+    links_found: int = 0
+    conflicts_found: int = 0
+    leakage_patterns_found: int = 0
+    verdict: str = ""
+    conflicts: list[dict] = []
+    evidence_chain_status: str = "unknown"

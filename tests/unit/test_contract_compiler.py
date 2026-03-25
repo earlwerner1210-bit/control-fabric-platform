@@ -178,6 +178,7 @@ class TestCompileFullContract:
             assert obj["type"] in (
                 "clause", "sla_entry", "rate_card_entry",
                 "obligation", "penalty_condition", "scope_boundary",
+                "billing_gate", "recovery_recommendation",
             )
 
     def test_control_objects_have_control_ids(

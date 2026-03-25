@@ -44,6 +44,11 @@ class MarginVerdict(str, enum.Enum):
     unknown = "unknown"
 
 
+class SPENBillabilityVerdict(str, enum.Enum):
+    billable = "billable"
+    non_billable = "non_billable"
+
+
 # ── Case ───────────────────────────────────────────────────────────
 
 
@@ -152,3 +157,63 @@ class MarginDiagnosisOutput(BaseSchema):
     executive_summary: str | None = None
     billability_details: dict | None = None
     penalty_exposure: dict | None = None
+
+
+# ── 5. SPEN Work Order Readiness ──────────────────────────────────
+
+
+class SPENReadinessInput(BaseSchema):
+    work_order_payload: dict
+    engineer_payload: dict
+    work_category: str
+    crew_size: int = 1
+
+
+class SPENReadinessOutput(BaseSchema):
+    case_id: uuid.UUID
+    verdict: ReadinessVerdict
+    gates: list[dict] = []
+    blockers: list[str] = []
+    recommended_actions: list[str] = []
+
+
+# ── 6. SPEN Billability Check ─────────────────────────────────────
+
+
+class SPENBillabilityInput(BaseSchema):
+    activity_code: str
+    work_category: str
+    rate_card_payload: list[dict] = []
+    billing_gates_payload: list[dict] = []
+    is_reattendance: bool = False
+    reattendance_trigger: str = ""
+    time_of_day: str = "normal"
+
+
+class SPENBillabilityOutput(BaseSchema):
+    case_id: uuid.UUID
+    verdict: SPENBillabilityVerdict
+    billable: bool
+    rate_applied: float | None = None
+    reasons: list[str] = []
+    missing_gates: list[str] = []
+
+
+# ── 7. Vodafone Incident Triage ───────────────────────────────────
+
+
+class VodafoneIncidentTriageInput(BaseSchema):
+    incident_payload: dict
+    service_state: str | None = None
+
+
+class VodafoneIncidentTriageOutput(BaseSchema):
+    case_id: uuid.UUID
+    escalation_level: str | None = None
+    escalation_reason: str | None = None
+    dispatch_required: bool = False
+    dispatch_reason: str | None = None
+    sla_status: str | None = None
+    closure_ready: bool = False
+    closure_blockers: list[str] = []
+    recommended_actions: list[str] = []

@@ -22,6 +22,12 @@ from app.schemas.workflows import (
     IncidentDispatchOutput,
     MarginDiagnosisInput,
     MarginDiagnosisOutput,
+    SPENBillabilityInput,
+    SPENBillabilityOutput,
+    SPENReadinessInput,
+    SPENReadinessOutput,
+    VodafoneIncidentTriageInput,
+    VodafoneIncidentTriageOutput,
     WorkflowCaseResponse,
     WorkOrderReadinessInput,
     WorkOrderReadinessOutput,
@@ -73,6 +79,39 @@ async def trigger_margin_diagnosis(
 ):
     orch = WorkflowOrchestrator(db)
     result = await orch.run_margin_diagnosis(ctx.tenant_id, ctx.user_id, body)
+    return result
+
+
+@router.post("/spen-readiness", response_model=SPENReadinessOutput)
+async def trigger_spen_readiness(
+    body: SPENReadinessInput,
+    db: AsyncSession = Depends(get_db),
+    ctx: TenantContext = Depends(get_current_user),
+):
+    orch = WorkflowOrchestrator(db)
+    result = await orch.run_spen_readiness(ctx.tenant_id, ctx.user_id, body)
+    return result
+
+
+@router.post("/spen-billability", response_model=SPENBillabilityOutput)
+async def trigger_spen_billability(
+    body: SPENBillabilityInput,
+    db: AsyncSession = Depends(get_db),
+    ctx: TenantContext = Depends(get_current_user),
+):
+    orch = WorkflowOrchestrator(db)
+    result = await orch.run_spen_billability(ctx.tenant_id, ctx.user_id, body)
+    return result
+
+
+@router.post("/vodafone-incident-triage", response_model=VodafoneIncidentTriageOutput)
+async def trigger_vodafone_incident_triage(
+    body: VodafoneIncidentTriageInput,
+    db: AsyncSession = Depends(get_db),
+    ctx: TenantContext = Depends(get_current_user),
+):
+    orch = WorkflowOrchestrator(db)
+    result = await orch.run_vodafone_incident_triage(ctx.tenant_id, ctx.user_id, body)
     return result
 
 

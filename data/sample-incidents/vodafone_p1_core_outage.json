@@ -1,0 +1,124 @@
+{
+  "incident_id": "VF-INC-2026-00847",
+  "title": "Core Network Outage — Glasgow MSC Cluster",
+  "priority": "P1",
+  "severity": 1,
+  "status": "major_incident_declared",
+  "category": "core_network_outage",
+  "subcategory": "msc_cluster_failure",
+  "service_domain": "core_network",
+  "reported_at": "2026-03-23T02:14:00Z",
+  "acknowledged_at": "2026-03-23T02:16:00Z",
+  "major_incident_declared_at": "2026-03-23T02:22:00Z",
+  "sla_response_deadline": "2026-03-23T02:29:00Z",
+  "sla_resolution_deadline": "2026-03-23T06:14:00Z",
+  "major_incident": true,
+  "mim_bridge_ref": "VF-MIM-2026-00847",
+  "mim_bridge_dial_in": "+44 7700 900847",
+  "mim_bridge_pin": "847847#",
+  "noc_tier": "Tier 3 — Core Network Engineering",
+  "affected_services": [
+    {
+      "service_id": "VF-SVC-VOICE-CS",
+      "name": "Circuit-Switched Voice — Glasgow MSC Pool",
+      "impact": "total_loss",
+      "customer_count": 142000,
+      "description": "All CS voice calls originating or terminating in Glasgow MSC area failing. Calls receive network busy or fast busy tone."
+    },
+    {
+      "service_id": "VF-SVC-SMS-SMSC",
+      "name": "SMS Delivery — Glasgow SMSC Route",
+      "impact": "total_loss",
+      "customer_count": 142000,
+      "description": "SMS delivery failing for all subscribers homed on Glasgow MSC. Messages queuing at SMSC."
+    },
+    {
+      "service_id": "VF-SVC-DATA-SGW",
+      "name": "Mobile Data — Glasgow S-GW Cluster",
+      "impact": "degraded",
+      "customer_count": 89000,
+      "description": "Data sessions experiencing intermittent drops and high latency. S-GW failover to Edinburgh partially absorbing load."
+    },
+    {
+      "service_id": "VF-SVC-VOLTE",
+      "name": "VoLTE — Glasgow IMS Core",
+      "impact": "total_loss",
+      "customer_count": 67000,
+      "description": "VoLTE registration failing. SIP 503 responses from P-CSCF. Affected subscribers unable to establish IMS sessions."
+    },
+    {
+      "service_id": "VF-SVC-ENTERPRISE",
+      "name": "Enterprise OneNet — Glasgow Region",
+      "impact": "total_loss",
+      "customer_count": 3200,
+      "description": "Enterprise OneNet users in Glasgow region unable to make or receive calls. SIP trunking to corporate PBXs down."
+    }
+  ],
+  "estimated_customer_impact": {
+    "total_affected_subscribers": 142000,
+    "consumer_subscribers": 124000,
+    "enterprise_subscribers": 3200,
+    "mvno_subscribers": 14800,
+    "geographic_area": "Greater Glasgow and Lanarkshire",
+    "affected_cell_sites": 487,
+    "revenue_at_risk_per_hour_gbp": 18500
+  },
+  "root_cause_hypothesis": "Dual power supply failure at Glasgow Centralised Core (GCC) site following UPS battery string failure during scheduled mains transfer. Both MSC-S blades in Glasgow pool lost power simultaneously. Standby generator start-up sequence failed due to ATS (Automatic Transfer Switch) firmware fault.",
+  "timeline": [
+    {"timestamp": "2026-03-23T02:12:00Z", "event": "Mains power transfer initiated at GCC site for scheduled utility maintenance", "actor": "facilities_management"},
+    {"timestamp": "2026-03-23T02:13:00Z", "event": "UPS battery string A reported anomalous voltage drop — 48V bus falling below 42V threshold", "actor": "system"},
+    {"timestamp": "2026-03-23T02:14:00Z", "event": "Mass alarm storm — 487 NodeB/eNodeB sites reporting S1/Iu-CS link failures to Glasgow MSC pool", "actor": "system"},
+    {"timestamp": "2026-03-23T02:14:30Z", "event": "NOC primary monitoring dashboard showing Glasgow MSC-S01 and MSC-S02 unreachable", "actor": "system"},
+    {"timestamp": "2026-03-23T02:16:00Z", "event": "NOC Tier 1 operator acknowledged alarm cluster and created incident VF-INC-2026-00847", "actor": "NOC Tier 1 — Operator J. Patel"},
+    {"timestamp": "2026-03-23T02:18:00Z", "event": "Automatic escalation to Tier 2 — Core Network Operations triggered by alarm correlation engine", "actor": "system"},
+    {"timestamp": "2026-03-23T02:20:00Z", "event": "Tier 2 engineer confirmed total MSC pool loss. Customer-facing impact validated via probe data.", "actor": "Tier 2 — R. Singh"},
+    {"timestamp": "2026-03-23T02:22:00Z", "event": "Major Incident declared. MIM bridge VF-MIM-2026-00847 opened. P1 SLA clock started.", "actor": "MIM Manager — K. Thompson"},
+    {"timestamp": "2026-03-23T02:25:00Z", "event": "MIM bridge joined by: Core Network Engineering, Power & Facilities, NOC Shift Lead, Service Management", "actor": "multiple"},
+    {"timestamp": "2026-03-23T02:28:00Z", "event": "GCC site facilities team reported UPS battery string A failure. Generator ATS failed to engage. Manual generator start-up initiated.", "actor": "Facilities — D. McLeod"},
+    {"timestamp": "2026-03-23T02:35:00Z", "event": "Standby diesel generator started manually. AC mains power restored to GCC core equipment room.", "actor": "Facilities — D. McLeod"},
+    {"timestamp": "2026-03-23T02:38:00Z", "event": "MSC-S01 beginning boot sequence. Estimated 15-20 minutes to full service restoration.", "actor": "Tier 3 — Core NE"},
+    {"timestamp": "2026-03-23T02:42:00Z", "event": "Ofcom MERITS notification prepared — threshold of 100,000 subscribers exceeded.", "actor": "Regulatory Affairs"},
+    {"timestamp": "2026-03-23T02:55:00Z", "event": "MSC-S01 online and accepting registrations. MSC-S02 in boot sequence. CS voice partially restored.", "actor": "system"},
+    {"timestamp": "2026-03-23T03:08:00Z", "event": "MSC-S02 online. Full MSC pool restored. Subscriber re-registration surge in progress.", "actor": "system"},
+    {"timestamp": "2026-03-23T03:25:00Z", "event": "All services confirmed restored. Monitoring shows normal KPIs. MIM bridge stood down to monitoring mode.", "actor": "MIM Manager — K. Thompson"}
+  ],
+  "escalation_history": [
+    {"level": 1, "escalated_to": "NOC Tier 2 — Core Network Operations", "timestamp": "2026-03-23T02:18:00Z", "reason": "Automated alarm correlation — MSC pool loss"},
+    {"level": 2, "escalated_to": "Tier 3 — Core Network Engineering", "timestamp": "2026-03-23T02:20:00Z", "reason": "MSC infrastructure failure requiring specialist engineering"},
+    {"level": 3, "escalated_to": "MIM Manager", "timestamp": "2026-03-23T02:22:00Z", "reason": "Customer-facing outage exceeding 100,000 subscribers — Major Incident threshold"},
+    {"level": 4, "escalated_to": "Head of Network Operations", "timestamp": "2026-03-23T02:25:00Z", "reason": "P1 Major Incident — executive notification"}
+  ],
+  "assigned_team": "core_network_engineering",
+  "assigned_engineer": {
+    "id": "VF-ENG-3041",
+    "name": "Ravi Singh",
+    "role": "Senior Core Network Engineer",
+    "tier": "Tier 3"
+  },
+  "region": "scotland_west",
+  "site": {
+    "name": "Glasgow Centralised Core (GCC)",
+    "address": "Unit 7, Skypark, 8 Elliot Place, Glasgow G3 8EP",
+    "coordinates": {"lat": 55.8609, "lng": -4.2826},
+    "site_type": "core_network_hub",
+    "resilience_tier": "Tier 1 — Geo-redundant"
+  },
+  "vodafone_fields": {
+    "major_incident": true,
+    "mim_bridge_ref": "VF-MIM-2026-00847",
+    "noc_tier": "Tier 3",
+    "sla_response_minutes": 15,
+    "sla_resolution_minutes": 240,
+    "ofcom_reportable": true,
+    "merits_reference": "VF-MERITS-2026-0312",
+    "customer_communication_issued": true,
+    "social_media_response_team_engaged": true,
+    "ceo_office_briefed": true,
+    "service_restoration_time": "2026-03-23T03:25:00Z",
+    "total_outage_duration_minutes": 71,
+    "post_incident_review_due": "2026-03-30T10:00:00Z"
+  },
+  "runbook_reference": "RB-VF-CORE-OUTAGE-001",
+  "related_work_orders": [],
+  "notes": "Root cause confirmed as UPS battery string A degradation combined with ATS firmware bug (known vendor issue, patch available but not yet applied). Post-incident actions: (1) emergency ATS firmware upgrade across all core sites, (2) UPS battery load testing programme to be accelerated, (3) Glasgow GCC UPS battery string A replacement ordered — ETA 48 hours. Ofcom MERITS report submitted within 24 hours per regulatory obligation."
+}

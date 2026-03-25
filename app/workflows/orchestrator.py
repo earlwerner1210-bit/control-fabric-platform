@@ -14,18 +14,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging import get_logger
 from app.db.models import Document, WorkflowCase, WorkflowStatus, CaseVerdict
 from app.domain_packs.contract_margin.parsers import ContractParser
-from app.domain_packs.contract_margin.rules import BillabilityRuleEngine, LeakageRuleEngine
+from app.domain_packs.contract_margin.rules import BillabilityRuleEngine, LeakageRuleEngine, SPENBillabilityEngine
+from app.domain_packs.contract_margin.schemas import SPENRateCard, BillingGate, BillingPrerequisite
 from app.domain_packs.contract_margin.templates import ContractSummaryTemplate
 from app.domain_packs.utilities_field.parsers import WorkOrderParser, EngineerProfileParser
-from app.domain_packs.utilities_field.rules import ReadinessRuleEngine
+from app.domain_packs.utilities_field.rules import ReadinessRuleEngine, SPENReadinessEngine
 from app.domain_packs.telco_ops.parsers import IncidentParser, RunbookParser
-from app.domain_packs.telco_ops.rules import ActionRuleEngine, EscalationRuleEngine
-from app.domain_packs.telco_ops.schemas import IncidentState, ServiceState
+from app.domain_packs.telco_ops.rules import ActionRuleEngine, EscalationRuleEngine, VodafoneEscalationEngine, VodafoneClosureEngine, VodafoneDispatchEngine, VodafoneSLAEngine
+from app.domain_packs.telco_ops.schemas import IncidentState, IncidentSeverity, ParsedIncident, ServiceState, VODAFONE_SLA_DEFINITIONS
 from app.schemas.workflows import (
     ContractCompileInput, ContractCompileOutput,
     WorkOrderReadinessInput, WorkOrderReadinessOutput, ReadinessVerdict,
     IncidentDispatchInput, IncidentDispatchOutput,
     MarginDiagnosisInput, MarginDiagnosisOutput, MarginVerdict,
+    SPENReadinessInput, SPENReadinessOutput,
+    SPENBillabilityInput, SPENBillabilityOutput, SPENBillabilityVerdict,
+    VodafoneIncidentTriageInput, VodafoneIncidentTriageOutput,
 )
 from app.services.audit.service import AuditService
 from app.services.compiler.service import CompilerService
@@ -307,3 +311,218 @@ class WorkflowOrchestrator:
             case.error_message = str(e)
             await self.db.flush()
             return MarginDiagnosisOutput(case_id=case.id, verdict=MarginVerdict.unknown, executive_summary=str(e))
+
+    # ── SPEN Work Order Readiness ───────────────────────────────
+
+    async def run_spen_readiness(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, input_data: SPENReadinessInput
+    ) -> SPENReadinessOutput:
+        case = await self._create_case(tenant_id, user_id, "spen_readiness", input_data.model_dump(mode="json"))
+        try:
+            wo_parser = WorkOrderParser()
+            eng_parser = EngineerProfileParser()
+            work_order = wo_parser.parse_work_order(input_data.work_order_payload)
+            engineer = eng_parser.parse_profile(input_data.engineer_payload)
+
+            engine = SPENReadinessEngine()
+            decision = engine.evaluate(
+                work_order=work_order,
+                engineer=engineer,
+                work_category=input_data.work_category,
+                crew_size=input_data.crew_size,
+            )
+
+            verdict_map = {
+                "ready": ReadinessVerdict.ready,
+                "blocked": ReadinessVerdict.blocked,
+                "conditional": ReadinessVerdict.warn,
+                "escalate": ReadinessVerdict.escalate,
+            }
+
+            output_payload = {
+                "verdict": decision.status.value,
+                "blockers": decision.missing_prerequisites,
+            }
+            case.output_payload = output_payload
+            case.status = WorkflowStatus.completed
+            await self.db.flush()
+
+            await self.audit.log_event(
+                tenant_id, "spen_readiness_completed", case.id,
+                detail=f"verdict={decision.status.value}, blockers={len(decision.blockers)}",
+            )
+
+            return SPENReadinessOutput(
+                case_id=case.id,
+                verdict=verdict_map.get(decision.status.value, ReadinessVerdict.warn),
+                gates=[{"blocker_type": b.blocker_type, "description": b.description, "severity": b.severity} for b in decision.blockers],
+                blockers=decision.missing_prerequisites,
+                recommended_actions=[decision.recommendation] if decision.recommendation else [],
+            )
+        except Exception as e:
+            case.status = WorkflowStatus.failed
+            case.error_message = str(e)
+            await self.db.flush()
+            await self.audit.log_event(tenant_id, "workflow_failed", case.id, detail=str(e))
+            return SPENReadinessOutput(case_id=case.id, verdict=ReadinessVerdict.escalate, blockers=[str(e)])
+
+    # ── SPEN Billability Check ──────────────────────────────────
+
+    async def run_spen_billability(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, input_data: SPENBillabilityInput
+    ) -> SPENBillabilityOutput:
+        case = await self._create_case(tenant_id, user_id, "spen_billability", input_data.model_dump(mode="json"))
+        try:
+            rate_card = [SPENRateCard(**rc) for rc in input_data.rate_card_payload]
+            billing_gates = [BillingGate(**bg) for bg in input_data.billing_gates_payload]
+
+            engine = SPENBillabilityEngine()
+            decision = engine.evaluate(
+                activity=input_data.activity_code,
+                work_category=input_data.work_category,
+                rate_card=rate_card,
+                billing_gates=billing_gates,
+                is_reattendance=input_data.is_reattendance,
+                reattendance_trigger=input_data.reattendance_trigger,
+                time_of_day=input_data.time_of_day,
+            )
+
+            verdict = SPENBillabilityVerdict.billable if decision.billable else SPENBillabilityVerdict.non_billable
+            unsatisfied_gates = [bg.gate_type.value for bg in billing_gates if not bg.satisfied]
+
+            output_payload = {
+                "verdict": verdict.value,
+                "billable": decision.billable,
+                "rate_applied": decision.rate_applied,
+            }
+            case.output_payload = output_payload
+            case.status = WorkflowStatus.completed
+            await self.db.flush()
+
+            await self.audit.log_event(
+                tenant_id, "spen_billability_completed", case.id,
+                detail=f"verdict={verdict.value}, rate={decision.rate_applied}",
+            )
+
+            return SPENBillabilityOutput(
+                case_id=case.id,
+                verdict=verdict,
+                billable=decision.billable,
+                rate_applied=decision.rate_applied,
+                reasons=decision.reasons,
+                missing_gates=unsatisfied_gates,
+            )
+        except Exception as e:
+            case.status = WorkflowStatus.failed
+            case.error_message = str(e)
+            await self.db.flush()
+            await self.audit.log_event(tenant_id, "workflow_failed", case.id, detail=str(e))
+            return SPENBillabilityOutput(
+                case_id=case.id,
+                verdict=SPENBillabilityVerdict.non_billable,
+                billable=False,
+                reasons=[str(e)],
+            )
+
+    # ── Vodafone Incident Triage ────────────────────────────────
+
+    async def run_vodafone_incident_triage(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, input_data: VodafoneIncidentTriageInput
+    ) -> VodafoneIncidentTriageOutput:
+        case = await self._create_case(tenant_id, user_id, "vodafone_incident_triage", input_data.model_dump(mode="json"))
+        try:
+            incident = ParsedIncident(**input_data.incident_payload)
+
+            # Determine service state
+            service_state_val: ServiceState | None = None
+            if input_data.service_state:
+                try:
+                    service_state_val = ServiceState(input_data.service_state)
+                except ValueError:
+                    pass
+
+            # Infer service domain from affected services or tags
+            service_domain = ""
+            if incident.affected_services:
+                service_domain = incident.affected_services[0]
+
+            # 1. SLA check
+            sla_engine = VodafoneSLAEngine()
+            # Estimate elapsed minutes from incident timeline
+            current_time_minutes = 0
+            if incident.timeline:
+                current_time_minutes = len(incident.timeline) * 15  # rough estimate
+            sla_status = sla_engine.check_sla_status(incident, VODAFONE_SLA_DEFINITIONS, current_time_minutes)
+
+            # 2. Escalation check
+            esc_engine = VodafoneEscalationEngine()
+            escalation = esc_engine.evaluate(
+                incident=incident,
+                sla_status=sla_status,
+                service_domain=service_domain,
+            )
+
+            # 3. Dispatch check
+            dispatch_engine = VodafoneDispatchEngine()
+            dispatch_result = dispatch_engine.should_dispatch(
+                incident=incident,
+                remote_remediation_attempted=incident.state in (IncidentState.investigating,),
+                has_runbook=False,
+                service_domain=service_domain,
+            )
+
+            # 4. Closure check
+            closure_engine = VodafoneClosureEngine()
+            closure_results = closure_engine.validate_closure(
+                incident=incident,
+                closure_gates=[],
+            )
+            closure_blockers = [r.message for r in closure_results if not r.passed]
+            closure_ready = len(closure_blockers) == 0
+
+            # Determine overall SLA status string
+            sla_status_str = sla_status.get("resolution_sla", "within")
+
+            # Aggregate recommended actions
+            recommended_actions: list[str] = []
+            if escalation.escalate:
+                recommended_actions.append(f"Escalate to {escalation.level.value if escalation.level else 'next level'}: {escalation.reason}")
+            if dispatch_result.action == "dispatch":
+                recommended_actions.append(f"Dispatch field engineer: {dispatch_result.reason}")
+            elif dispatch_result.action not in ("dispatch",):
+                recommended_actions.append(f"{dispatch_result.action}: {dispatch_result.reason}")
+            if closure_blockers:
+                recommended_actions.append(f"Resolve closure blockers: {', '.join(closure_blockers)}")
+
+            output_payload = {
+                "escalation_level": escalation.level.value if escalation.level else None,
+                "dispatch_required": dispatch_result.action == "dispatch",
+                "sla_status": sla_status_str,
+                "closure_ready": closure_ready,
+            }
+            case.output_payload = output_payload
+            case.status = WorkflowStatus.completed
+            await self.db.flush()
+
+            await self.audit.log_event(
+                tenant_id, "vodafone_incident_triage_completed", case.id,
+                detail=f"escalation={escalation.level}, dispatch={dispatch_result.action}, sla={sla_status_str}",
+            )
+
+            return VodafoneIncidentTriageOutput(
+                case_id=case.id,
+                escalation_level=escalation.level.value if escalation.level else None,
+                escalation_reason=escalation.reason if escalation.escalate else None,
+                dispatch_required=dispatch_result.action == "dispatch",
+                dispatch_reason=dispatch_result.reason if dispatch_result.action == "dispatch" else None,
+                sla_status=sla_status_str,
+                closure_ready=closure_ready,
+                closure_blockers=closure_blockers,
+                recommended_actions=recommended_actions,
+            )
+        except Exception as e:
+            case.status = WorkflowStatus.failed
+            case.error_message = str(e)
+            await self.db.flush()
+            await self.audit.log_event(tenant_id, "workflow_failed", case.id, detail=str(e))
+            return VodafoneIncidentTriageOutput(case_id=case.id, recommended_actions=[str(e)])

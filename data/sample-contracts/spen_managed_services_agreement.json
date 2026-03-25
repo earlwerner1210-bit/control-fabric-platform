@@ -1,0 +1,239 @@
+{
+  "document_type": "managed_services_agreement",
+  "title": "Managed Field Services Agreement — SP Energy Networks / Vodafone",
+  "effective_date": "2025-04-01",
+  "expiry_date": "2030-03-31",
+  "parties": ["SP Energy Networks Limited", "Vodafone Limited"],
+  "contract_reference": "SPEN-VF-MSA-2025-001",
+  "governing_law": "Scotland",
+  "notice_period_months": 12,
+  "renewal": "automatic_annual",
+  "clauses": [
+    {
+      "id": "CL-SPEN-001",
+      "type": "scope",
+      "section": "2.1",
+      "text": "Provider shall deliver managed field services across all ten SPEN work categories: HV switching, cable jointing (HV), cable jointing (LV), LV fault repair, overhead line repair, metering installation, new connections, civils excavation, reinstatement (temporary), and reinstatement (permanent)."
+    },
+    {
+      "id": "CL-SPEN-002",
+      "type": "scope",
+      "section": "2.2",
+      "text": "Services shall be delivered across SP Energy Networks' two licensed distribution areas: SP Distribution (SPD, Central and Southern Scotland) and SP Manweb (SPM, Merseyside, Cheshire, North Wales and North Shropshire)."
+    },
+    {
+      "id": "CL-SPEN-003",
+      "type": "billing",
+      "section": "5.1",
+      "text": "No invoice shall be submitted for payment unless accompanied by: (a) a completed and signed work order, (b) photographic evidence of works completed, (c) customer or SPEN authorised person sign-off, (d) materials manifest, and (e) NRSWA permit references where applicable."
+    },
+    {
+      "id": "CL-SPEN-004",
+      "type": "billing",
+      "section": "5.2",
+      "text": "All invoices must reference the applicable scheme reference (SPEN-SCH-*), work order number, and rate card activity code. Invoices failing validation against the agreed rate card shall be returned within 5 business days."
+    },
+    {
+      "id": "CL-SPEN-005",
+      "type": "re_attendance",
+      "section": "5.3",
+      "text": "Where a work order requires re-attendance due to Provider fault (incomplete work, incorrect materials, failed inspection), the re-attendance visit shall not be billable. Where re-attendance is required due to Customer instruction change or force majeure, re-attendance shall be billed at 75% of the original rate."
+    },
+    {
+      "id": "CL-SPEN-006",
+      "type": "evidence",
+      "section": "5.4",
+      "text": "Provider shall capture and upload to the SPEN works management portal within 24 hours of completion: (a) timestamped and geotagged photographs of the work site before, during, and after works, (b) as-built drawings where civil works are performed, (c) test certificates for all jointing and switching operations, (d) NRSWA Section 70 reinstatement records where applicable."
+    },
+    {
+      "id": "CL-SPEN-007",
+      "type": "service_credit",
+      "section": "7.1",
+      "text": "Service credits shall apply where Provider fails to meet SLA targets. Credits are calculated as follows: (a) response time breach — 2% of monthly contract value per breach, capped at 10%, (b) resolution time breach — 5% of monthly contract value per breach, capped at 20%, (c) consecutive month failures — where the same SLA is breached in 3 or more consecutive months, the cap increases to 30%."
+    },
+    {
+      "id": "CL-SPEN-008",
+      "type": "service_credit",
+      "section": "7.2",
+      "text": "Aggregate service credits in any calendar month shall not exceed 30% of the monthly contract value. Service credits exceeding 20% in any single month shall trigger a formal service improvement plan within 10 business days."
+    },
+    {
+      "id": "CL-SPEN-009",
+      "type": "nrswa",
+      "section": "8.1",
+      "text": "Provider shall comply with all obligations under the New Roads and Street Works Act 1991 (NRSWA) as amended, including but not limited to: (a) obtaining all necessary Section 50 and Section 109 permits prior to commencement, (b) providing advance notice to roads authorities per statutory timescales, (c) completing reinstatement to SROH (Specification for the Reinstatement of Openings in Highways) standards, (d) maintaining traffic management in accordance with Chapter 8 of the Traffic Signs Manual."
+    },
+    {
+      "id": "CL-SPEN-010",
+      "type": "nrswa",
+      "section": "8.2",
+      "text": "Any fixed penalty notices (FPNs) or charges arising from Provider's failure to comply with NRSWA requirements shall be borne entirely by Provider. Provider shall notify Customer within 2 business days of receiving any such notice."
+    },
+    {
+      "id": "CL-SPEN-011",
+      "type": "obligation",
+      "section": "6.1",
+      "text": "All engineers deployed on SPEN works must hold valid and current qualifications appropriate to the work category: HV Authorised Person for HV switching, Cable Jointer Approved for jointing operations, CSCS card for all construction activities, and relevant ECS (Electrotechnical Certification Scheme) cards for electrical works."
+    },
+    {
+      "id": "CL-SPEN-012",
+      "type": "obligation",
+      "section": "6.2",
+      "text": "Provider shall maintain a minimum of 85% first-time fix rate across all work categories, measured on a rolling 3-month basis. First-time fix is defined as work completed to SPEN acceptance standard on the initial site visit without requirement for re-attendance."
+    },
+    {
+      "id": "CL-SPEN-013",
+      "type": "safety",
+      "section": "9.1",
+      "text": "All works shall be conducted in accordance with the Electricity Safety, Quality and Continuity Regulations 2002 (ESQCR), the Electricity at Work Regulations 1989, and SPEN Safety Rules for HV and LV apparatus. Provider shall maintain a RIDDOR-reportable incident rate of zero."
+    },
+    {
+      "id": "CL-SPEN-014",
+      "type": "termination",
+      "section": "12.1",
+      "text": "Either party may terminate this Agreement on 12 months' written notice. Customer may terminate on 3 months' notice for material breach where Provider has failed to remedy within 30 days of written notification. Persistent SLA failure (service credits exceeding 20% in any 3 of 6 consecutive months) shall constitute material breach."
+    }
+  ],
+  "sla_table": [
+    {
+      "category": "emergency",
+      "description": "Loss of supply, safety-critical faults, HV equipment failure",
+      "response_time_minutes": 60,
+      "resolution_time_hours": 4,
+      "availability": "24x7x365",
+      "measurement_start": "dispatch_time",
+      "applies_to": ["hv_switching", "lv_fault_repair", "cable_jointing_hv", "cable_jointing_lv"]
+    },
+    {
+      "category": "urgent",
+      "description": "Partial supply loss, intermittent faults, planned outage overrun",
+      "response_time_minutes": 120,
+      "resolution_time_hours": 8,
+      "availability": "24x7x365",
+      "measurement_start": "dispatch_time",
+      "applies_to": ["hv_switching", "lv_fault_repair", "overhead_line_repair", "cable_jointing_hv", "cable_jointing_lv"]
+    },
+    {
+      "category": "planned",
+      "description": "Scheduled maintenance, new connections, metering, planned civil works",
+      "response_time_minutes": null,
+      "resolution_time_hours": null,
+      "on_time_completion_target_percent": 95,
+      "availability": "business_hours",
+      "measurement_start": "scheduled_date",
+      "applies_to": ["metering_installation", "new_connection", "civils_excavation", "reinstatement_temporary", "reinstatement_permanent"]
+    }
+  ],
+  "rate_card": [
+    {
+      "work_category": "hv_switching",
+      "activity_code": "SPEN-RC-HV-001",
+      "description": "HV switching operations — isolation, switching sequence, and restoration of 11kV and 33kV apparatus",
+      "unit": "each",
+      "base_rate": 320.00,
+      "emergency_multiplier": 1.5,
+      "overtime_multiplier": 1.3,
+      "weekend_multiplier": 1.5,
+      "currency": "GBP"
+    },
+    {
+      "work_category": "cable_jointing_hv",
+      "activity_code": "SPEN-RC-CJ-001",
+      "description": "Cable jointing — 11kV heat-shrink or cold-shrink joints including testing and commissioning",
+      "unit": "each",
+      "base_rate": 485.00,
+      "emergency_multiplier": 1.5,
+      "overtime_multiplier": 1.3,
+      "weekend_multiplier": 1.5,
+      "currency": "GBP"
+    },
+    {
+      "work_category": "cable_jointing_lv",
+      "activity_code": "SPEN-RC-CJ-002",
+      "description": "Cable jointing — LV mains and service cable joints including testing",
+      "unit": "each",
+      "base_rate": 285.00,
+      "emergency_multiplier": 1.5,
+      "overtime_multiplier": 1.3,
+      "weekend_multiplier": 1.5,
+      "currency": "GBP"
+    },
+    {
+      "work_category": "lv_fault_repair",
+      "activity_code": "SPEN-RC-LV-001",
+      "description": "LV fault location and repair — includes fault finding, excavation to expose cable, and temporary/permanent repair",
+      "unit": "each",
+      "base_rate": 275.00,
+      "emergency_multiplier": 1.5,
+      "overtime_multiplier": 1.3,
+      "weekend_multiplier": 1.5,
+      "currency": "GBP"
+    },
+    {
+      "work_category": "overhead_line_repair",
+      "activity_code": "SPEN-RC-OHL-001",
+      "description": "Overhead line repair — pole-mounted conductor, insulator, and stay wire repair or replacement",
+      "unit": "each",
+      "base_rate": 390.00,
+      "emergency_multiplier": 1.5,
+      "overtime_multiplier": 1.3,
+      "weekend_multiplier": 1.5,
+      "currency": "GBP"
+    },
+    {
+      "work_category": "metering_installation",
+      "activity_code": "SPEN-RC-MTR-001",
+      "description": "Metering installation — single-phase or three-phase meter installation, CT metering, and commissioning",
+      "unit": "each",
+      "base_rate": 165.00,
+      "emergency_multiplier": 1.5,
+      "overtime_multiplier": 1.3,
+      "weekend_multiplier": 1.5,
+      "currency": "GBP"
+    },
+    {
+      "work_category": "new_connection",
+      "activity_code": "SPEN-RC-NC-001",
+      "description": "New connection — full service connection including cable laying, jointing, metering, and energisation",
+      "unit": "each",
+      "base_rate": 1250.00,
+      "emergency_multiplier": 1.5,
+      "overtime_multiplier": 1.3,
+      "weekend_multiplier": 1.5,
+      "currency": "GBP"
+    },
+    {
+      "work_category": "civils_excavation",
+      "activity_code": "SPEN-RC-CIV-001",
+      "description": "Civils excavation — trench excavation for cable duct installation, including backfill",
+      "unit": "metre",
+      "base_rate": 95.00,
+      "emergency_multiplier": 1.5,
+      "overtime_multiplier": 1.3,
+      "weekend_multiplier": 1.5,
+      "currency": "GBP"
+    },
+    {
+      "work_category": "reinstatement_temporary",
+      "activity_code": "SPEN-RC-RST-001",
+      "description": "Reinstatement temporary — cold-lay bituminous material temporary reinstatement to SROH standards",
+      "unit": "sqm",
+      "base_rate": 45.00,
+      "emergency_multiplier": 1.5,
+      "overtime_multiplier": 1.3,
+      "weekend_multiplier": 1.5,
+      "currency": "GBP"
+    },
+    {
+      "work_category": "reinstatement_permanent",
+      "activity_code": "SPEN-RC-RST-002",
+      "description": "Reinstatement permanent — hot-rolled asphalt or modular paving permanent reinstatement to SROH standards",
+      "unit": "sqm",
+      "base_rate": 85.00,
+      "emergency_multiplier": 1.5,
+      "overtime_multiplier": 1.3,
+      "weekend_multiplier": 1.5,
+      "currency": "GBP"
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "scenario": "cross_pack_full_evidence_chain",
+  "description": "Complete evidence chain: contract -> work order -> field execution -> incident -> billing. Tests the full MarginDiagnosisReconciler with all 4 evidence stages validated.",
+  "domain": "contract-margin",
+  "contract": {
+    "document_type": "managed_services_agreement",
+    "title": "Managed Field Services — SP Energy Networks",
+    "parties": ["SP Energy Networks Limited", "Vodafone Limited"],
+    "effective_date": "2025-04-01",
+    "expiry_date": "2030-03-31",
+    "clauses": [
+      {"id": "CL-001", "type": "scope", "text": "Provider shall deliver planned and emergency HV switching, cable jointing, LV fault repair, overhead line maintenance, metering, and new connections across the SPEN Central Belt licence area.", "section": "2.1"},
+      {"id": "CL-002", "type": "obligation", "text": "All HV switching operations require an HV Authorised Person with valid ECS card. Minimum two-person crew for all HV work.", "section": "3.1"},
+      {"id": "CL-003", "type": "obligation", "text": "Provider must obtain signed daywork sheets within 48 hours of work completion. Unsigned daywork sheets are non-billable.", "section": "3.4"},
+      {"id": "CL-004", "type": "rate", "text": "HV Switching: £335.04 per operation. Cable jointing 11kV: £507.80 per joint. LV fault repair: £287.93 per operation. Emergency multiplier: 1.5x.", "section": "5.1"},
+      {"id": "CL-005", "type": "sla", "text": "Emergency response: 2 hours. Urgent response: 4 hours. Planned work: schedule adherence 95%.", "section": "4.1"},
+      {"id": "CL-006", "type": "penalty", "text": "Failure to meet emergency response SLA: 5% of monthly invoice per breach. Cap: 30% monthly.", "section": "7.1"},
+      {"id": "CL-007", "type": "obligation", "text": "Provider must submit billing pack within 10 working days of month end. Pack must include: work order summary, signed daywork sheets, completion certificates, SLA compliance report.", "section": "6.5"},
+      {"id": "CL-008", "type": "obligation", "text": "Prior approval required for any single work order exceeding £5,000. Variation orders require written change order before commencement.", "section": "3.7"}
+    ],
+    "sla_table": [
+      {"priority": "emergency", "response_time_hours": 2, "resolution_time_hours": 8, "availability": "24x7", "penalty_percentage": 5.0},
+      {"priority": "urgent", "response_time_hours": 4, "resolution_time_hours": 24, "availability": "24x7", "penalty_percentage": 3.0},
+      {"priority": "planned", "response_time_hours": 48, "resolution_time_hours": 168, "availability": "business_hours"}
+    ],
+    "rate_card": [
+      {"activity": "hv_switching", "unit": "each", "rate": 335.04, "currency": "GBP", "emergency_multiplier": 1.5, "overtime_multiplier": 1.3},
+      {"activity": "cable_jointing_11kv", "unit": "each", "rate": 507.80, "currency": "GBP", "emergency_multiplier": 1.5},
+      {"activity": "lv_fault_repair", "unit": "each", "rate": 287.93, "currency": "GBP"}
+    ]
+  },
+  "evidence_chain": {
+    "stage_1_contract": {
+      "status": "validated",
+      "contract_id": "SPEN-MSA-2025-001",
+      "rate_card_version": "RC-2026-v1",
+      "rate_card_status": "active",
+      "all_clauses_parsed": true,
+      "clause_count": 8
+    },
+    "stage_2_work_order": {
+      "status": "validated",
+      "work_order_id": "SPEN-WO-2026-1101",
+      "work_order_linked_to_contract": true,
+      "activities_within_scope": true,
+      "rate_card_match": true,
+      "prior_approval_required": false,
+      "prior_approval_obtained": null
+    },
+    "stage_3_field_execution": {
+      "status": "validated",
+      "engineer_qualifications_valid": true,
+      "crew_minimum_met": true,
+      "sla_response_met": true,
+      "daywork_sheet_signed": true,
+      "completion_certificate": true,
+      "permit_closed_out": true,
+      "safety_documentation": true
+    },
+    "stage_4_billing": {
+      "status": "validated",
+      "invoice_ref": "INV-SPEN-2026-03-047",
+      "billing_pack_complete": true,
+      "billing_pack_submitted_on_time": true,
+      "rate_card_version_correct": true,
+      "multipliers_correctly_applied": true,
+      "total_invoiced": 502.56,
+      "total_validated": 502.56,
+      "variance": 0.00
+    }
+  },
+  "work_orders": [
+    {
+      "work_order_id": "SPEN-WO-2026-1101",
+      "work_order_type": "emergency",
+      "work_category": "hv_switching",
+      "description": "Emergency 11kV switching — loss of supply following cable fault at Kelvinbridge substation",
+      "status": "completed",
+      "priority": "emergency",
+      "site": {"name": "Kelvinbridge Distribution Substation", "address": "Great Western Road, Glasgow G12 8HN"},
+      "crew": [
+        {
+          "id": "ENG-101",
+          "name": "Alasdair MacGregor",
+          "role": "lead_hv_authorised_person",
+          "certifications": [
+            {"type": "hv_authorized_person", "expiry": "2027-06-30", "valid": true},
+            {"type": "ecs_card", "expiry": "2027-12-31", "valid": true}
+          ]
+        },
+        {
+          "id": "ENG-109",
+          "name": "Ross Patterson",
+          "role": "hv_switching_mate",
+          "certifications": [
+            {"type": "ecs_card", "expiry": "2027-12-31", "valid": true}
+          ]
+        }
+      ],
+      "timeline": {
+        "incident_reported": "2026-03-24T10:15:00Z",
+        "dispatch_time": "2026-03-24T10:20:00Z",
+        "arrival_time": "2026-03-24T11:05:00Z",
+        "work_start": "2026-03-24T11:15:00Z",
+        "work_complete": "2026-03-24T13:45:00Z",
+        "response_time_minutes": 45,
+        "sla_response_limit_minutes": 120,
+        "sla_met": true
+      },
+      "billable_items": [
+        {"description": "Emergency HV switching — weekday standard hours", "base_rate": 335.04, "emergency_multiplier": 1.5, "applied_rate": 502.56, "quantity": 1, "unit": "each"}
+      ],
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "daywork_sheet_signed_date": "2026-03-24T14:00:00Z",
+        "daywork_within_48h": true,
+        "completion_certificate": true,
+        "permit_closed_out": true,
+        "gs6_safety_form": true
+      }
+    }
+  ],
+  "incidents": [
+    {
+      "incident_id": "SPEN-INC-2026-00415",
+      "title": "Loss of supply — Kelvinbridge area, 280 customers affected",
+      "priority": "P1",
+      "severity": 1,
+      "state": "resolved",
+      "category": "supply_interruption",
+      "affected_customers": 280,
+      "affected_services": ["residential_supply", "commercial_supply"],
+      "root_cause": "11kV PILC cable joint failure at Kelvinbridge substation ring",
+      "linked_work_order": "SPEN-WO-2026-1101",
+      "timeline": [
+        {"timestamp": "2026-03-24T10:15:00Z", "event": "Multiple customer supply loss reports — Kelvinbridge area"},
+        {"timestamp": "2026-03-24T10:20:00Z", "event": "Emergency crew dispatched"},
+        {"timestamp": "2026-03-24T11:05:00Z", "event": "Crew on site — cable fault confirmed via fault indicators"},
+        {"timestamp": "2026-03-24T11:15:00Z", "event": "Switching programme commenced to isolate faulted section"},
+        {"timestamp": "2026-03-24T11:45:00Z", "event": "Supply restored to 220 customers via back-feed"},
+        {"timestamp": "2026-03-24T13:45:00Z", "event": "All customers restored — temporary network configuration in place"},
+        {"timestamp": "2026-03-24T14:00:00Z", "event": "Incident resolved — permanent repair scheduled as follow-up WO"}
+      ]
+    }
+  ],
+  "billing": {
+    "invoice_ref": "INV-SPEN-2026-03-047",
+    "invoice_date": "2026-04-05",
+    "billing_period": "2026-03-01 to 2026-03-31",
+    "billing_pack_submitted": "2026-04-05",
+    "billing_pack_deadline": "2026-04-10",
+    "on_time": true,
+    "line_items": [
+      {
+        "work_order_ref": "SPEN-WO-2026-1101",
+        "description": "Emergency HV switching — Kelvinbridge substation",
+        "rate": 502.56,
+        "quantity": 1,
+        "total": 502.56
+      }
+    ],
+    "invoice_total": 502.56,
+    "sla_compliance_report_attached": true,
+    "daywork_sheets_attached": true,
+    "completion_certificates_attached": true
+  },
+  "reconciliation": {
+    "reconciler": "MarginDiagnosisReconciler",
+    "run_date": "2026-04-06",
+    "stages_validated": 4,
+    "stage_results": {
+      "contract_validation": {"pass": true, "checks": ["rate_card_active", "clauses_parsed", "scope_confirmed"]},
+      "work_order_validation": {"pass": true, "checks": ["in_scope", "rate_match", "approval_not_required"]},
+      "field_execution_validation": {"pass": true, "checks": ["engineer_qualified", "crew_minimum", "sla_met", "daywork_signed", "permit_closed", "safety_docs"]},
+      "billing_validation": {"pass": true, "checks": ["rate_card_version", "multiplier_correct", "billing_pack_complete", "submitted_on_time"]}
+    }
+  },
+  "expected_outcomes": {
+    "all_4_stages_pass": true,
+    "billable": true,
+    "total_validated_value": 502.56,
+    "leakage_detected": false,
+    "penalty_risk": false,
+    "sla_met": true,
+    "evidence_chain_complete": true,
+    "reconciliation_status": "clean",
+    "cross_pack_links": 4,
+    "cross_pack_domains": ["contract-margin", "utilities-field", "telco-ops"]
+  }
+}

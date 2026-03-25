@@ -5,6 +5,7 @@ description = "Modular AI platform for telecom margin assurance and operational 
 authors = ["Earl Werner <earl.werner@prodapt.com>"]
 readme = "README.md"
 packages = [
+    { include = "app" },
     { include = "shared" },
     { include = "services" },
     { include = "apps" },
@@ -88,3 +89,26 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks integration tests requiring external services",
+    "e2e: marks end-to-end tests",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/migrations/*",
+    "*/conftest.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.",
+    "pass",
+]
+show_missing = true
+fail_under = 70

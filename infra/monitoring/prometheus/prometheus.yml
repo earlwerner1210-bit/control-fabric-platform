@@ -1,0 +1,104 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+  external_labels:
+    cluster: "control-fabric"
+    environment: "${ENVIRONMENT:-dev}"
+
+rule_files:
+  - "alerts.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - "alertmanager:9093"
+
+scrape_configs:
+  # ---------------------------------------------------------------
+  # Application metrics (15s interval)
+  # ---------------------------------------------------------------
+
+  # FastAPI gateway
+  - job_name: "api-gateway"
+    scrape_interval: 15s
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "api:8000"
+        labels:
+          service: "api-gateway"
+
+  # Microservices
+  - job_name: "microservices"
+    scrape_interval: 15s
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "audit-service:8001"
+          - "auth-service:8002"
+          - "validator-service:8003"
+          - "reconciler-service:8004"
+          - "ingest-service:8005"
+          - "chunking-service:8006"
+          - "embedding-service:8007"
+          - "retrieval-service:8008"
+          - "compiler-service:8009"
+          - "inference-gateway:8010"
+          - "eval-service:8011"
+          - "canonicalization-service:8012"
+          - "escalation-engine:8013"
+          - "notification-service:8014"
+          - "reporting-service:8015"
+        labels:
+          service_group: "control-fabric-services"
+
+  # Celery workers (flower)
+  - job_name: "celery"
+    scrape_interval: 15s
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "celery-flower:5555"
+        labels:
+          service: "celery-workers"
+
+  # ---------------------------------------------------------------
+  # Infrastructure metrics (30s interval)
+  # ---------------------------------------------------------------
+
+  # Node exporter
+  - job_name: "node-exporter"
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - "node-exporter:9100"
+        labels:
+          service: "node-exporter"
+
+  # PostgreSQL exporter
+  - job_name: "postgres-exporter"
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - "postgres-exporter:9187"
+        labels:
+          service: "postgres"
+
+  # Redis exporter
+  - job_name: "redis-exporter"
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - "redis-exporter:9121"
+        labels:
+          service: "redis"
+
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - "localhost:9090"

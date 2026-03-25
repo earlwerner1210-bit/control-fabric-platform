@@ -40,6 +40,7 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy source code
+COPY app/ /app/app/
 COPY shared/ /app/shared/
 COPY services/ /app/services/
 COPY workflows/ /app/workflows/

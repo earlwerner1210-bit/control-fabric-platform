@@ -1,0 +1,167 @@
+{
+  "scenario": "scope_boundary_conflict_detection",
+  "description": "Work orders containing mixed in-scope and out-of-scope activities, testing scope conflict detection and conditional billability rules",
+  "domain": "contract-margin",
+  "contract": {
+    "document_type": "managed_services_agreement",
+    "title": "Managed Field Services — SP Energy Networks",
+    "parties": ["SP Energy Networks Limited", "Vodafone Limited"],
+    "effective_date": "2025-04-01",
+    "expiry_date": "2030-03-31",
+    "clauses": [
+      {"id": "CL-001", "type": "scope", "text": "Provider shall deliver planned and emergency HV switching, cable jointing, LV fault repair, overhead line maintenance, metering, and new connections across the SPEN Central Belt licence area.", "section": "2.1"},
+      {"id": "CL-002", "type": "scope", "text": "Out of scope: generation plant maintenance, transmission network (132kV+), customer premises internal wiring, private LV installations beyond the meter point.", "section": "2.3"},
+      {"id": "CL-003", "type": "scope", "text": "Where a work order contains both in-scope and out-of-scope activities, only in-scope activities are billable under this agreement. Out-of-scope activities must be raised as a separate variation order.", "section": "2.4"},
+      {"id": "CL-004", "type": "obligation", "text": "Provider must clearly delineate scope boundary on all work orders containing mixed activities. Failure to delineate renders the entire work order subject to dispute.", "section": "3.6"},
+      {"id": "CL-005", "type": "rate", "text": "HV Switching: £320.00 per operation. LV fault repair: £275.00 per operation. Metering installation: £165.00 per unit. New connection (LV): £1,450.00 per connection.", "section": "5.1"},
+      {"id": "CL-006", "type": "obligation", "text": "Prior approval required for any single work order exceeding £5,000. Variation orders require written change order before commencement.", "section": "3.7"}
+    ],
+    "sla_table": [
+      {"priority": "emergency", "response_time_hours": 2, "resolution_time_hours": 8, "availability": "24x7"},
+      {"priority": "urgent", "response_time_hours": 4, "resolution_time_hours": 24, "availability": "24x7"},
+      {"priority": "planned", "response_time_hours": 48, "resolution_time_hours": 168, "availability": "business_hours"}
+    ],
+    "rate_card": [
+      {"activity": "hv_switching", "unit": "each", "rate": 320.00, "currency": "GBP"},
+      {"activity": "lv_fault_repair", "unit": "each", "rate": 275.00, "currency": "GBP"},
+      {"activity": "metering_installation", "unit": "each", "rate": 165.00, "currency": "GBP"},
+      {"activity": "new_connection_lv", "unit": "each", "rate": 1450.00, "currency": "GBP"},
+      {"activity": "overhead_line_maintenance", "unit": "per_span", "rate": 580.00, "currency": "GBP"}
+    ]
+  },
+  "work_orders": [
+    {
+      "work_order_id": "SPEN-WO-2026-0710",
+      "work_order_type": "planned",
+      "work_category": "mixed",
+      "description": "New LV connection and customer premises internal wiring rewire at 8 Sauchiehall Lane, Glasgow",
+      "status": "completed",
+      "site": {"name": "8 Sauchiehall Lane", "address": "8 Sauchiehall Lane, Glasgow G2 3EH"},
+      "engineer": {
+        "id": "ENG-108",
+        "name": "Callum Henderson",
+        "skills": ["new_connections", "lv_fault_repair", "metering_installation"],
+        "certifications": [
+          {"type": "ecs_card", "expiry": "2027-12-31"},
+          {"type": "city_guilds_2391", "expiry": "2028-06-30"}
+        ]
+      },
+      "schedule": {"scheduled_date": "2026-03-18", "time_window": "08:00-16:00"},
+      "activities": [
+        {"activity": "new_connection_lv", "rate": 1450.00, "quantity": 1, "in_scope": true, "description": "New LV service connection from distribution board"},
+        {"activity": "metering_installation", "rate": 165.00, "quantity": 1, "in_scope": true, "description": "Single-phase meter installation at intake position"},
+        {"activity": "customer_internal_wiring", "rate": 680.00, "quantity": 1, "in_scope": false, "description": "Customer premises internal wiring beyond meter point — OUT OF SCOPE"}
+      ],
+      "billable_items": [
+        {"description": "New LV connection", "rate": 1450.00, "quantity": 1, "unit": "each"},
+        {"description": "Metering installation", "rate": 165.00, "quantity": 1, "unit": "each"},
+        {"description": "Internal wiring", "rate": 680.00, "quantity": 1, "unit": "each"}
+      ],
+      "scope_delineation_present": false,
+      "variation_order_ref": null,
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "permit_closed_out": true
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-0711",
+      "work_order_type": "planned",
+      "work_category": "mixed",
+      "description": "Overhead line maintenance and 132kV transmission tower inspection at Cathkin Braes corridor",
+      "status": "completed",
+      "site": {"name": "Cathkin Braes OHL Corridor", "address": "Cathkin Road, Glasgow G73 4SE"},
+      "engineer": {
+        "id": "ENG-112",
+        "name": "Gregor Muir",
+        "skills": ["overhead_line_maintenance", "hv_switching"],
+        "certifications": [
+          {"type": "hv_authorized_person", "expiry": "2027-06-30"},
+          {"type": "ecs_card", "expiry": "2027-12-31"},
+          {"type": "working_at_height", "expiry": "2027-09-15"}
+        ]
+      },
+      "schedule": {"scheduled_date": "2026-03-19", "time_window": "07:00-15:00"},
+      "activities": [
+        {"activity": "overhead_line_maintenance", "rate": 580.00, "quantity": 3, "in_scope": true, "description": "11kV OHL span inspection and vegetation clearance — 3 spans"},
+        {"activity": "transmission_tower_inspection", "rate": 1200.00, "quantity": 1, "in_scope": false, "description": "132kV transmission tower visual inspection — OUT OF SCOPE (132kV+)"}
+      ],
+      "billable_items": [
+        {"description": "OHL maintenance — 3 spans", "rate": 580.00, "quantity": 3, "unit": "per_span"},
+        {"description": "132kV tower inspection", "rate": 1200.00, "quantity": 1, "unit": "each"}
+      ],
+      "scope_delineation_present": true,
+      "variation_order_ref": "VO-2026-044",
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "permit_closed_out": true
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-0712",
+      "work_order_type": "urgent",
+      "work_category": "mixed",
+      "description": "LV fault repair and private installation earthing remediation at Hillington Industrial Estate",
+      "status": "completed",
+      "site": {"name": "Unit 14 Hillington Industrial Estate", "address": "Hillington Park, Glasgow G52 4BL"},
+      "engineer": {
+        "id": "ENG-105",
+        "name": "Fiona Wallace",
+        "skills": ["lv_fault_repair", "metering_installation"],
+        "certifications": [
+          {"type": "ecs_card", "expiry": "2027-12-31"}
+        ]
+      },
+      "schedule": {"scheduled_date": "2026-03-20", "time_window": "10:00-14:00"},
+      "activities": [
+        {"activity": "lv_fault_repair", "rate": 275.00, "quantity": 1, "in_scope": true, "description": "LV service fuse replacement at cutout"},
+        {"activity": "private_earthing_remediation", "rate": 420.00, "quantity": 1, "in_scope": false, "description": "Customer earth electrode replacement — private LV installation beyond meter point — OUT OF SCOPE"}
+      ],
+      "billable_items": [
+        {"description": "LV fault repair", "rate": 275.00, "quantity": 1, "unit": "each"},
+        {"description": "Earthing remediation", "rate": 420.00, "quantity": 1, "unit": "each"}
+      ],
+      "scope_delineation_present": false,
+      "variation_order_ref": null,
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "permit_closed_out": false
+      }
+    }
+  ],
+  "expected_outcomes": {
+    "wo_0710": {
+      "scope_conflict_detected": true,
+      "in_scope_billable_value": 1615.00,
+      "out_of_scope_value": 680.00,
+      "billable": "partial",
+      "reason": "mixed_scope_no_delineation",
+      "dispute_risk": true,
+      "recommendation": "raise_variation_order_for_out_of_scope_activity"
+    },
+    "wo_0711": {
+      "scope_conflict_detected": true,
+      "in_scope_billable_value": 1740.00,
+      "out_of_scope_value": 1200.00,
+      "billable": "partial_with_variation",
+      "reason": "out_of_scope_covered_by_variation_order",
+      "dispute_risk": false,
+      "recommendation": "bill_in_scope_under_contract_out_of_scope_under_variation"
+    },
+    "wo_0712": {
+      "scope_conflict_detected": true,
+      "in_scope_billable_value": 275.00,
+      "out_of_scope_value": 420.00,
+      "billable": "partial",
+      "reason": "mixed_scope_no_delineation_no_variation",
+      "dispute_risk": true,
+      "recommendation": "raise_variation_order_retrospectively"
+    },
+    "total_scope_conflicts": 3,
+    "total_at_risk_value": 1100.00,
+    "leakage_type": "scope_boundary_billing_conflict"
+  }
+}

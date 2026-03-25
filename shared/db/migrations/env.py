@@ -1,39 +1,83 @@
-"""Alembic async migration environment."""
+"""Alembic async migration environment.
+
+Reads DATABASE_URL from ``app.core.config`` settings or falls back to the
+``sqlalchemy.url`` value in *alembic.ini*.  Supports both **offline**
+(SQL-script) and **online** (asyncpg) migration modes.
+"""
 
 from __future__ import annotations
 
 import asyncio
+import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from shared.config import get_settings
-from shared.db.base import Base
+# ---------------------------------------------------------------------------
+# Target metadata – import the declarative Base used by every ORM model and
+# then force-import the model package so that all table definitions are
+# registered on ``Base.metadata`` before Alembic inspects it.
+# ---------------------------------------------------------------------------
+from app.db.base import Base
 
-# Import all models so Base.metadata is fully populated
-import shared.db.models  # noqa: F401
+# Importing the models package triggers all per-file model registrations.
+import app.db.models  # noqa: F401
 
+# ---------------------------------------------------------------------------
+# Alembic Config object – provides access to values in alembic.ini.
+# ---------------------------------------------------------------------------
 config = context.config
 
+# Interpret the config file for Python logging if present.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
 
-def _get_url() -> str:
-    """Return the database URL, preferring the live settings over alembic.ini."""
-    settings = get_settings()
-    return settings.DATABASE_URL
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
+def _get_url() -> str:
+    """Return the async database URL.
+
+    Resolution order:
+    1. ``DATABASE_URL`` environment variable (allows CI / Docker override).
+    2. ``app.core.config.get_settings().DATABASE_URL`` (application settings).
+    3. ``sqlalchemy.url`` from *alembic.ini* (local-dev fallback).
+    """
+    # 1. Direct env-var override
+    env_url = os.getenv("DATABASE_URL")
+    if env_url:
+        # Ensure the URL uses the asyncpg driver even if the env-var was set
+        # with the generic ``postgresql://`` scheme.
+        return env_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    # 2. Application settings
+    try:
+        from app.core.config import get_settings
+        settings = get_settings()
+        return settings.DATABASE_URL
+    except Exception:
+        pass
+
+    # 3. Fallback to alembic.ini
+    return config.get_main_option("sqlalchemy.url", "")
+
+
+# ---------------------------------------------------------------------------
+# Offline migrations (emit SQL to stdout)
+# ---------------------------------------------------------------------------
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
     Configures the context with just a URL and not an Engine.
-    Calls to ``context.execute()`` emit the given string to the script output.
+    Calls to ``context.execute()`` emit the given string to the script
+    output.
     """
     url = _get_url()
     context.configure(
@@ -41,20 +85,32 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
         context.run_migrations()
 
 
-def do_run_migrations(connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+# ---------------------------------------------------------------------------
+# Online (async) migrations
+# ---------------------------------------------------------------------------
+
+def do_run_migrations(connection) -> None:  # noqa: ANN001
+    """Synchronous callback executed inside ``run_sync``."""
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+        compare_server_default=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_async_migrations() -> None:
-    """Run migrations in 'online' mode using an async engine."""
+    """Create an async engine and run migrations inside its connection."""
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = _get_url()
 
@@ -71,9 +127,13 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    """Entrypoint for online (async) migrations."""
+    """Entry-point for online (async) migrations."""
     asyncio.run(run_async_migrations())
 
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
 
 if context.is_offline_mode():
     run_migrations_offline()

@@ -1,0 +1,184 @@
+{
+  "scenario": "reattendance_billing_fault_attribution",
+  "description": "Two reattendance scenarios: provider-fault (non-billable) and customer-fault (billable). Tests reattendance rules, evidence requirements, and rate modifiers.",
+  "domain": "contract-margin",
+  "contract": {
+    "document_type": "managed_services_agreement",
+    "title": "Managed Field Services — SP Energy Networks",
+    "parties": ["SP Energy Networks Limited", "Vodafone Limited"],
+    "effective_date": "2025-04-01",
+    "expiry_date": "2030-03-31",
+    "clauses": [
+      {"id": "CL-001", "type": "scope", "text": "Provider shall deliver planned and emergency HV switching, cable jointing, LV fault repair, overhead line maintenance, metering, and new connections across the SPEN Central Belt licence area.", "section": "2.1"},
+      {"id": "CL-002", "type": "obligation", "text": "Reattendance within 28 days of original work order completion for the same fault at the same location shall be classified as provider-fault reattendance unless evidence demonstrates customer action caused the recurrence.", "section": "3.9"},
+      {"id": "CL-003", "type": "obligation", "text": "Provider-fault reattendance is non-billable. Provider bears all costs including labour, materials, and travel.", "section": "3.10"},
+      {"id": "CL-004", "type": "obligation", "text": "Customer-fault reattendance is billable at standard rate card rates. Evidence required: photographic evidence of customer-caused damage, signed customer acknowledgement form, or independent third-party assessment.", "section": "3.11"},
+      {"id": "CL-005", "type": "rate", "text": "LV fault repair: £275.00 per operation. Cable jointing LV: £285.00 per joint. Metering installation: £165.00 per unit.", "section": "5.1"},
+      {"id": "CL-006", "type": "obligation", "text": "Reattendance rate modifier: customer-fault reattendance billed at 1.0x standard rate. Third reattendance within 90 days regardless of fault: escalation to contract manager for review.", "section": "3.12"},
+      {"id": "CL-007", "type": "obligation", "text": "All reattendance work orders must reference the original work order ID and include a fault attribution assessment signed by the attending engineer.", "section": "3.13"}
+    ],
+    "sla_table": [
+      {"priority": "emergency", "response_time_hours": 2, "resolution_time_hours": 8, "availability": "24x7"},
+      {"priority": "urgent", "response_time_hours": 4, "resolution_time_hours": 24, "availability": "24x7"},
+      {"priority": "planned", "response_time_hours": 48, "resolution_time_hours": 168, "availability": "business_hours"}
+    ],
+    "rate_card": [
+      {"activity": "lv_fault_repair", "unit": "each", "rate": 275.00, "currency": "GBP"},
+      {"activity": "cable_jointing_lv", "unit": "each", "rate": 285.00, "currency": "GBP"},
+      {"activity": "metering_installation", "unit": "each", "rate": 165.00, "currency": "GBP"}
+    ]
+  },
+  "work_orders": [
+    {
+      "work_order_id": "SPEN-WO-2026-0901",
+      "work_order_type": "urgent",
+      "work_category": "lv_fault_repair",
+      "description": "Original LV fault repair — intermittent supply at 22 Maryhill Road, Glasgow",
+      "status": "completed",
+      "is_reattendance": false,
+      "site": {"name": "22 Maryhill Road", "address": "22 Maryhill Road, Glasgow G20 7PX"},
+      "engineer": {
+        "id": "ENG-106",
+        "name": "Stuart Baird",
+        "skills": ["lv_fault_repair", "cable_jointing_lv"],
+        "certifications": [{"type": "ecs_card", "expiry": "2027-12-31"}]
+      },
+      "schedule": {"scheduled_date": "2026-03-01", "completed_date": "2026-03-01"},
+      "billable_items": [
+        {"description": "LV fault repair — loose service termination", "rate": 275.00, "quantity": 1, "unit": "each"}
+      ],
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "fault_description": "Loose neutral termination at service head — retorqued and tested"
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-0902",
+      "work_order_type": "urgent",
+      "work_category": "lv_fault_repair",
+      "description": "Reattendance — same fault recurrence at 22 Maryhill Road (provider-fault)",
+      "status": "completed",
+      "is_reattendance": true,
+      "reattendance_of": "SPEN-WO-2026-0901",
+      "days_since_original": 12,
+      "within_reattendance_window": true,
+      "fault_attribution": "provider",
+      "site": {"name": "22 Maryhill Road", "address": "22 Maryhill Road, Glasgow G20 7PX"},
+      "engineer": {
+        "id": "ENG-106",
+        "name": "Stuart Baird",
+        "skills": ["lv_fault_repair", "cable_jointing_lv"],
+        "certifications": [{"type": "ecs_card", "expiry": "2027-12-31"}]
+      },
+      "schedule": {"scheduled_date": "2026-03-13", "completed_date": "2026-03-13"},
+      "billable_items": [
+        {"description": "LV fault repair — reattendance provider-fault", "rate": 275.00, "quantity": 1, "unit": "each"}
+      ],
+      "fault_attribution_evidence": {
+        "assessment_signed": true,
+        "engineer_finding": "Original termination repair failed — torque insufficient, neutral worked loose again under thermal cycling",
+        "photographic_evidence": true,
+        "customer_acknowledgement": false,
+        "attribution_conclusion": "provider_workmanship_defect"
+      },
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "fault_description": "Neutral termination replaced entirely with new compression fitting. Tested under load."
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-0903",
+      "work_order_type": "planned",
+      "work_category": "metering_installation",
+      "description": "Original metering installation at 7 Duke Street, Glasgow",
+      "status": "completed",
+      "is_reattendance": false,
+      "site": {"name": "7 Duke Street", "address": "7 Duke Street, Glasgow G4 0UL"},
+      "engineer": {
+        "id": "ENG-110",
+        "name": "Laura Mitchell",
+        "skills": ["metering_installation", "lv_fault_repair"],
+        "certifications": [{"type": "ecs_card", "expiry": "2027-12-31"}]
+      },
+      "schedule": {"scheduled_date": "2026-03-05", "completed_date": "2026-03-05"},
+      "billable_items": [
+        {"description": "Single-phase meter installation", "rate": 165.00, "quantity": 1, "unit": "each"}
+      ],
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "fault_description": "New single-phase meter installed at intake position, sealed and tested"
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-0904",
+      "work_order_type": "urgent",
+      "work_category": "metering_installation",
+      "description": "Reattendance — meter damaged by customer at 7 Duke Street (customer-fault)",
+      "status": "completed",
+      "is_reattendance": true,
+      "reattendance_of": "SPEN-WO-2026-0903",
+      "days_since_original": 16,
+      "within_reattendance_window": true,
+      "fault_attribution": "customer",
+      "site": {"name": "7 Duke Street", "address": "7 Duke Street, Glasgow G4 0UL"},
+      "engineer": {
+        "id": "ENG-110",
+        "name": "Laura Mitchell",
+        "skills": ["metering_installation", "lv_fault_repair"],
+        "certifications": [{"type": "ecs_card", "expiry": "2027-12-31"}]
+      },
+      "schedule": {"scheduled_date": "2026-03-21", "completed_date": "2026-03-21"},
+      "billable_items": [
+        {"description": "Meter replacement — customer-fault reattendance", "rate": 165.00, "quantity": 1, "unit": "each"}
+      ],
+      "fault_attribution_evidence": {
+        "assessment_signed": true,
+        "engineer_finding": "Meter glass cracked by impact — customer admitted contractor working nearby struck meter enclosure with scaffold pole",
+        "photographic_evidence": true,
+        "customer_acknowledgement": true,
+        "customer_acknowledgement_date": "2026-03-21",
+        "attribution_conclusion": "customer_caused_damage"
+      },
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "fault_description": "Meter replaced, new seal fitted, tested and commissioned"
+      }
+    }
+  ],
+  "expected_outcomes": {
+    "wo_0901": {
+      "billable": true,
+      "value": 275.00,
+      "classification": "original_work"
+    },
+    "wo_0902": {
+      "billable": false,
+      "value": 0.00,
+      "reason": "provider_fault_reattendance_within_28_days",
+      "cost_to_provider": 275.00,
+      "fault_attribution_valid": true,
+      "evidence_complete": true
+    },
+    "wo_0903": {
+      "billable": true,
+      "value": 165.00,
+      "classification": "original_work"
+    },
+    "wo_0904": {
+      "billable": true,
+      "value": 165.00,
+      "reason": "customer_fault_reattendance_with_evidence",
+      "fault_attribution_valid": true,
+      "evidence_complete": true,
+      "customer_acknowledgement_present": true
+    },
+    "total_billable": 605.00,
+    "total_non_billable_provider_cost": 275.00,
+    "reattendance_rules_tested": ["provider_fault_non_billable", "customer_fault_billable_with_evidence"],
+    "evidence_validation": "all_reattendance_orders_have_fault_attribution_and_original_reference"
+  }
+}

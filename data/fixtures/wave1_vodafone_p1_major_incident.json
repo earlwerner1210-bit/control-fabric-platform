@@ -1,0 +1,163 @@
+{
+  "scenario": "vodafone_p1_major_incident_sla_breach",
+  "description": "Vodafone P1 major incident with SLA breach (response >15min), escalation to NOC/SOC, multiple work orders, resolution timeline. Tests SLA enforcement, service credits, and escalation chain validation.",
+  "domain": "telco-ops",
+  "contract": {
+    "document_type": "managed_network_services_agreement",
+    "title": "Managed Network Operations — Vodafone UK",
+    "parties": ["Vodafone Limited", "Control Fabric Operations Limited"],
+    "effective_date": "2025-01-01",
+    "expiry_date": "2028-12-31",
+    "clauses": [
+      {"id": "CL-001", "type": "scope", "text": "Provider shall deliver 24x7 network monitoring, incident management, fault resolution, and proactive maintenance for Vodafone UK mobile RAN, core, and transport networks.", "section": "2.1"},
+      {"id": "CL-002", "type": "sla", "text": "P1 Critical — Service affecting >10,000 customers or core network element failure. Response: 15 minutes. Escalation to NOC Duty Manager: 30 minutes. Resolution target: 4 hours.", "section": "4.1"},
+      {"id": "CL-003", "type": "sla", "text": "P2 Major — Service affecting 1,000-10,000 customers or single site failure. Response: 30 minutes. Resolution target: 8 hours.", "section": "4.2"},
+      {"id": "CL-004", "type": "penalty", "text": "P1 response time breach (>15 min): service credit of 2% of monthly charge per 5-minute increment beyond threshold, capped at 10% per incident.", "section": "7.1"},
+      {"id": "CL-005", "type": "penalty", "text": "P1 resolution time breach (>4 hours): additional service credit of 1% of monthly charge per hour beyond target, capped at 15% per incident.", "section": "7.2"},
+      {"id": "CL-006", "type": "obligation", "text": "Escalation chain for P1: (1) NOC Engineer immediate, (2) NOC Duty Manager within 30 min, (3) SOC Head within 60 min, (4) Service Director within 90 min. Missed escalation: £5,000 per step.", "section": "6.1"},
+      {"id": "CL-007", "type": "obligation", "text": "Root Cause Analysis (RCA) report due within 5 business days of P1 resolution. Late RCA: £2,500 deduction.", "section": "6.4"},
+      {"id": "CL-008", "type": "rate", "text": "Field dispatch — RAN site visit: £450.00 per visit. Core network site visit: £650.00 per visit. Emergency spares: at cost plus 12% handling.", "section": "5.1"}
+    ],
+    "sla_table": [
+      {"priority": "P1", "response_time_minutes": 15, "escalation_1_minutes": 30, "escalation_2_minutes": 60, "escalation_3_minutes": 90, "resolution_time_hours": 4, "availability": "24x7"},
+      {"priority": "P2", "response_time_minutes": 30, "resolution_time_hours": 8, "availability": "24x7"},
+      {"priority": "P3", "response_time_minutes": 120, "resolution_time_hours": 24, "availability": "business_hours"},
+      {"priority": "P4", "response_time_minutes": 480, "resolution_time_hours": 72, "availability": "business_hours"}
+    ],
+    "rate_card": [
+      {"activity": "ran_site_visit", "unit": "per_visit", "rate": 450.00, "currency": "GBP"},
+      {"activity": "core_site_visit", "unit": "per_visit", "rate": 650.00, "currency": "GBP"},
+      {"activity": "emergency_spares_handling", "unit": "percentage", "rate_markup": 12.0}
+    ],
+    "monthly_managed_service_charge": 285000.00
+  },
+  "incidents": [
+    {
+      "incident_id": "VF-INC-2026-04501",
+      "title": "Major RAN outage — Glasgow South cluster, 14 sites down",
+      "priority": "P1",
+      "severity": 1,
+      "state": "resolved",
+      "category": "ran_outage",
+      "affected_services": ["4G_data", "5G_data", "volte_voice"],
+      "affected_customers_estimated": 42000,
+      "affected_sites": [
+        "GLA-S-001", "GLA-S-002", "GLA-S-003", "GLA-S-004", "GLA-S-005",
+        "GLA-S-006", "GLA-S-007", "GLA-S-008", "GLA-S-009", "GLA-S-010",
+        "GLA-S-011", "GLA-S-012", "GLA-S-013", "GLA-S-014"
+      ],
+      "root_cause": "Aggregation switch failure at Glasgow Southside hub — single point of failure on S1/X2 backhaul",
+      "timeline": [
+        {"timestamp": "2026-03-22T03:12:00Z", "event": "NMS alarm: multiple eNodeB/gNodeB sites unreachable — Glasgow South cluster"},
+        {"timestamp": "2026-03-22T03:14:00Z", "event": "Automated P1 ticket raised — VF-INC-2026-04501"},
+        {"timestamp": "2026-03-22T03:32:00Z", "event": "NOC Engineer first response — 18 minutes (BREACH: >15 min SLA)"},
+        {"timestamp": "2026-03-22T03:45:00Z", "event": "NOC Duty Manager escalation — 31 minutes from ticket (1 min late)"},
+        {"timestamp": "2026-03-22T04:05:00Z", "event": "SOC Head notified — 51 minutes from ticket (within 60 min)"},
+        {"timestamp": "2026-03-22T04:20:00Z", "event": "Service Director notified — 66 minutes from ticket (within 90 min)"},
+        {"timestamp": "2026-03-22T04:30:00Z", "event": "Field engineer dispatched to Glasgow Southside hub"},
+        {"timestamp": "2026-03-22T05:15:00Z", "event": "Engineer on site — aggregation switch confirmed failed"},
+        {"timestamp": "2026-03-22T05:45:00Z", "event": "Emergency spare switch sourced from Glasgow stores"},
+        {"timestamp": "2026-03-22T07:00:00Z", "event": "Replacement switch installed and configured"},
+        {"timestamp": "2026-03-22T07:25:00Z", "event": "All 14 sites recovered — service restored"},
+        {"timestamp": "2026-03-22T07:30:00Z", "event": "Incident resolved — total duration 4h18m (BREACH: >4h resolution SLA)"}
+      ],
+      "escalation_chain": {
+        "noc_engineer": {"target_minutes": 15, "actual_minutes": 18, "met": false},
+        "noc_duty_manager": {"target_minutes": 30, "actual_minutes": 31, "met": false},
+        "soc_head": {"target_minutes": 60, "actual_minutes": 51, "met": true},
+        "service_director": {"target_minutes": 90, "actual_minutes": 66, "met": true}
+      },
+      "rca_report": {
+        "due_date": "2026-03-27",
+        "submitted_date": "2026-03-30",
+        "late": true,
+        "findings": "Single point of failure on aggregation switch. Redundancy configuration not applied during last network upgrade."
+      }
+    }
+  ],
+  "work_orders": [
+    {
+      "work_order_id": "VF-WO-2026-1201",
+      "work_order_type": "emergency",
+      "work_category": "core_site_visit",
+      "description": "Emergency field dispatch to Glasgow Southside hub — aggregation switch replacement",
+      "status": "completed",
+      "site": {"name": "Glasgow Southside Hub", "address": "Calder Street, Glasgow G42 7RE"},
+      "engineer": {
+        "id": "ENG-301",
+        "name": "Niall Thomson",
+        "skills": ["core_network", "switching", "ip_mpls"],
+        "certifications": [
+          {"type": "ccnp_enterprise", "expiry": "2027-09-30"},
+          {"type": "vodafone_core_accredited", "expiry": "2027-06-30"}
+        ]
+      },
+      "billable_items": [
+        {"description": "Core network site visit — emergency", "rate": 650.00, "quantity": 1, "unit": "per_visit"},
+        {"description": "Emergency spare — Cisco ASR 920 aggregation switch", "cost": 8500.00, "handling_markup": 0.12, "total": 9520.00}
+      ],
+      "completion_evidence": {
+        "job_sheet_signed": true,
+        "asset_swap_form": true,
+        "network_test_results": true
+      }
+    },
+    {
+      "work_order_id": "VF-WO-2026-1202",
+      "work_order_type": "planned",
+      "work_category": "ran_site_visit",
+      "description": "Post-incident health check — Glasgow South RAN cluster verification",
+      "status": "completed",
+      "site": {"name": "Glasgow South RAN Cluster", "address": "Multiple sites — Glasgow G41/G42/G43"},
+      "engineer": {
+        "id": "ENG-305",
+        "name": "Karen McAllister",
+        "skills": ["ran_4g", "ran_5g", "rf_optimisation"],
+        "certifications": [
+          {"type": "ericsson_ran_certified", "expiry": "2027-12-31"}
+        ]
+      },
+      "billable_items": [
+        {"description": "RAN site visit — post-incident verification", "rate": 450.00, "quantity": 3, "unit": "per_visit"}
+      ],
+      "completion_evidence": {
+        "job_sheet_signed": true,
+        "kpi_baseline_report": true
+      }
+    }
+  ],
+  "expected_outcomes": {
+    "sla_breaches": {
+      "response_time_breach": true,
+      "response_actual_minutes": 18,
+      "response_target_minutes": 15,
+      "response_overage_minutes": 3,
+      "response_credit_percentage": 2.0,
+      "resolution_time_breach": true,
+      "resolution_actual_hours": 4.3,
+      "resolution_target_hours": 4,
+      "resolution_overage_hours": 0.3,
+      "resolution_credit_percentage": 1.0,
+      "total_service_credit_percentage": 3.0,
+      "service_credit_value": 8550.00
+    },
+    "escalation_penalties": {
+      "noc_duty_manager_late": true,
+      "escalation_penalty": 5000.00
+    },
+    "rca_penalty": {
+      "late": true,
+      "deduction": 2500.00
+    },
+    "work_order_billing": {
+      "wo_1201_billable": true,
+      "wo_1201_total": 10170.00,
+      "wo_1202_billable": true,
+      "wo_1202_total": 1350.00
+    },
+    "total_service_credits_and_penalties": 16050.00,
+    "total_work_order_revenue": 11520.00,
+    "net_position": -4530.00,
+    "net_position_explanation": "Service credits and penalties exceed work order revenue — net loss on this incident"
+  }
+}

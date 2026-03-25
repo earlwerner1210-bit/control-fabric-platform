@@ -277,3 +277,263 @@ class OpsShiftHandoverTemplate:
                 f"Actions: {len(actions_taken)} | Pending: {len(pending_items)}"
             ),
         }
+
+
+# ---------------------------------------------------------------------------
+# IncidentSummaryTemplate
+# ---------------------------------------------------------------------------
+
+
+class IncidentSummaryTemplate:
+    """Render a structured incident summary combining incident data,
+    escalation decisions, next actions, and service states."""
+
+    @staticmethod
+    def render(
+        incident: ParsedIncident,
+        escalation: EscalationDecision | None = None,
+        next_action: NextAction | None = None,
+        service_states: list[ServiceStateObject] | None = None,
+    ) -> dict[str, Any]:
+        service_states = service_states or []
+
+        # Build service state overview
+        service_state_entries = [
+            {
+                "service_id": ss.service_id,
+                "service_name": ss.service_name,
+                "state": ss.state.value,
+                "impact_level": ss.impact_level.value,
+                "affected_customers": ss.affected_customers,
+                "recovery_eta_minutes": ss.recovery_eta_minutes,
+            }
+            for ss in service_states
+        ]
+
+        total_affected_customers = sum(
+            ss.affected_customers for ss in service_states
+        )
+
+        # Determine overall service health from the worst state observed
+        state_priority = {
+            "outage": 0,
+            "degraded": 1,
+            "maintenance": 2,
+            "provisioning": 3,
+            "active": 4,
+        }
+        if service_states:
+            worst_state = min(
+                service_states,
+                key=lambda ss: state_priority.get(ss.state.value, 99),
+            )
+            overall_service_health = worst_state.state.value
+        else:
+            overall_service_health = "unknown"
+
+        # Build escalation summary
+        escalation_summary: dict[str, Any] | None = None
+        if escalation is not None:
+            escalation_summary = {
+                "escalate": escalation.escalate,
+                "level": escalation.level.value if escalation.level else None,
+                "owner": escalation.owner or None,
+                "reason": escalation.reason or None,
+            }
+
+        # Build next action summary
+        next_action_summary: dict[str, Any] | None = None
+        if next_action is not None:
+            next_action_summary = {
+                "action": next_action.action,
+                "owner": next_action.owner or None,
+                "reason": next_action.reason or None,
+                "priority": next_action.priority,
+                "evidence_count": len(next_action.evidence_ids),
+            }
+
+        # Compose the title-line summary
+        severity_label = incident.severity.value.upper()
+        state_label = incident.state.value.replace("_", " ").title()
+        summary_line = (
+            f"[{severity_label}] {incident.title or incident.incident_id} "
+            f"- {state_label}"
+        )
+        if escalation and escalation.escalate and escalation.level:
+            summary_line += f" | Escalated to {escalation.level.value.upper()}"
+
+        return {
+            "incident_id": incident.incident_id,
+            "title": incident.title,
+            "severity": incident.severity.value,
+            "state": incident.state.value,
+            "summary": summary_line,
+            "affected_services": incident.affected_services,
+            "reported_by": incident.reported_by,
+            "assigned_to": incident.assigned_to,
+            "created_at": incident.created_at,
+            "updated_at": incident.updated_at,
+            "tag_count": len(incident.tags),
+            "escalation": escalation_summary,
+            "next_action": next_action_summary,
+            "service_states": service_state_entries,
+            "overall_service_health": overall_service_health,
+            "total_affected_customers": total_affected_customers,
+            "service_count": len(service_states),
+        }
+
+
+# ---------------------------------------------------------------------------
+# OpsNoteTemplate
+# ---------------------------------------------------------------------------
+
+
+class OpsNoteTemplate:
+    """Render a concise operational note suitable for hand-off, shift logs,
+    or ticketing system updates."""
+
+    @staticmethod
+    def render(
+        incident: ParsedIncident,
+        next_action: NextAction | None = None,
+        runbook_ref: str | None = None,
+        escalation: EscalationDecision | None = None,
+    ) -> dict[str, Any]:
+        # Build the narrative summary
+        severity_label = incident.severity.value.upper()
+        lines: list[str] = [
+            f"{severity_label} incident '{incident.title or incident.incident_id}' "
+            f"is currently {incident.state.value}.",
+        ]
+
+        if incident.affected_services:
+            lines.append(
+                f"Affected services: {', '.join(incident.affected_services)}."
+            )
+
+        if next_action:
+            action_text = (
+                f"Next action: {next_action.action}"
+                + (f" (owner: {next_action.owner})" if next_action.owner else "")
+                + "."
+            )
+            if next_action.reason:
+                action_text += f" Reason: {next_action.reason}."
+            lines.append(action_text)
+
+        if escalation and escalation.escalate:
+            esc_text = (
+                f"Escalated to "
+                f"{escalation.level.value.upper() if escalation.level else 'UNKNOWN'}"
+            )
+            if escalation.owner:
+                esc_text += f" (owner: {escalation.owner})"
+            esc_text += "."
+            if escalation.reason:
+                esc_text += f" {escalation.reason}."
+            lines.append(esc_text)
+
+        if runbook_ref:
+            lines.append(f"Runbook reference: {runbook_ref}.")
+
+        narrative = " ".join(lines)
+
+        # Collect evidence IDs from all sources, deduplicated
+        evidence_ids: list[str] = []
+        seen: set[str] = set()
+        for source in (next_action, escalation):
+            if source is not None:
+                for eid in source.evidence_ids:
+                    eid_str = str(eid)
+                    if eid_str not in seen:
+                        seen.add(eid_str)
+                        evidence_ids.append(eid_str)
+
+        return {
+            "summary": narrative,
+            "next_action": next_action.action if next_action else None,
+            "next_action_owner": next_action.owner if next_action else None,
+            "next_action_priority": next_action.priority if next_action else None,
+            "runbook_ref": runbook_ref,
+            "escalation_level": (
+                escalation.level.value if escalation and escalation.level else None
+            ),
+            "escalation_owner": (
+                escalation.owner if escalation and escalation.escalate else None
+            ),
+            "incident_id": incident.incident_id,
+            "severity": incident.severity.value,
+            "state": incident.state.value,
+            "affected_services": incident.affected_services,
+            "evidence_ids": evidence_ids,
+        }
+
+
+# ---------------------------------------------------------------------------
+# ReconciliationReportTemplate
+# ---------------------------------------------------------------------------
+
+
+class ReconciliationReportTemplate:
+    """Render a structured reconciliation report from status, mismatches,
+    and recommendations."""
+
+    @staticmethod
+    def render(
+        status: ReconciliationStatus,
+        mismatches: list[ReconciliationMismatch] | None = None,
+        recommendations: list[str] | None = None,
+    ) -> dict[str, Any]:
+        mismatches = mismatches or []
+        recommendations = recommendations or []
+
+        # Categorise mismatches by severity
+        severity_counts: dict[str, int] = {}
+        mismatch_entries: list[dict[str, Any]] = []
+        for m in mismatches:
+            sev = m.severity or "info"
+            severity_counts[sev] = severity_counts.get(sev, 0) + 1
+            mismatch_entries.append(
+                {
+                    "field": m.field,
+                    "incident_value": m.incident_value,
+                    "work_order_value": m.work_order_value,
+                    "severity": sev,
+                    "resolution": m.resolution,
+                }
+            )
+
+        # Determine a human-readable verdict
+        if status == ReconciliationStatus.aligned:
+            verdict = "All records are aligned. No action required."
+        elif status == ReconciliationStatus.mismatched:
+            critical_count = severity_counts.get("critical", 0)
+            error_count = severity_counts.get("error", 0)
+            verdict = (
+                f"Records are mismatched with {critical_count} critical and "
+                f"{error_count} error-level discrepancies. Immediate review required."
+            )
+        elif status == ReconciliationStatus.partial:
+            verdict = (
+                "Records are partially aligned. Review warnings before closing."
+            )
+        else:
+            verdict = "Reconciliation status is unknown. Manual review recommended."
+
+        # Determine whether the report requires action
+        requires_action = status in (
+            ReconciliationStatus.mismatched,
+            ReconciliationStatus.unknown,
+        ) or severity_counts.get("critical", 0) > 0
+
+        return {
+            "report_type": "incident_reconciliation",
+            "status": status.value,
+            "verdict": verdict,
+            "requires_action": requires_action,
+            "mismatch_count": len(mismatches),
+            "mismatches": mismatch_entries,
+            "severity_breakdown": severity_counts,
+            "recommendation_count": len(recommendations),
+            "recommendations": recommendations,
+        }

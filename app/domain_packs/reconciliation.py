@@ -8,6 +8,7 @@ for building evidence bundles used in downstream diagnosis and decision-making.
 
 from __future__ import annotations
 
+import dataclasses
 import uuid
 from datetime import datetime, timedelta
 from difflib import SequenceMatcher
@@ -1529,3 +1530,564 @@ class MarginLeakageReconciler:
             "total_at_risk_value": round(total_at_risk, 2),
             "recommendations": recommendations,
         }
+
+
+# ---------------------------------------------------------------------------
+# MarginDiagnosisBundle dataclass
+# ---------------------------------------------------------------------------
+
+
+@dataclasses.dataclass
+class MarginDiagnosisBundle:
+    """Complete output from MarginDiagnosisReconciler."""
+
+    contract_wo_links: list[CrossPlaneLink]
+    wo_incident_links: list[CrossPlaneLink]
+    field_billing_conflicts: list[CrossPlaneConflict]
+    sla_conflicts: list[CrossPlaneConflict]
+    leakage_patterns: list[dict]
+    evidence_bundle: EvidenceBundle
+    all_conflicts: list[CrossPlaneConflict]
+    verdict: str  # "healthy", "leakage_detected", "penalty_risk", "under_recovery"
+    confidence: float
+    summary: str
+
+
+# ---------------------------------------------------------------------------
+# ContradictionDetector
+# ---------------------------------------------------------------------------
+
+
+class ContradictionDetector:
+    """Detect contradictions between domain planes.
+
+    Examples:
+    - Contract says in-scope but field completion says out-of-scope
+    - Work order says completed but incident says service still degraded
+    - Rate card says X but billing says Y
+    - Contract says approval required but work executed without approval
+    - SLA says within threshold but penalty triggered
+    """
+
+    def detect(
+        self,
+        contract_data: dict,
+        field_data: dict,
+        incident_data: dict | None = None,
+    ) -> list[CrossPlaneConflict]:
+        conflicts: list[CrossPlaneConflict] = []
+
+        # --- Scope contradiction ---
+        # Contract says in-scope but field data says out-of-scope or vice versa
+        scope_boundaries = contract_data.get("scope_boundaries", [])
+        wo_description = _safe_str(field_data.get("description", ""))
+        wo_activities = _extract_activities(wo_description)
+        field_scope = _safe_str(field_data.get("scope_status", ""))
+
+        for boundary in scope_boundaries:
+            scope_type = _safe_str(boundary.get("scope_type", ""))
+            scope_activities = set(
+                a.lower().strip() for a in boundary.get("activities", [])
+            )
+            overlap = scope_activities & wo_activities
+
+            if scope_type == "in_scope" and field_scope == "out_of_scope" and overlap:
+                conflicts.append(
+                    CrossPlaneConflict(
+                        field="scope",
+                        domain_a=DOMAIN_CONTRACT_MARGIN,
+                        value_a=f"in_scope: {', '.join(sorted(overlap))}",
+                        domain_b=DOMAIN_UTILITIES_FIELD,
+                        value_b=f"field reports out_of_scope",
+                        severity="error",
+                        resolution="Contract defines activities as in-scope but field execution flagged them as out-of-scope. Clarify scope with contract team.",
+                    )
+                )
+            elif scope_type == "out_of_scope" and field_scope == "in_scope" and overlap:
+                conflicts.append(
+                    CrossPlaneConflict(
+                        field="scope",
+                        domain_a=DOMAIN_CONTRACT_MARGIN,
+                        value_a=f"out_of_scope: {', '.join(sorted(overlap))}",
+                        domain_b=DOMAIN_UTILITIES_FIELD,
+                        value_b=f"field reports in_scope",
+                        severity="error",
+                        resolution="Contract defines activities as out-of-scope but field executed them as in-scope. May indicate unauthorised work.",
+                    )
+                )
+
+        # --- Completion vs incident contradiction ---
+        if incident_data:
+            wo_status = _safe_str(field_data.get("status", ""))
+            inc_state = _safe_str(incident_data.get("state", ""))
+            inc_severity = _safe_str(incident_data.get("severity", ""))
+
+            # Work order completed but incident still active/degraded
+            if wo_status == "completed" and inc_state in ("new", "investigating", "in_progress"):
+                conflicts.append(
+                    CrossPlaneConflict(
+                        field="completion_vs_incident",
+                        domain_a=DOMAIN_UTILITIES_FIELD,
+                        value_a=f"status={wo_status}",
+                        domain_b=DOMAIN_TELCO_OPS,
+                        value_b=f"state={inc_state}",
+                        severity="error",
+                        resolution="Work order marked completed but related incident still active. Verify field resolution was effective.",
+                    )
+                )
+
+            # Incident resolved but work order still open
+            if inc_state in ("resolved", "closed") and wo_status in ("pending", "in_progress", "assigned"):
+                conflicts.append(
+                    CrossPlaneConflict(
+                        field="completion_vs_incident",
+                        domain_a=DOMAIN_TELCO_OPS,
+                        value_a=f"state={inc_state}",
+                        domain_b=DOMAIN_UTILITIES_FIELD,
+                        value_b=f"status={wo_status}",
+                        severity="warning",
+                        resolution="Incident resolved/closed but work order still open. Update work order status.",
+                    )
+                )
+
+        # --- Rate contradiction ---
+        rate_card = contract_data.get("rate_card", [])
+        field_rate = _safe_float(field_data.get("rate", field_data.get("billed_rate", 0)))
+        field_activity = _safe_str(field_data.get("activity", field_data.get("work_order_type", "")))
+
+        if field_rate > 0 and field_activity:
+            for rc in rate_card:
+                rc_activity = _safe_str(rc.get("activity", ""))
+                rc_rate = _safe_float(rc.get("rate", 0))
+                if rc_rate > 0 and rc_activity:
+                    sim = _text_similarity(rc_activity, field_activity)
+                    if sim >= _TEXT_SIMILARITY_THRESHOLD:
+                        diff = abs(rc_rate - field_rate)
+                        tolerance = rc_rate * _RATE_TOLERANCE_FRACTION
+                        if diff > tolerance:
+                            conflicts.append(
+                                CrossPlaneConflict(
+                                    field="rate",
+                                    domain_a=DOMAIN_CONTRACT_MARGIN,
+                                    value_a=str(rc_rate),
+                                    domain_b=DOMAIN_UTILITIES_FIELD,
+                                    value_b=str(field_rate),
+                                    severity="critical" if diff / rc_rate > 0.10 else "warning",
+                                    resolution=f"Rate mismatch: contract specifies {rc_rate} but field/billing shows {field_rate}. Difference of {diff:.2f}.",
+                                )
+                            )
+
+        # --- Approval contradiction ---
+        requires_approval = contract_data.get("requires_approval", False)
+        approval_obtained = field_data.get("approval_obtained", True)
+        if requires_approval and not approval_obtained:
+            conflicts.append(
+                CrossPlaneConflict(
+                    field="approval",
+                    domain_a=DOMAIN_CONTRACT_MARGIN,
+                    value_a="approval_required=True",
+                    domain_b=DOMAIN_UTILITIES_FIELD,
+                    value_b="approval_obtained=False",
+                    severity="error",
+                    resolution="Contract requires approval before work execution but approval was not obtained.",
+                )
+            )
+
+        # --- SLA contradiction ---
+        sla_status = contract_data.get("sla_status", "")
+        penalty_triggered = contract_data.get("penalty_triggered", False)
+        if sla_status == "within" and penalty_triggered:
+            conflicts.append(
+                CrossPlaneConflict(
+                    field="sla_penalty",
+                    domain_a=DOMAIN_CONTRACT_MARGIN,
+                    value_a="sla_status=within",
+                    domain_b=DOMAIN_CONTRACT_MARGIN,
+                    value_b="penalty_triggered=True",
+                    severity="error",
+                    resolution="SLA reported as within threshold but penalty was triggered. Reconcile SLA measurement.",
+                )
+            )
+
+        return conflicts
+
+
+# ---------------------------------------------------------------------------
+# EvidenceChainValidator
+# ---------------------------------------------------------------------------
+
+
+class EvidenceChainValidator:
+    """Validate that evidence chains are complete for a margin diagnosis.
+
+    A complete chain requires:
+    1. Contract basis (rate card entry or obligation)
+    2. Work authorization (work order or purchase order)
+    3. Execution evidence (completion certificate, daywork sheet, field log)
+    4. Billing evidence (invoice, billing gate satisfaction)
+
+    Missing links in the chain produce warnings or blockers.
+    """
+
+    # The four required stages in an evidence chain
+    CHAIN_STAGES = [
+        {
+            "stage": "contract_basis",
+            "label": "Contract Basis",
+            "required_types": {"rate_card", "obligation", "contract_object"},
+        },
+        {
+            "stage": "work_authorization",
+            "label": "Work Authorization",
+            "required_types": {"work_order", "purchase_order", "dispatch_precondition"},
+        },
+        {
+            "stage": "execution_evidence",
+            "label": "Execution Evidence",
+            "required_types": {"completion_certificate", "daywork_sheet", "field_log", "completion_evidence"},
+        },
+        {
+            "stage": "billing_evidence",
+            "label": "Billing Evidence",
+            "required_types": {"invoice", "billing_gate", "billing_confirmation"},
+        },
+    ]
+
+    def validate_chain(self, evidence_bundle: EvidenceBundle) -> list[dict]:
+        """Return list of chain validation results.
+
+        Each result is a dict with:
+        - stage: str
+        - label: str
+        - present: bool
+        - severity: str ("ok", "warning", "blocker")
+        - message: str
+        """
+        results: list[dict] = []
+        item_types = {
+            _safe_str(item.get("type", "")).lower()
+            for item in evidence_bundle.evidence_items
+        }
+
+        for stage_def in self.CHAIN_STAGES:
+            stage = stage_def["stage"]
+            label = stage_def["label"]
+            required_types = stage_def["required_types"]
+
+            # Check if any required type is present
+            present = bool(item_types & required_types)
+
+            if present:
+                results.append({
+                    "stage": stage,
+                    "label": label,
+                    "present": True,
+                    "severity": "ok",
+                    "message": f"{label} evidence found.",
+                })
+            else:
+                # Contract basis and work authorization are blockers; the rest are warnings
+                if stage in ("contract_basis", "work_authorization"):
+                    severity = "blocker"
+                    message = f"Missing {label} -- cannot produce reliable margin diagnosis."
+                else:
+                    severity = "warning"
+                    message = f"Missing {label} -- margin diagnosis may be incomplete."
+                results.append({
+                    "stage": stage,
+                    "label": label,
+                    "present": False,
+                    "severity": severity,
+                    "message": message,
+                })
+
+        return results
+
+
+# ---------------------------------------------------------------------------
+# MarginDiagnosisReconciler
+# ---------------------------------------------------------------------------
+
+
+class MarginDiagnosisReconciler:
+    """Full margin diagnosis reconciler combining all three domain planes.
+
+    Orchestrates: ContractWorkOrderLinker, WorkOrderIncidentLinker,
+    MarginEvidenceAssembler, FieldCompletionBillabilityLinker,
+    SLAAccountabilityLinker, MarginLeakageReconciler to produce
+    a comprehensive margin diagnosis.
+    """
+
+    def __init__(self) -> None:
+        self.contract_wo_linker = ContractWorkOrderLinker()
+        self.wo_incident_linker = WorkOrderIncidentLinker()
+        self.margin_evidence = MarginEvidenceAssembler()
+        self.field_billing_linker = FieldCompletionBillabilityLinker()
+        self.sla_linker = SLAAccountabilityLinker()
+        self.leakage_reconciler = MarginLeakageReconciler()
+        self.contradiction_detector = ContradictionDetector()
+        self.chain_validator = EvidenceChainValidator()
+
+    def reconcile(
+        self,
+        contract_objects: list[dict],
+        work_orders: list[dict],
+        incidents: list[dict] | None = None,
+        work_history: list[dict] | None = None,
+        sla_performance: dict | None = None,
+    ) -> MarginDiagnosisBundle:
+        """Run full cross-plane reconciliation for margin diagnosis.
+
+        Steps:
+        1. Link contracts to work orders
+        2. Link work orders to incidents (if incidents provided)
+        3. Run field-completion-to-billability checks
+        4. Run SLA accountability checks
+        5. Run margin leakage detection
+        6. Assemble evidence bundle
+        7. Detect cross-plane conflicts
+        8. Produce final diagnosis bundle
+        """
+        incidents = incidents or []
+        work_history = work_history or []
+        sla_performance = sla_performance or {}
+
+        # Build contract data dict for sub-reconcilers
+        contract_data = self._build_contract_data(contract_objects)
+
+        # 1. Link contracts to work orders
+        all_contract_wo_links: list[CrossPlaneLink] = []
+        for wo in work_orders:
+            links = self.contract_wo_linker.link(contract_objects, wo)
+            all_contract_wo_links.extend(links)
+
+        # 2. Link work orders to incidents
+        all_wo_incident_links: list[CrossPlaneLink] = []
+        for wo in work_orders:
+            links = self.wo_incident_linker.link(wo, incidents)
+            all_wo_incident_links.extend(links)
+
+        # 3. Field-completion-to-billability checks
+        field_billing_conflicts: list[CrossPlaneConflict] = []
+        for wo in work_orders:
+            completion_evidence = wo.get("completion_evidence", [])
+            billing_gates = wo.get("billing_gates", [])
+            reattendance_info = wo.get("reattendance_info")
+            fb_result = self.field_billing_linker.evaluate(
+                wo, completion_evidence, billing_gates, reattendance_info
+            )
+            for blocker in fb_result.get("blockers", []):
+                field_billing_conflicts.append(
+                    CrossPlaneConflict(
+                        field=blocker.get("rule", "billing_gate"),
+                        domain_a=DOMAIN_UTILITIES_FIELD,
+                        value_a=_safe_str(wo.get("work_order_id", "")),
+                        domain_b=DOMAIN_CONTRACT_MARGIN,
+                        value_b=blocker.get("description", ""),
+                        severity=blocker.get("severity", "error"),
+                        resolution=f"Resolve billing blocker: {blocker.get('description', '')}",
+                    )
+                )
+
+        # 4. SLA accountability checks
+        sla_conflicts: list[CrossPlaneConflict] = []
+        sla_status = sla_performance.get("sla_status", {})
+        field_blockers = sla_performance.get("field_blockers", [])
+        contract_assumptions = sla_performance.get("contract_assumptions", [])
+        if sla_status or field_blockers:
+            sla_result = self.sla_linker.evaluate(
+                sla_status, field_blockers, contract_assumptions
+            )
+            if sla_result.get("accountable", False) and sla_status.get("status") == "breached":
+                sla_conflicts.append(
+                    CrossPlaneConflict(
+                        field="sla_accountability",
+                        domain_a=DOMAIN_TELCO_OPS,
+                        value_a=f"sla_breached",
+                        domain_b=DOMAIN_CONTRACT_MARGIN,
+                        value_b=f"provider_accountable",
+                        severity="critical",
+                        resolution="SLA breached and provider is accountable. Penalty exposure applies.",
+                    )
+                )
+            for factor in sla_result.get("mitigation_factors", []):
+                sla_conflicts.append(
+                    CrossPlaneConflict(
+                        field="sla_mitigation",
+                        domain_a=DOMAIN_UTILITIES_FIELD,
+                        value_a=factor.get("blocker_type", ""),
+                        domain_b=DOMAIN_TELCO_OPS,
+                        value_b=factor.get("mitigation", ""),
+                        severity="warning",
+                        resolution=factor.get("mitigation", "Review SLA mitigation factor."),
+                    )
+                )
+
+        # 5. Margin leakage detection
+        field_data = {"work_orders": work_orders + work_history}
+        ops_data = {"sla_breaches": sla_performance.get("sla_breaches", [])}
+        leakage_result = self.leakage_reconciler.reconcile(
+            contract_data, field_data, ops_data
+        )
+        leakage_patterns = leakage_result.get("leakage_triggers", [])
+
+        # 6. Assemble evidence bundle
+        leakage_trigger_dicts = [
+            {
+                "trigger_type": t.get("trigger_type", ""),
+                "description": t.get("description", ""),
+                "severity": t.get("severity", "warning"),
+            }
+            for t in leakage_patterns
+        ]
+        evidence_bundle = self.margin_evidence.assemble(
+            contract_objects, work_orders + work_history, leakage_trigger_dicts
+        )
+
+        # 7. Detect cross-plane contradictions
+        contradiction_conflicts: list[CrossPlaneConflict] = []
+        for wo in work_orders:
+            primary_incident = incidents[0] if incidents else None
+            detected = self.contradiction_detector.detect(
+                contract_data, wo, primary_incident
+            )
+            contradiction_conflicts.extend(detected)
+
+        # Aggregate all conflicts
+        all_conflicts = (
+            field_billing_conflicts
+            + sla_conflicts
+            + contradiction_conflicts
+        )
+
+        # 8. Determine verdict
+        verdict = self._determine_verdict(
+            leakage_patterns, all_conflicts, sla_conflicts
+        )
+        confidence = self._compute_confidence(
+            contract_objects, work_orders, incidents, evidence_bundle, all_conflicts
+        )
+        summary = self._build_summary(
+            verdict, leakage_patterns, all_conflicts, evidence_bundle
+        )
+
+        return MarginDiagnosisBundle(
+            contract_wo_links=all_contract_wo_links,
+            wo_incident_links=all_wo_incident_links,
+            field_billing_conflicts=field_billing_conflicts,
+            sla_conflicts=sla_conflicts,
+            leakage_patterns=leakage_patterns,
+            evidence_bundle=evidence_bundle,
+            all_conflicts=all_conflicts,
+            verdict=verdict,
+            confidence=round(confidence, 3),
+            summary=summary,
+        )
+
+    # ---- Internal helpers ----
+
+    @staticmethod
+    def _build_contract_data(contract_objects: list[dict]) -> dict:
+        """Reshape flat contract objects into the dict format expected by sub-reconcilers."""
+        rate_card: list[dict] = []
+        obligations: list[dict] = []
+        scope_boundaries: list[dict] = []
+        invoices: list[dict] = []
+
+        for obj in contract_objects:
+            obj_type = _safe_str(
+                obj.get("type", obj.get("control_type", obj.get("object_type", "")))
+            )
+            if obj_type in ("rate_card", "rate", "billable_event"):
+                rate_card.append(obj)
+            elif obj_type in ("obligation", "sla"):
+                obligations.append(obj)
+            elif obj_type in ("scope", "scope_boundary"):
+                scope_boundaries.append(obj)
+            elif obj_type == "invoice":
+                invoices.append(obj)
+
+        return {
+            "rate_card": rate_card,
+            "obligations": obligations,
+            "scope_boundaries": scope_boundaries,
+            "invoices": invoices,
+        }
+
+    @staticmethod
+    def _determine_verdict(
+        leakage_patterns: list[dict],
+        all_conflicts: list[CrossPlaneConflict],
+        sla_conflicts: list[CrossPlaneConflict],
+    ) -> str:
+        # Penalty risk takes precedence
+        has_penalty_risk = any(
+            c.field == "sla_accountability" and c.severity == "critical"
+            for c in sla_conflicts
+        )
+        if has_penalty_risk:
+            return "penalty_risk"
+
+        # Leakage detected
+        if leakage_patterns:
+            critical_leakage = any(
+                t.get("severity") in ("error", "critical") for t in leakage_patterns
+            )
+            if critical_leakage:
+                return "under_recovery"
+            return "leakage_detected"
+
+        # Conflicts present but no leakage
+        if all_conflicts:
+            critical_conflicts = any(
+                c.severity in ("error", "critical") for c in all_conflicts
+            )
+            if critical_conflicts:
+                return "under_recovery"
+            return "leakage_detected"
+
+        return "healthy"
+
+    @staticmethod
+    def _compute_confidence(
+        contract_objects: list[dict],
+        work_orders: list[dict],
+        incidents: list[dict],
+        evidence_bundle: EvidenceBundle,
+        all_conflicts: list[CrossPlaneConflict],
+    ) -> float:
+        score = 0.0
+        # Evidence breadth
+        if contract_objects:
+            score += 0.25
+        if work_orders:
+            score += 0.25
+        if incidents:
+            score += 0.15
+        # Evidence bundle confidence contribution
+        score += 0.15 * evidence_bundle.confidence
+        # Conflicts reduce confidence
+        if all_conflicts:
+            score -= 0.05 * min(len(all_conflicts), 4)
+        # Baseline
+        score += 0.10
+        return max(min(score, 1.0), 0.1)
+
+    @staticmethod
+    def _build_summary(
+        verdict: str,
+        leakage_patterns: list[dict],
+        all_conflicts: list[CrossPlaneConflict],
+        evidence_bundle: EvidenceBundle,
+    ) -> str:
+        parts: list[str] = [f"Margin diagnosis verdict: {verdict}."]
+        if leakage_patterns:
+            parts.append(f"{len(leakage_patterns)} leakage pattern(s) detected.")
+        if all_conflicts:
+            parts.append(f"{len(all_conflicts)} cross-plane conflict(s) found.")
+        parts.append(
+            f"Evidence bundle contains {evidence_bundle.total_items} item(s) "
+            f"across {len(evidence_bundle.domains)} domain(s) "
+            f"(confidence: {evidence_bundle.confidence:.2f})."
+        )
+        return " ".join(parts)

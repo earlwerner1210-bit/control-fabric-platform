@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Any
 
 from app.domain_packs.contract_margin.schemas import (
@@ -11,10 +12,17 @@ from app.domain_packs.contract_margin.schemas import (
     BillableEvent,
     BillingGate,
     BillingPrerequisite,
+    CommercialRecoveryRecommendation,
     LeakageTrigger,
     NonBillableReason,
+    PenaltyCondition,
+    PenaltyExposureSummary,
+    PriorityLevel,
     RateCardEntry,
     ReattendanceRule,
+    RecoveryType,
+    ScopeBoundaryObject,
+    ScopeType,
     SPENRateCard,
     ServiceCreditRule,
     WorkCategory,
@@ -31,6 +39,10 @@ class BillabilityRuleEngine:
         rate_card: list[RateCardEntry],
         obligations: list[dict],
         evidence_ids: list[uuid.UUID] | None = None,
+        approval_threshold: float = 5000.0,
+        has_approval: bool = False,
+        prior_claims: list[dict] | None = None,
+        work_date: date | None = None,
     ) -> BillabilityDecision:
         results: list[RuleResult] = []
 
@@ -67,15 +79,99 @@ class BillabilityRuleEngine:
             )
         )
 
+        # Rule 4: approval threshold check
+        if matching_rate is not None and matching_rate.rate > approval_threshold:
+            if not has_approval:
+                results.append(
+                    RuleResult(
+                        rule_name="approval_threshold_check",
+                        passed=False,
+                        message="Exceeds approval threshold without authorization",
+                        severity="error",
+                    )
+                )
+            else:
+                results.append(
+                    RuleResult(
+                        rule_name="approval_threshold_check",
+                        passed=True,
+                        message="Approval obtained for rate exceeding threshold",
+                        severity="info",
+                    )
+                )
+        else:
+            results.append(
+                RuleResult(
+                    rule_name="approval_threshold_check",
+                    passed=True,
+                    message="Rate within approval threshold",
+                    severity="info",
+                )
+            )
+
+        # Rule 5: duplicate claim check
+        duplicate_found = False
+        if prior_claims:
+            activity_lower = activity.lower().replace(" ", "_")
+            for claim in prior_claims:
+                claim_activity = claim.get("activity", "").lower().replace(" ", "_")
+                claim_date = claim.get("date")
+                if claim_activity == activity_lower and claim_date is not None:
+                    # Compare dates — support both str and date objects
+                    if work_date is not None:
+                        claim_date_obj = (
+                            claim_date if isinstance(claim_date, date)
+                            else date.fromisoformat(str(claim_date))
+                        )
+                        if claim_date_obj == work_date:
+                            duplicate_found = True
+                            break
+        results.append(
+            RuleResult(
+                rule_name="duplicate_claim_check",
+                passed=not duplicate_found,
+                message="No duplicate claims" if not duplicate_found else "Duplicate claim detected",
+                severity="error" if duplicate_found else "info",
+            )
+        )
+
+        # Rule 6: expired rate check
+        rate_expired = False
+        if matching_rate is not None and matching_rate.effective_to is not None and work_date is not None:
+            if matching_rate.effective_to < work_date:
+                rate_expired = True
+        results.append(
+            RuleResult(
+                rule_name="expired_rate_check",
+                passed=not rate_expired,
+                message="Rate card valid" if not rate_expired else "Rate card expired",
+                severity="error" if rate_expired else "info",
+            )
+        )
+
+        # Rule 7: minimum charge enforcement (does not affect billability, only rate_applied)
+        # Handled when building the decision below
+
         all_passed = all(r.passed for r in results)
         confidence = sum(1 for r in results if r.passed) / max(len(results), 1)
+
+        rate_applied = matching_rate.rate if matching_rate else None
+
+        # Rule 7: minimum charge enforcement — adjust rate_applied if below minimum
+        if (
+            matching_rate is not None
+            and matching_rate.minimum_charge is not None
+            and rate_applied is not None
+            and rate_applied < matching_rate.minimum_charge
+        ):
+            rate_applied = matching_rate.minimum_charge
 
         return BillabilityDecision(
             billable=all_passed,
             confidence=confidence,
             evidence_ids=evidence_ids or [],
             reasons=[r.message for r in results if not r.passed],
-            rate_applied=matching_rate.rate if matching_rate else None,
+            rate_applied=rate_applied,
         )
 
     def _find_matching_rate(self, activity: str, rate_card: list[RateCardEntry]) -> RateCardEntry | None:
@@ -248,7 +344,416 @@ class LeakageRuleEngine:
                     )
                 )
 
+        # Rule 10: Time-based rate mismatch — out-of-hours work billed at standard rate
+        triggers.extend(self._check_time_based_rate_mismatch(work_history))
+
+        # Rule 11: Material cost pass-through — materials used but not separately billed
+        triggers.extend(self._check_material_cost_passthrough(work_history))
+
+        # Rule 12: Subcontractor margin leak — sub cost > billed rate
+        triggers.extend(self._check_subcontractor_margin_leak(work_history))
+
+        # Rule 13: Mobilisation not charged — remote site travel not billed
+        triggers.extend(self._check_mobilisation_not_charged(work_history))
+
+        # Rule 14: Warranty period rework — rework within warranty billed as new work
+        triggers.extend(self._check_warranty_period_rework(work_history))
+
         return triggers
+
+    # -- new leakage rule methods -------------------------------------------
+
+    def _check_time_based_rate_mismatch(self, work_history: list[dict]) -> list[LeakageTrigger]:
+        """Detect work done outside business hours but billed at standard rate."""
+        triggers: list[LeakageTrigger] = []
+        for work in work_history:
+            time_of_day = work.get("time_of_day", "normal")
+            if time_of_day in ("overtime", "weekend", "emergency", "out_of_hours"):
+                billed_rate = work.get("billed_rate", 0)
+                contract_rate = work.get("contract_rate", 0)
+                multiplier = work.get("expected_multiplier", 1.5)
+                expected_rate = contract_rate * multiplier
+                if billed_rate > 0 and contract_rate > 0 and billed_rate <= contract_rate:
+                    delta = expected_rate - billed_rate
+                    triggers.append(
+                        LeakageTrigger(
+                            trigger_type="time_rate_mismatch",
+                            description=(
+                                f"Work '{work.get('activity', 'unknown')}' performed during "
+                                f"{time_of_day} but billed at standard rate "
+                                f"(£{billed_rate:.2f} vs expected £{expected_rate:.2f})"
+                            ),
+                            severity="warning",
+                            estimated_impact_value=delta * work.get("hours", 1),
+                        )
+                    )
+        return triggers
+
+    def _check_material_cost_passthrough(self, work_history: list[dict]) -> list[LeakageTrigger]:
+        """Detect materials used but not separately billed."""
+        triggers: list[LeakageTrigger] = []
+        for work in work_history:
+            material_cost = work.get("material_cost", 0)
+            material_billed = work.get("material_billed", False)
+            if material_cost and material_cost > 0 and not material_billed:
+                triggers.append(
+                    LeakageTrigger(
+                        trigger_type="material_cost_not_billed",
+                        description=(
+                            f"Materials costing £{material_cost:.2f} used for "
+                            f"'{work.get('activity', 'unknown')}' but not billed to client"
+                        ),
+                        severity="warning",
+                        estimated_impact_value=float(material_cost),
+                    )
+                )
+        return triggers
+
+    def _check_subcontractor_margin_leak(self, work_history: list[dict]) -> list[LeakageTrigger]:
+        """Detect when subcontractor cost exceeds billed rate."""
+        triggers: list[LeakageTrigger] = []
+        for work in work_history:
+            sub_cost = work.get("subcontractor_cost")
+            billed_rate = work.get("billed_rate")
+            if sub_cost is not None and billed_rate is not None and sub_cost > billed_rate:
+                delta = sub_cost - billed_rate
+                triggers.append(
+                    LeakageTrigger(
+                        trigger_type="subcontractor_margin_leak",
+                        description=(
+                            f"Subcontractor cost £{sub_cost:.2f} exceeds billed rate "
+                            f"£{billed_rate:.2f} for '{work.get('activity', 'unknown')}' — "
+                            f"negative margin of £{delta:.2f}"
+                        ),
+                        severity="error",
+                        estimated_impact_value=delta * work.get("quantity", 1),
+                    )
+                )
+        return triggers
+
+    def _check_mobilisation_not_charged(self, work_history: list[dict]) -> list[LeakageTrigger]:
+        """Detect mobilisation/travel to remote site not billed."""
+        triggers: list[LeakageTrigger] = []
+        for work in work_history:
+            if work.get("remote_site") and work.get("mobilisation_cost", 0) > 0:
+                if not work.get("mobilisation_billed", False):
+                    triggers.append(
+                        LeakageTrigger(
+                            trigger_type="mobilisation_not_charged",
+                            description=(
+                                f"Mobilisation cost £{work['mobilisation_cost']:.2f} to "
+                                f"remote site for '{work.get('activity', 'unknown')}' not recovered"
+                            ),
+                            severity="warning",
+                            estimated_impact_value=float(work["mobilisation_cost"]),
+                        )
+                    )
+        return triggers
+
+    def _check_warranty_period_rework(self, work_history: list[dict]) -> list[LeakageTrigger]:
+        """Detect rework within warranty period billed as new work (should be non-billable)."""
+        triggers: list[LeakageTrigger] = []
+        for work in work_history:
+            if (
+                work.get("is_rework")
+                and work.get("within_warranty_period")
+                and work.get("billed")
+            ):
+                triggers.append(
+                    LeakageTrigger(
+                        trigger_type="warranty_rework_billed",
+                        description=(
+                            f"Rework for '{work.get('activity', 'unknown')}' within warranty "
+                            f"period billed as new work — should be non-billable"
+                        ),
+                        severity="error",
+                        estimated_impact_value=float(work.get("billed_rate", 0)) * work.get("hours", 1),
+                    )
+                )
+        return triggers
+
+
+class ScopeConflictDetector:
+    """Detect scope conflicts between contracted scope and executed work."""
+
+    def detect_conflicts(
+        self,
+        scope_boundaries: list[ScopeBoundaryObject],
+        executed_activities: list[str],
+    ) -> list[dict]:
+        """Return list of conflict dicts with: activity, conflict_type, severity, description."""
+        conflicts: list[dict] = []
+
+        for activity in executed_activities:
+            activity_lower = activity.lower().replace(" ", "_")
+            matched = False
+
+            for boundary in scope_boundaries:
+                boundary_activities = [a.lower().replace(" ", "_") for a in boundary.activities]
+                # Check description-based matching too
+                desc_lower = boundary.description.lower()
+
+                if activity_lower in boundary_activities or activity_lower in desc_lower:
+                    matched = True
+                    if boundary.scope_type == ScopeType.out_of_scope:
+                        conflicts.append({
+                            "activity": activity,
+                            "conflict_type": "out_of_scope",
+                            "severity": "error",
+                            "description": (
+                                f"Activity '{activity}' is explicitly out of scope: "
+                                f"{boundary.description}"
+                            ),
+                        })
+                    elif boundary.scope_type == ScopeType.conditional:
+                        # Conditional scope — flag if conditions exist (caller must
+                        # verify conditions are met externally; we flag as warning)
+                        if boundary.conditions:
+                            conflicts.append({
+                                "activity": activity,
+                                "conflict_type": "conditional_unmet",
+                                "severity": "warning",
+                                "description": (
+                                    f"Activity '{activity}' is conditionally in scope. "
+                                    f"Conditions: {', '.join(boundary.conditions)}"
+                                ),
+                            })
+                    # in_scope => no conflict
+                    break  # stop checking further boundaries for this activity
+
+            if not matched:
+                conflicts.append({
+                    "activity": activity,
+                    "conflict_type": "scope_gap",
+                    "severity": "warning",
+                    "description": (
+                        f"Activity '{activity}' not mentioned in any scope boundary"
+                    ),
+                })
+
+        return conflicts
+
+
+class RecoveryRecommendationEngine:
+    """Generate commercial recovery recommendations from leakage triggers."""
+
+    # Mapping from trigger_type to (RecoveryType, description_template, priority)
+    _TRIGGER_MAP: dict[str, tuple[RecoveryType, str, PriorityLevel]] = {
+        "unbilled_completed_work": (
+            RecoveryType.backbill,
+            "Backbill for unbilled completed work",
+            PriorityLevel.high,
+        ),
+        "rate_below_contract": (
+            RecoveryType.rate_adjustment,
+            "Adjust billing rate to contracted rate",
+            PriorityLevel.medium,
+        ),
+        "penalty_exposure_unmitigated": (
+            RecoveryType.penalty_waiver,
+            "Negotiate penalty waiver or mitigation plan",
+            PriorityLevel.high,
+        ),
+        "scope_creep_detected": (
+            RecoveryType.change_order,
+            "Raise change order for out-of-scope work",
+            PriorityLevel.high,
+        ),
+        "scope_creep_unpriced": (
+            RecoveryType.change_order,
+            "Raise change order for unpriced scope creep",
+            PriorityLevel.high,
+        ),
+        "missing_daywork_sheet": (
+            RecoveryType.backbill,
+            "Obtain signed daywork sheet then backbill",
+            PriorityLevel.medium,
+        ),
+        "rate_escalation_missed": (
+            RecoveryType.rate_adjustment,
+            "Apply contractual rate escalation and adjust invoices",
+            PriorityLevel.medium,
+        ),
+        "abortive_visit_not_claimed": (
+            RecoveryType.backbill,
+            "Claim abortive visit charge",
+            PriorityLevel.low,
+        ),
+        "variation_work_no_change_order": (
+            RecoveryType.change_order,
+            "Raise formal variation order for variation work",
+            PriorityLevel.high,
+        ),
+        "permit_cost_not_recovered": (
+            RecoveryType.backbill,
+            "Pass through permit cost to client",
+            PriorityLevel.low,
+        ),
+    }
+
+    def build_recommendations(
+        self,
+        leakage_triggers: list[LeakageTrigger],
+        contract_objects: list[dict],
+        rate_card: list[RateCardEntry],
+    ) -> list[CommercialRecoveryRecommendation]:
+        """Build recovery recommendations for each leakage trigger."""
+        recommendations: list[CommercialRecoveryRecommendation] = []
+
+        # Build a rate lookup for estimating recovery values
+        rate_lookup: dict[str, float] = {}
+        for rc in rate_card:
+            rate_lookup[rc.activity.lower().replace(" ", "_")] = rc.rate
+
+        for trigger in leakage_triggers:
+            mapping = self._TRIGGER_MAP.get(trigger.trigger_type)
+            if mapping is None:
+                continue
+
+            recovery_type, description, priority = mapping
+
+            # Estimate recovery value from the trigger's estimated_impact_value
+            # or from the rate card if available
+            estimated_value = trigger.estimated_impact_value
+            if estimated_value == 0.0 and trigger.estimated_impact:
+                try:
+                    estimated_value = float(trigger.estimated_impact)
+                except (ValueError, TypeError):
+                    estimated_value = 0.0
+
+            # Collect clause refs from contract objects if available
+            clause_refs: list[str] = list(trigger.clause_refs)
+
+            recommendations.append(
+                CommercialRecoveryRecommendation(
+                    recommendation_type=recovery_type,
+                    description=f"{description}: {trigger.description}",
+                    estimated_recovery_value=estimated_value,
+                    evidence_clause_refs=clause_refs,
+                    priority=priority,
+                    confidence=0.8 if estimated_value > 0 else 0.5,
+                )
+            )
+
+        return recommendations
+
+
+class PenaltyExposureAnalyzer:
+    """Analyze penalty exposure across SLA performance data."""
+
+    def analyze(
+        self,
+        penalty_conditions: list[PenaltyCondition],
+        sla_performance: dict,
+        monthly_invoice_value: float = 0.0,
+    ) -> PenaltyExposureSummary:
+        """Analyze penalty exposure.
+
+        Parameters
+        ----------
+        penalty_conditions:
+            Contractual penalty conditions.
+        sla_performance:
+            Dict mapping metric names to actual performance values
+            or a dict with keys like ``breach_detected``, ``metric_value``, etc.
+        monthly_invoice_value:
+            Monthly invoice total, used for percentage-based penalties.
+
+        Returns
+        -------
+        PenaltyExposureSummary
+        """
+        breach_details: list[dict] = []
+        mitigation_actions: list[str] = []
+        total_exposure = 0.0
+        active_breaches = 0
+
+        for condition in penalty_conditions:
+            trigger_key = condition.trigger.lower().replace(" ", "_") if condition.trigger else ""
+
+            # Determine whether the condition is breached
+            breached = False
+            if trigger_key and trigger_key in sla_performance:
+                # If sla_performance maps trigger to a bool
+                val = sla_performance[trigger_key]
+                if isinstance(val, bool):
+                    breached = val
+                elif isinstance(val, (int, float)):
+                    # Treat numeric values: breach if below threshold (generic heuristic)
+                    breached = val < 1.0  # assume 1.0 = "met"
+            elif sla_performance.get("breach_detected"):
+                breached = True
+
+            if not breached:
+                continue
+
+            # Check grace period
+            grace_days = condition.grace_period_days or 0
+            remaining_grace = sla_performance.get("days_since_breach", grace_days + 1)
+            within_grace = remaining_grace <= grace_days and grace_days > 0
+
+            if within_grace:
+                mitigation_actions.append(
+                    f"Condition '{condition.description}' breached but within "
+                    f"{grace_days}-day grace period — remediate immediately"
+                )
+                breach_details.append({
+                    "clause_id": condition.clause_id,
+                    "description": condition.description,
+                    "breached": True,
+                    "within_grace_period": True,
+                    "financial_exposure": 0.0,
+                })
+                continue
+
+            # Calculate financial exposure
+            exposure = 0.0
+            if condition.penalty_type == "percentage":
+                try:
+                    pct = float(condition.penalty_amount.replace("%", "").strip())
+                    exposure = monthly_invoice_value * (pct / 100.0)
+                except (ValueError, AttributeError):
+                    exposure = 0.0
+            elif condition.penalty_type == "fixed":
+                try:
+                    exposure = float(condition.penalty_amount.replace("£", "").replace("$", "").replace(",", "").strip())
+                except (ValueError, AttributeError):
+                    exposure = 0.0
+            elif condition.penalty_type == "per_breach":
+                try:
+                    per_breach = float(condition.penalty_amount.replace("£", "").replace("$", "").replace(",", "").strip())
+                    breach_count = sla_performance.get("breach_count", 1)
+                    exposure = per_breach * breach_count
+                except (ValueError, AttributeError):
+                    exposure = 0.0
+
+            # Apply cap
+            if condition.cap is not None and condition.cap > 0 and exposure > condition.cap:
+                exposure = condition.cap
+
+            total_exposure += exposure
+            active_breaches += 1
+
+            breach_details.append({
+                "clause_id": condition.clause_id,
+                "description": condition.description,
+                "breached": True,
+                "within_grace_period": False,
+                "financial_exposure": round(exposure, 2),
+                "penalty_type": condition.penalty_type,
+            })
+
+            mitigation_actions.append(
+                f"Remediate '{condition.description}' — exposure £{exposure:.2f}"
+            )
+
+        return PenaltyExposureSummary(
+            total_penalties=len(penalty_conditions),
+            active_breaches=active_breaches,
+            estimated_financial_exposure=round(total_exposure, 2),
+            breach_details=breach_details,
+            mitigation_actions=mitigation_actions,
+        )
 
 
 class PenaltyRuleEngine:

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass, field
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.db.models import ControlObject, ControlObjectType
+from app.domain_packs.reconciliation import MarginDiagnosisBundle, MarginDiagnosisReconciler
 
 logger = get_logger("reconciler")
 
@@ -169,3 +172,119 @@ class ReconcilerService:
             )
 
         return findings
+
+    # ── Margin Reconciliation ──────────────────────────────────────
+
+    async def run_margin_reconciliation(
+        self,
+        tenant_id: uuid.UUID,
+        contract_objects: list[dict],
+        work_orders: list[dict],
+        incidents: list[dict],
+        work_history: list[dict],
+    ) -> dict:
+        """Run full margin diagnosis reconciliation across all three planes.
+
+        Returns a serialisable dict representation of the MarginDiagnosisBundle.
+        """
+        reconciler = MarginDiagnosisReconciler()
+        bundle = reconciler.reconcile(
+            contract_objects=contract_objects,
+            work_orders=work_orders,
+            incidents=incidents,
+            work_history=work_history,
+        )
+
+        logger.info(
+            "margin_reconciliation_complete",
+            tenant_id=str(tenant_id),
+            verdict=bundle.verdict,
+            leakage_count=len(bundle.leakage_patterns),
+            conflict_count=len(bundle.all_conflicts),
+        )
+
+        return {
+            "verdict": bundle.verdict,
+            "confidence": bundle.confidence,
+            "summary": bundle.summary,
+            "contract_wo_links": [link.model_dump() for link in bundle.contract_wo_links],
+            "wo_incident_links": [link.model_dump() for link in bundle.wo_incident_links],
+            "field_billing_conflicts": [c.model_dump() for c in bundle.field_billing_conflicts],
+            "sla_conflicts": [c.model_dump() for c in bundle.sla_conflicts],
+            "leakage_patterns": bundle.leakage_patterns,
+            "evidence_bundle": bundle.evidence_bundle.model_dump(),
+            "all_conflicts": [c.model_dump() for c in bundle.all_conflicts],
+        }
+
+    async def persist_reconciliation_results(
+        self,
+        tenant_id: uuid.UUID,
+        case_id: uuid.UUID,
+        bundle: MarginDiagnosisBundle,
+    ) -> None:
+        """Persist reconciliation results as control objects linked to a workflow case.
+
+        Creates:
+        - A reconciliation_result control object with the verdict and summary
+        - A leakage_trigger control object for each detected leakage pattern
+        - A conflict control object for each cross-plane conflict
+        """
+        # Main reconciliation result object
+        result_obj = ControlObject(
+            id=uuid.uuid4(),
+            tenant_id=tenant_id,
+            control_type=ControlObjectType.reconciliation_result
+            if hasattr(ControlObjectType, "reconciliation_result")
+            else ControlObjectType.obligation,
+            domain="cross_plane",
+            label=f"Reconciliation: {bundle.verdict}",
+            description=bundle.summary,
+            payload={
+                "verdict": bundle.verdict,
+                "confidence": bundle.confidence,
+                "leakage_count": len(bundle.leakage_patterns),
+                "conflict_count": len(bundle.all_conflicts),
+                "contract_wo_link_count": len(bundle.contract_wo_links),
+                "wo_incident_link_count": len(bundle.wo_incident_links),
+            },
+            workflow_case_id=case_id,
+        )
+        self.db.add(result_obj)
+
+        # Leakage triggers
+        for pattern in bundle.leakage_patterns:
+            trigger_obj = ControlObject(
+                id=uuid.uuid4(),
+                tenant_id=tenant_id,
+                control_type=ControlObjectType.leakage_trigger
+                if hasattr(ControlObjectType, "leakage_trigger")
+                else ControlObjectType.obligation,
+                domain="cross_plane",
+                label=f"Leakage: {pattern.get('trigger_type', 'unknown')}",
+                description=pattern.get("description", ""),
+                payload=pattern,
+                workflow_case_id=case_id,
+            )
+            self.db.add(trigger_obj)
+
+        # Conflicts
+        for conflict in bundle.all_conflicts:
+            conflict_obj = ControlObject(
+                id=uuid.uuid4(),
+                tenant_id=tenant_id,
+                control_type=ControlObjectType.obligation,
+                domain="cross_plane",
+                label=f"Conflict: {conflict.field}",
+                description=conflict.resolution,
+                payload=conflict.model_dump(),
+                workflow_case_id=case_id,
+            )
+            self.db.add(conflict_obj)
+
+        await self.db.flush()
+        logger.info(
+            "reconciliation_results_persisted",
+            tenant_id=str(tenant_id),
+            case_id=str(case_id),
+            objects_created=1 + len(bundle.leakage_patterns) + len(bundle.all_conflicts),
+        )

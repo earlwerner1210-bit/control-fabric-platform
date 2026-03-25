@@ -269,8 +269,41 @@ class WorkflowOrchestrator:
             work_history = input_data.execution_history.get("work_history", []) if input_data.execution_history else []
             triggers = leakage_engine.evaluate(co_dicts, work_history)
 
-            # Determine verdict
-            if not triggers:
+            # Cross-plane reconciliation
+            from app.domain_packs.reconciliation import MarginDiagnosisReconciler
+            reconciler = MarginDiagnosisReconciler()
+
+            # Gather work order data if available
+            work_orders = []
+            if input_data.work_order_document_id:
+                wo_doc = await self._load_doc(input_data.work_order_document_id, tenant_id)
+                wo_parser = WorkOrderParser()
+                parsed_wo = wo_parser.parse_work_order(wo_doc.parsed_payload or {})
+                work_orders = [parsed_wo.model_dump()]
+
+            # Gather incident data if available
+            incidents = []
+            if input_data.incident_document_id:
+                inc_doc = await self._load_doc(input_data.incident_document_id, tenant_id)
+                inc_parser = IncidentParser()
+                parsed_inc = inc_parser.parse_incident(inc_doc.parsed_payload or {})
+                incidents = [parsed_inc.model_dump()]
+
+            diagnosis_bundle = reconciler.reconcile(
+                contract_objects=co_dicts,
+                work_orders=work_orders,
+                incidents=incidents,
+                work_history=work_history,
+            )
+
+            # Use reconciliation results to enhance verdict
+            if diagnosis_bundle.verdict == "penalty_risk":
+                verdict = MarginVerdict.penalty_risk
+            elif diagnosis_bundle.leakage_patterns:
+                verdict = MarginVerdict.under_recovery
+            elif diagnosis_bundle.all_conflicts:
+                verdict = MarginVerdict.unknown
+            elif not triggers:
                 verdict = MarginVerdict.billable
             elif any(t.trigger_type == "penalty_exposure_unmitigated" for t in triggers):
                 verdict = MarginVerdict.penalty_risk
@@ -278,6 +311,20 @@ class WorkflowOrchestrator:
                 verdict = MarginVerdict.under_recovery
             else:
                 verdict = MarginVerdict.unknown
+
+            # Audit reconciliation findings
+            await self.audit.log_event(
+                tenant_id,
+                "margin_reconciliation_completed",
+                case.id,
+                detail=(
+                    f"verdict={diagnosis_bundle.verdict}, "
+                    f"leakage_patterns={len(diagnosis_bundle.leakage_patterns)}, "
+                    f"conflicts={len(diagnosis_bundle.all_conflicts)}, "
+                    f"contract_wo_links={len(diagnosis_bundle.contract_wo_links)}, "
+                    f"wo_incident_links={len(diagnosis_bundle.wo_incident_links)}"
+                ),
+            )
 
             # Model narrative
             summary = await self.inference.summarize(

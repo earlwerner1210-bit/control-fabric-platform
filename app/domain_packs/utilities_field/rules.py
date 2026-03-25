@@ -316,6 +316,7 @@ _STREET_WORKS_CATEGORIES: set[str] = {
     SPENWorkCategory.civils_excavation,
     SPENWorkCategory.reinstatement,
     SPENWorkCategory.cable_laying,
+    SPENWorkCategory.cable_jointing,
     SPENWorkCategory.new_connection,
 }
 
@@ -627,6 +628,16 @@ class SPENReadinessEngine:
                 message="Confined space permit obtained" if has_confined else "Missing confined space permit for substation maintenance",
                 severity="warning" if not has_confined else "info",
             ))
+
+        # General check: any explicitly declared required permit that is not obtained
+        for p in work_order.required_permits:
+            if p.required and not p.obtained:
+                results.append(RuleResult(
+                    rule_name=f"spen_required_permit_{p.permit_type.value}",
+                    passed=False,
+                    message=f"Required permit not obtained: {p.permit_type.value}",
+                    severity="error",
+                ))
 
         return results
 

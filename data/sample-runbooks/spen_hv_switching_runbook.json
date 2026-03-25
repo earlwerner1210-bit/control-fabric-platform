@@ -1,0 +1,192 @@
+{
+  "runbook_id": "RB-SPEN-HV-001",
+  "title": "HV Switching Operations — Standard Procedure",
+  "version": "3.2",
+  "domain": "utilities-field",
+  "domain_pack": "contract-margin",
+  "applicable_categories": ["hv_switching", "hv_operations", "planned_maintenance", "emergency_switching"],
+  "applicable_voltage_levels": ["11kV", "33kV"],
+  "regulatory_references": [
+    "Electricity at Work Regulations 1989",
+    "Electricity Safety, Quality and Continuity Regulations 2002 (ESQCR)",
+    "SP Energy Networks Safety Rules (HV Apparatus)",
+    "HSE Guidance Note GS6 — Avoidance of Danger from Overhead Electric Lines",
+    "Energy Networks Association Engineering Recommendation G59"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "action": "Pre-work safety briefing and documentation check",
+      "description": "Conduct toolbox talk with all crew members. Verify all safety documentation is in place: approved switching programme, sanction for test (if applicable), risk assessment, method statement. Confirm all personnel hold valid HV Authorised Person or HV Competent Person certification as required. Check weather conditions — abandon switching if lightning is within 10km.",
+      "role": "senior_authorised_person",
+      "max_duration_minutes": 20,
+      "automated": false,
+      "safety_critical": true,
+      "required_documents": ["switching_programme", "risk_assessment", "method_statement", "sanction_for_test"],
+      "abort_conditions": ["lightning_within_10km", "personnel_certifications_expired", "switching_programme_not_approved"]
+    },
+    {
+      "step": 2,
+      "action": "Contact Network Control Centre and confirm switching programme",
+      "description": "Call SPEN Network Control Centre (NCC) and identify yourself by name and SAP/AP number. Confirm the switching programme reference, switching steps, and expected sequence. NCC will confirm network state and authorise commencement. Record NCC operator name and authorisation time.",
+      "role": "senior_authorised_person",
+      "max_duration_minutes": 10,
+      "automated": false,
+      "safety_critical": true,
+      "communication_required": {
+        "contact": "SP Energy Networks — Network Control Centre",
+        "method": "telephone",
+        "protocol": "phonetic_alphabet_for_circuit_identifiers"
+      }
+    },
+    {
+      "step": 3,
+      "action": "Isolation verification and point of isolation identification",
+      "description": "Identify and verify all points of isolation as specified in the switching programme. Confirm circuit identification by checking labels, cable route diagrams, and substation schematics. Cross-reference with NCC network diagram. Never assume circuit identity — always verify.",
+      "role": "senior_authorised_person",
+      "max_duration_minutes": 15,
+      "automated": false,
+      "safety_critical": true,
+      "verification_requirements": ["circuit_identity_confirmed", "isolation_points_identified", "schematic_matches_physical"]
+    },
+    {
+      "step": 4,
+      "action": "Execute switching sequence — open circuit breakers and isolators",
+      "description": "Execute each switching step in strict order as listed in the approved switching programme. Open circuit breakers first, then open associated isolators. At each step, confirm operation with NCC before proceeding to the next step. Record time of each switching operation. Observe for any abnormal indications (arcing, unusual noise, incomplete travel).",
+      "role": "senior_authorised_person",
+      "max_duration_minutes": 30,
+      "automated": false,
+      "safety_critical": true,
+      "step_by_step_ncc_confirmation": true,
+      "abort_conditions": ["abnormal_arcing", "incomplete_switch_travel", "ncc_instruction_to_halt", "unexpected_load_indication"]
+    },
+    {
+      "step": 5,
+      "action": "Lock-out/tag-out (LOTO) and prove dead",
+      "description": "Apply lock-out devices to all isolation points. Attach caution tags with SAP name, date, and switching programme reference. Prove dead at the point of work using an approved voltage indicator. CRITICAL: prove the voltage indicator on a known live source BEFORE and AFTER proving dead (prove-test-prove sequence). Apply portable HV earth leads at the point of work.",
+      "role": "senior_authorised_person",
+      "max_duration_minutes": 20,
+      "automated": false,
+      "safety_critical": true,
+      "mandatory_sequence": [
+        "Apply lock-out devices to all isolation points",
+        "Attach caution tags with SAP details",
+        "Prove voltage indicator on known live source (PROVE)",
+        "Test for dead at point of work (TEST)",
+        "Re-prove voltage indicator on known live source (PROVE)",
+        "Apply portable HV earth leads"
+      ],
+      "never_skip": true
+    },
+    {
+      "step": 6,
+      "action": "Issue safety document and authorise work",
+      "description": "Issue the appropriate safety document (Permit to Work, Sanction for Test, or Limited Work Certificate) to the person in charge of the work party. Brief the recipient on the exact limits of the safety document, the points of isolation, and the earthing arrangements. The recipient must sign to accept the safety document.",
+      "role": "senior_authorised_person",
+      "max_duration_minutes": 10,
+      "automated": false,
+      "safety_critical": true,
+      "safety_document_types": ["permit_to_work", "sanction_for_test", "limited_work_certificate"]
+    },
+    {
+      "step": 7,
+      "action": "Maintenance/repair works execution",
+      "description": "Work party carries out the planned maintenance, repair, or testing activities within the limits of the safety document. SAP monitors progress and maintains communication with NCC. Any deviation from the planned scope must be approved by NCC and may require a revised switching programme.",
+      "role": "work_party_leader",
+      "max_duration_minutes": null,
+      "automated": false,
+      "safety_critical": false,
+      "notes": "Duration depends on the specific maintenance activity. SAP remains responsible for the safety of the work area throughout."
+    },
+    {
+      "step": 8,
+      "action": "Clear safety document and prepare for restoration",
+      "description": "Work party confirms all work complete. All personnel and tools clear of the apparatus. Work party leader returns the safety document to the SAP. SAP verifies the work area is clear by personal inspection. Record completion time and any defects found.",
+      "role": "senior_authorised_person",
+      "max_duration_minutes": 15,
+      "automated": false,
+      "safety_critical": true,
+      "checklist": ["all_personnel_clear", "all_tools_removed", "safety_document_returned", "work_area_inspected", "defects_recorded"]
+    },
+    {
+      "step": 9,
+      "action": "Remove earth leads and lock-out devices",
+      "description": "Remove portable HV earth leads. Remove lock-out devices and caution tags. Verify all isolation points are ready for restoration. Confirm with NCC that all earths and locks are removed and the circuit is ready for energisation.",
+      "role": "senior_authorised_person",
+      "max_duration_minutes": 15,
+      "automated": false,
+      "safety_critical": true,
+      "mandatory_sequence": [
+        "Remove portable HV earth leads",
+        "Remove caution tags",
+        "Remove lock-out devices",
+        "Verify all isolation points clear",
+        "Confirm with NCC — circuit ready for energisation"
+      ]
+    },
+    {
+      "step": 10,
+      "action": "Execute restoration switching sequence",
+      "description": "Execute the restoration switching steps in strict order as per the switching programme. Close isolators first, then close circuit breakers. At each step, confirm operation with NCC. Monitor for any abnormal indications during energisation (protection relay operation, unusual noise, earth fault indications). If protection operates on closing, do NOT re-close — report to NCC immediately.",
+      "role": "senior_authorised_person",
+      "max_duration_minutes": 30,
+      "automated": false,
+      "safety_critical": true,
+      "step_by_step_ncc_confirmation": true,
+      "abort_conditions": ["protection_relay_operation", "earth_fault_indication", "abnormal_noise", "ncc_instruction_to_halt"]
+    },
+    {
+      "step": 11,
+      "action": "Post-energisation testing and verification",
+      "description": "Verify successful energisation: check voltage indicators, confirm load current is flowing, verify protection relay flags are clear. For transformer works, check oil levels and temperature gauges. Confirm with NCC that all network indications are normal. If applicable, verify SCADA telemetry is updating correctly.",
+      "role": "senior_authorised_person",
+      "max_duration_minutes": 15,
+      "automated": false,
+      "safety_critical": true,
+      "verification_checks": ["voltage_normal", "load_current_flowing", "protection_flags_clear", "scada_telemetry_updating"]
+    },
+    {
+      "step": 12,
+      "action": "Complete documentation and close out",
+      "description": "Complete the switching programme log with all times and actions. Sign off safety documents. Upload photographic evidence to SPEN works management portal. Complete work order in field service management system. Report completion to NCC and confirm switching programme is closed.",
+      "role": "senior_authorised_person",
+      "max_duration_minutes": 20,
+      "automated": false,
+      "safety_critical": false,
+      "documentation_required": [
+        "switching_programme_log_completed",
+        "safety_documents_signed_off",
+        "photographic_evidence_uploaded",
+        "work_order_completed",
+        "ncc_notified_of_completion"
+      ]
+    }
+  ],
+  "escalation_criteria": [
+    {"condition": "Protection relay operates on restoration — DO NOT re-close", "action": "report_to_ncc_immediately", "escalation_level": "ncc_control_engineer"},
+    {"condition": "Unable to complete switching step — switch mechanism failure", "action": "halt_and_report_to_ncc", "escalation_level": "ncc_control_engineer"},
+    {"condition": "Weather deterioration — lightning detected within 10km", "action": "abandon_switching_make_safe", "escalation_level": "ncc_control_engineer"},
+    {"condition": "Personnel injury or near miss", "action": "stop_work_administer_first_aid_report", "escalation_level": "spen_safety_team"},
+    {"condition": "Unexpected live apparatus discovered", "action": "withdraw_all_personnel_report_to_ncc", "escalation_level": "ncc_control_engineer"},
+    {"condition": "Planned outage window exceeded — customers still off supply", "action": "notify_ncc_and_customer_operations", "escalation_level": "ncc_shift_manager"}
+  ],
+  "required_skills": ["hv_authorised_person", "hv_switching", "safety_rule_compliance", "protection_systems"],
+  "required_certifications": ["hv_authorised_person_spen", "ecs_card", "first_aid_at_work"],
+  "tools_required": [
+    "approved_voltage_indicator",
+    "proving_unit",
+    "portable_hv_earth_leads",
+    "loto_padlocks_and_tags",
+    "arc_flash_ppe",
+    "insulating_gloves",
+    "two_way_radio_or_mobile_phone",
+    "substation_key_spen"
+  ],
+  "minimum_crew_size": 2,
+  "lone_working_permitted": false,
+  "sla_targets": {
+    "emergency": {"response_minutes": 60, "resolution_minutes": 240},
+    "urgent": {"response_minutes": 120, "resolution_minutes": 480},
+    "planned": {"on_time_completion_target_percent": 95}
+  }
+}

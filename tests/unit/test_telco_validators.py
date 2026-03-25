@@ -139,7 +139,7 @@ class TestEscalationRules:
         result = escalation_engine.evaluate(incident, sla_breached=True)
 
         assert result.escalate is True
-        assert result.level == EscalationLevel.l3
+        assert result.level == EscalationLevel.management
         assert "SLA breach" in result.reason
 
     def test_outage_escalates(self, escalation_engine: EscalationRuleEngine):

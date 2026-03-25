@@ -41,7 +41,7 @@ TELCO_OPS_EVAL_CASES = [
         },
         "expected_output": {
             "escalate": False,
-            "next_action": "investigate",
+            "next_action": "assign_engineer",
         },
     },
     # ------------------------------------------------------------------

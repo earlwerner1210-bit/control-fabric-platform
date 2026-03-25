@@ -9,13 +9,19 @@ from typing import Any
 from app.domain_packs.contract_margin.schemas import (
     BillableCategory,
     BillableEvent,
+    BillingGate,
+    BillingPrerequisite,
     ClauseType,
     ExtractedClause,
     Obligation,
     ParsedContract,
     PenaltyCondition,
     RateCardEntry,
+    ReattendanceRule,
     SLAEntry,
+    ServiceCreditRule,
+    SPENRateCard,
+    WorkCategory,
 )
 
 

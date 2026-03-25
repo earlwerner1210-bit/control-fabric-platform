@@ -44,6 +44,47 @@ class BillableCategory(str, enum.Enum):
     milestone = "milestone"
     cost_plus = "cost_plus"
     retainer = "retainer"
+    daywork = "daywork"
+    emergency_callout = "emergency_callout"
+    abortive_visit = "abortive_visit"
+    provisional_sum = "provisional_sum"
+    measured_work = "measured_work"
+    variation = "variation"
+
+
+class WorkCategory(str, enum.Enum):
+    hv_switching = "hv_switching"
+    lv_fault_repair = "lv_fault_repair"
+    cable_jointing = "cable_jointing"
+    overhead_lines = "overhead_lines"
+    substation_maintenance = "substation_maintenance"
+    metering = "metering"
+    connections = "connections"
+    tree_cutting = "tree_cutting"
+    civils = "civils"
+    reinstatement = "reinstatement"
+
+
+class BillingPrerequisite(str, enum.Enum):
+    prior_approval = "prior_approval"
+    purchase_order = "purchase_order"
+    variation_order = "variation_order"
+    daywork_sheet_signed = "daywork_sheet_signed"
+    completion_certificate = "completion_certificate"
+    customer_sign_off = "customer_sign_off"
+    as_built_submitted = "as_built_submitted"
+    permit_closed_out = "permit_closed_out"
+
+
+class NonBillableReason(str, enum.Enum):
+    provider_fault_reattendance = "provider_fault_reattendance"
+    idle_crew_no_access_provider = "idle_crew_no_access_provider"
+    quality_failure_rework = "quality_failure_rework"
+    scope_exclusion = "scope_exclusion"
+    missing_approval = "missing_approval"
+    duplicate_claim = "duplicate_claim"
+    expired_rate = "expired_rate"
+    incomplete_evidence = "incomplete_evidence"
 
 
 class ScopeType(str, enum.Enum):
@@ -169,6 +210,53 @@ class BillableEvent(BaseModel):
     conditions: list[str] = Field(default_factory=list)
     requires_approval: bool = False
     requires_work_order: bool = False
+
+
+# ---------------------------------------------------------------------------
+# SPEN / Vodafone domain models
+# ---------------------------------------------------------------------------
+
+class BillingGate(BaseModel):
+    """A billing prerequisite gate that must be satisfied before invoicing."""
+    gate_type: BillingPrerequisite
+    description: str
+    satisfied: bool = False
+    evidence_ref: str = ""
+
+
+class SPENRateCard(BaseModel):
+    """Rate card entry for SPEN electricity distribution managed services."""
+    work_category: WorkCategory
+    activity_code: str
+    description: str
+    unit: str  # "each", "metre", "hour", "day"
+    base_rate: float
+    emergency_multiplier: float = 1.5
+    overtime_multiplier: float = 1.3
+    weekend_multiplier: float = 1.5
+    currency: str = "GBP"
+    effective_from: str = ""
+    effective_to: str = ""
+    requires_approval_above: float | None = None  # threshold requiring prior approval
+
+
+class ReattendanceRule(BaseModel):
+    """Rule governing whether a re-attendance visit is billable."""
+    trigger: str  # "provider_fault", "customer_fault", "dno_fault", "third_party", "weather"
+    billable: bool
+    rate_modifier: float = 1.0
+    evidence_required: list[str] = Field(default_factory=list)  # what evidence is needed
+    description: str = ""
+
+
+class ServiceCreditRule(BaseModel):
+    """Service credit mechanism triggered by SLA breaches."""
+    sla_metric: str  # "response_time", "resolution_time", "first_time_fix", "appointment_kept"
+    threshold_value: float
+    credit_percentage: float
+    cap_percentage: float = 10.0  # cap as % of monthly invoice
+    measurement_period: str = "monthly"
+    exclusions: list[str] = Field(default_factory=list)  # e.g. "force_majeure", "customer_caused"
 
 
 # ---------------------------------------------------------------------------

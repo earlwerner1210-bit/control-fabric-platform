@@ -6,11 +6,14 @@ import uuid
 from typing import Any
 
 from app.domain_packs.telco_ops.schemas import (
+    ClosureGate,
+    ClosurePrerequisite,
     EscalationDecision,
     EscalationLevel,
     ImpactLevel,
     IncidentSeverity,
     IncidentState,
+    MajorIncidentRecord,
     NextAction,
     ParsedIncident,
     ParsedRunbook,
@@ -21,6 +24,7 @@ from app.domain_packs.telco_ops.schemas import (
     RunbookStep,
     ServiceState,
     ServiceStateObject,
+    VodafoneSLADefinition,
 )
 from app.schemas.validation import RuleResult
 

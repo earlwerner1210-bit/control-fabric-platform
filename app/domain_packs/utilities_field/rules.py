@@ -5,12 +5,18 @@ from __future__ import annotations
 from datetime import datetime
 
 from app.domain_packs.utilities_field.schemas import (
+    CompletionEvidence,
+    CompletionEvidenceType,
     ComplianceBlocker,
+    CrewRequirement,
     EngineerProfile,
     ParsedWorkOrder,
     ReadinessDecision,
     ReadinessStatus,
     SkillFitAnalysis,
+    SPENReadinessGate,
+    SPENWorkCategory,
+    UKAccreditation,
 )
 from app.schemas.validation import RuleResult
 

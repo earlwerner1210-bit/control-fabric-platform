@@ -261,3 +261,99 @@ class MaterialRequirement(BaseModel):
     unit: str = "each"
     available: bool = True
     alternative: str = ""
+
+
+# ---------------------------------------------------------------------------
+# SPEN / UK Utility Managed Services schemas
+# ---------------------------------------------------------------------------
+
+
+class SPENWorkCategory(str, enum.Enum):
+    """Work categories for SPEN (Scottish Power Energy Networks) electricity distribution."""
+
+    hv_switching = "hv_switching"
+    lv_fault_repair = "lv_fault_repair"
+    cable_jointing = "cable_jointing"
+    overhead_lines = "overhead_lines"
+    substation_maintenance = "substation_maintenance"
+    metering_installation = "metering_installation"
+    metering_exchange = "metering_exchange"
+    new_connection = "new_connection"
+    service_alteration = "service_alteration"
+    tree_cutting = "tree_cutting"
+    civils_excavation = "civils_excavation"
+    reinstatement = "reinstatement"
+    cable_laying = "cable_laying"
+    pole_erection = "pole_erection"
+    transformer_installation = "transformer_installation"
+
+
+class UKAccreditation(str, enum.Enum):
+    """UK-specific accreditations and competency cards for utility field work."""
+
+    ecs_card = "ecs_card"
+    jib_grading = "jib_grading"
+    cscs_card = "cscs_card"
+    eighteen_edition = "eighteen_edition"
+    hv_authorized_person = "hv_authorized_person"
+    lv_authorized_person = "lv_authorized_person"
+    hv_competent_person = "hv_competent_person"
+    cable_jointer_approved = "cable_jointer_approved"
+    cat_and_genny = "cat_and_genny"
+    nrswa_supervisor = "nrswa_supervisor"
+    nrswa_operative = "nrswa_operative"
+    sssts = "sssts"
+    smsts = "smsts"
+    first_aid_at_work = "first_aid_at_work"
+    confined_space_entry = "confined_space_entry"
+    working_at_height = "working_at_height"
+    asbestos_awareness = "asbestos_awareness"
+    ipaf_mewp = "ipaf_mewp"
+    abrasive_wheels = "abrasive_wheels"
+
+
+class CompletionEvidenceType(str, enum.Enum):
+    """Types of evidence required for SPEN work completion sign-off."""
+
+    before_photo = "before_photo"
+    after_photo = "after_photo"
+    as_built_drawing = "as_built_drawing"
+    customer_sign_off = "customer_sign_off"
+    safety_documentation = "safety_documentation"
+    permit_close_out = "permit_close_out"
+    test_certificate = "test_certificate"
+    reinstatement_record = "reinstatement_record"
+    waste_transfer_note = "waste_transfer_note"
+    risk_assessment_completed = "risk_assessment_completed"
+
+
+class SPENReadinessGate(BaseModel):
+    """A readiness gate that must be satisfied before SPEN work can proceed."""
+
+    gate_name: str
+    gate_type: str  # "permit", "accreditation", "safety", "access", "materials", "design", "customer", "dependency"
+    required: bool = True
+    satisfied: bool = False
+    evidence_ref: str = ""
+    blocking: bool = True
+    description: str = ""
+
+
+class CompletionEvidence(BaseModel):
+    """Evidence item required for SPEN work completion sign-off."""
+
+    evidence_type: CompletionEvidenceType
+    description: str = ""
+    provided: bool = False
+    reference: str = ""
+    timestamp: str = ""
+
+
+class CrewRequirement(BaseModel):
+    """Crew composition requirements for SPEN work categories."""
+
+    minimum_crew_size: int = 1
+    requires_supervisor: bool = False
+    requires_hv_authorized: bool = False
+    requires_cable_jointer: bool = False
+    special_roles: list[str] = []

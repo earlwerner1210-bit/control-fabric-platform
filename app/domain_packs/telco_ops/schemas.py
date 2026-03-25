@@ -259,3 +259,152 @@ class OpsRecommendation(BaseModel):
     estimated_resolution_minutes: int = 0
     runbook_ref: str | None = None
     risk_if_delayed: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Vodafone UK managed-services enums and models
+# ---------------------------------------------------------------------------
+
+
+class VodafoneServiceDomain(str, enum.Enum):
+    core_network = "core_network"
+    ran_radio = "ran_radio"
+    transport_network = "transport_network"
+    vas_platforms = "vas_platforms"
+    it_infrastructure = "it_infrastructure"
+    billing_mediation = "billing_mediation"
+    oss_bss = "oss_bss"
+    customer_facing = "customer_facing"
+    provisioning = "provisioning"
+    number_portability = "number_portability"
+    voip_ims = "voip_ims"
+
+
+class VodafoneIncidentCategory(str, enum.Enum):
+    network_outage = "network_outage"
+    network_degradation = "network_degradation"
+    capacity_breach = "capacity_breach"
+    config_error = "config_error"
+    hardware_failure = "hardware_failure"
+    software_bug = "software_bug"
+    security_incident = "security_incident"
+    planned_maintenance_overrun = "planned_maintenance_overrun"
+    vendor_dependency = "vendor_dependency"
+    power_failure = "power_failure"
+    fibre_cut = "fibre_cut"
+    radio_interference = "radio_interference"
+
+
+class MajorIncidentPhase(str, enum.Enum):
+    detection = "detection"
+    bridge_call_initiated = "bridge_call_initiated"
+    investigation = "investigation"
+    containment = "containment"
+    resolution = "resolution"
+    rca_pending = "rca_pending"
+    rca_complete = "rca_complete"
+    post_incident_review = "post_incident_review"
+
+
+class ClosurePrerequisite(str, enum.Enum):
+    root_cause_identified = "root_cause_identified"
+    workaround_documented = "workaround_documented"
+    permanent_fix_planned = "permanent_fix_planned"
+    customer_notified = "customer_notified"
+    service_restored = "service_restored"
+    rca_submitted = "rca_submitted"
+    problem_record_created = "problem_record_created"
+    change_request_raised = "change_request_raised"
+
+
+class VodafoneSLADefinition(BaseModel):
+    """SLA definition for a Vodafone managed-services severity level."""
+
+    severity: IncidentSeverity
+    response_time_minutes: int
+    resolution_time_minutes: int
+    update_frequency_minutes: int
+    bridge_call_required: bool = False
+    rca_required: bool = False
+    rca_due_days: int = 5
+    escalation_intervals: list[dict] = []  # [{"minutes": 30, "to": "l2"}, ...]
+
+
+# Pre-built Vodafone SLA definitions
+VODAFONE_SLA_DEFINITIONS: list[VodafoneSLADefinition] = [
+    VodafoneSLADefinition(
+        severity=IncidentSeverity.p1,
+        response_time_minutes=15,
+        resolution_time_minutes=240,
+        update_frequency_minutes=15,
+        bridge_call_required=True,
+        rca_required=True,
+        rca_due_days=3,
+        escalation_intervals=[
+            {"minutes": 15, "to": "l2"},
+            {"minutes": 30, "to": "l3"},
+            {"minutes": 60, "to": "management"},
+        ],
+    ),
+    VodafoneSLADefinition(
+        severity=IncidentSeverity.p2,
+        response_time_minutes=30,
+        resolution_time_minutes=480,
+        update_frequency_minutes=30,
+        bridge_call_required=True,
+        rca_required=True,
+        rca_due_days=5,
+        escalation_intervals=[
+            {"minutes": 30, "to": "l2"},
+            {"minutes": 60, "to": "l3"},
+            {"minutes": 120, "to": "management"},
+        ],
+    ),
+    VodafoneSLADefinition(
+        severity=IncidentSeverity.p3,
+        response_time_minutes=240,
+        resolution_time_minutes=1440,
+        update_frequency_minutes=240,
+        bridge_call_required=False,
+        rca_required=False,
+        rca_due_days=5,
+        escalation_intervals=[
+            {"minutes": 240, "to": "l2"},
+            {"minutes": 480, "to": "l3"},
+        ],
+    ),
+    VodafoneSLADefinition(
+        severity=IncidentSeverity.p4,
+        response_time_minutes=480,
+        resolution_time_minutes=7200,
+        update_frequency_minutes=1440,
+        bridge_call_required=False,
+        rca_required=False,
+        rca_due_days=5,
+        escalation_intervals=[
+            {"minutes": 1440, "to": "l2"},
+        ],
+    ),
+]
+
+
+class MajorIncidentRecord(BaseModel):
+    """Tracks the lifecycle of a Vodafone major incident (P1/P2 with MIM)."""
+
+    incident_id: str
+    phase: MajorIncidentPhase
+    bridge_call_id: str = ""
+    bridge_participants: list[str] = []
+    customer_comms_sent: list[dict] = []
+    rca_status: str = ""  # "not_started", "in_progress", "submitted", "accepted"
+    rca_due_date: str = ""
+    problem_record_id: str = ""
+
+
+class ClosureGate(BaseModel):
+    """A single closure prerequisite gate for incident closure validation."""
+
+    prerequisite: ClosurePrerequisite
+    satisfied: bool = False
+    evidence_ref: str = ""
+    mandatory: bool = True

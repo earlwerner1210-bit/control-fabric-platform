@@ -23,6 +23,8 @@ from app.domain_packs.utilities_field.schemas import (
     SkillCategory,
     SkillFitAnalysis,
     SkillRecord,
+    SPENReadinessGate,
+    SPENWorkCategory,
     WorkOrderType,
 )
 
@@ -708,3 +710,252 @@ class FieldLogParser:
             previous_visit_count=visit_count,
             recommended_mitigations=mitigations,
         )
+
+
+# ---------------------------------------------------------------------------
+# SPEN-specific work order parser
+# ---------------------------------------------------------------------------
+
+# Gates automatically inferred per work category
+_SPEN_GATE_TEMPLATES: dict[str, list[dict]] = {
+    SPENWorkCategory.hv_switching: [
+        {"gate_name": "hv_safety_document", "gate_type": "safety", "description": "HV safety document issued and signed"},
+        {"gate_name": "hv_switching_schedule", "gate_type": "permit", "description": "HV switching schedule approved by control engineer"},
+        {"gate_name": "outage_notification", "gate_type": "customer", "description": "All affected customers notified of planned outage"},
+    ],
+    SPENWorkCategory.cable_jointing: [
+        {"gate_name": "cable_test_results", "gate_type": "dependency", "description": "Pre-jointing cable test results available"},
+        {"gate_name": "jointing_materials", "gate_type": "materials", "description": "Jointing kit and materials confirmed on-van"},
+    ],
+    SPENWorkCategory.new_connection: [
+        {"gate_name": "scheme_design", "gate_type": "design", "description": "Scheme design approved by SPEN design team"},
+        {"gate_name": "wayleave_consent", "gate_type": "access", "description": "Wayleave or easement consent obtained"},
+        {"gate_name": "customer_readiness", "gate_type": "customer", "description": "Customer installation ready for connection"},
+    ],
+    SPENWorkCategory.service_alteration: [
+        {"gate_name": "scheme_design", "gate_type": "design", "description": "Service alteration design approved"},
+        {"gate_name": "customer_agreement", "gate_type": "customer", "description": "Customer agreed to alteration scope and schedule"},
+    ],
+    SPENWorkCategory.civils_excavation: [
+        {"gate_name": "nrswa_permit", "gate_type": "permit", "description": "NRSWA S50 notice served and permit obtained"},
+        {"gate_name": "traffic_management", "gate_type": "permit", "description": "Traffic management plan approved"},
+        {"gate_name": "utility_drawings", "gate_type": "design", "description": "Statutory utility drawings obtained and reviewed"},
+        {"gate_name": "cat_genny_scan", "gate_type": "safety", "description": "CAT & Genny scan completed before excavation"},
+    ],
+    SPENWorkCategory.reinstatement: [
+        {"gate_name": "nrswa_permit", "gate_type": "permit", "description": "NRSWA reinstatement notice served"},
+        {"gate_name": "reinstatement_spec", "gate_type": "design", "description": "Reinstatement specification confirmed (SROH compliant)"},
+    ],
+    SPENWorkCategory.overhead_lines: [
+        {"gate_name": "line_clearance", "gate_type": "safety", "description": "Line confirmed dead and earthed, or live line working permit issued"},
+        {"gate_name": "landowner_access", "gate_type": "access", "description": "Landowner access permission confirmed"},
+    ],
+    SPENWorkCategory.substation_maintenance: [
+        {"gate_name": "substation_access", "gate_type": "access", "description": "Substation key access confirmed"},
+        {"gate_name": "confined_space_permit", "gate_type": "permit", "description": "Confined space permit issued if applicable"},
+    ],
+    SPENWorkCategory.metering_installation: [
+        {"gate_name": "meter_asset", "gate_type": "materials", "description": "Meter unit allocated and on-van"},
+        {"gate_name": "customer_appointment", "gate_type": "customer", "description": "Customer appointment confirmed"},
+    ],
+    SPENWorkCategory.metering_exchange: [
+        {"gate_name": "meter_asset", "gate_type": "materials", "description": "Replacement meter allocated and on-van"},
+        {"gate_name": "customer_appointment", "gate_type": "customer", "description": "Customer appointment confirmed"},
+    ],
+    SPENWorkCategory.pole_erection: [
+        {"gate_name": "landowner_consent", "gate_type": "access", "description": "Landowner consent for pole position"},
+        {"gate_name": "ground_conditions", "gate_type": "safety", "description": "Ground conditions assessed for pole foundation"},
+    ],
+    SPENWorkCategory.transformer_installation: [
+        {"gate_name": "hv_safety_document", "gate_type": "safety", "description": "HV safety document issued"},
+        {"gate_name": "crane_booked", "gate_type": "dependency", "description": "Crane/HIAB booked and confirmed"},
+        {"gate_name": "foundation_ready", "gate_type": "dependency", "description": "Transformer plinth/foundation ready"},
+    ],
+    SPENWorkCategory.tree_cutting: [
+        {"gate_name": "tree_survey", "gate_type": "design", "description": "Tree survey completed and cutting plan agreed"},
+        {"gate_name": "landowner_consent", "gate_type": "access", "description": "Landowner notified and consent obtained"},
+    ],
+    SPENWorkCategory.cable_laying: [
+        {"gate_name": "nrswa_permit", "gate_type": "permit", "description": "NRSWA permit for cable trench"},
+        {"gate_name": "cable_route_design", "gate_type": "design", "description": "Cable route design approved"},
+        {"gate_name": "cable_drums", "gate_type": "materials", "description": "Cable drums delivered to site or on-vehicle"},
+    ],
+}
+
+
+class SPENWorkOrderParser:
+    """Parse SPEN-format work orders for UK electricity distribution."""
+
+    def parse_spen_work_order(self, data: dict) -> ParsedWorkOrder:
+        """Parse a SPEN-format work order with SPEN-specific fields.
+
+        Expected SPEN-specific fields:
+        - work_category: SPENWorkCategory value
+        - scheme_ref: SPEN scheme reference number
+        - notified_date: date customer/authority was notified
+        - planned_outage: whether a planned outage is required
+        """
+        # Map SPEN work categories to generic work order types
+        work_category = data.get("work_category", "")
+        wo_type = self._map_category_to_type(work_category)
+
+        skills = [
+            SkillRecord(
+                skill_name=s if isinstance(s, str) else s.get("skill_name", s.get("skill", "")),
+                category=SkillCategory(s.get("category", "general")) if isinstance(s, dict) and s.get("category") in SkillCategory.__members__ else SkillCategory.general,
+            )
+            for s in data.get("required_skills", [])
+        ]
+        permits = [
+            PermitRequirement(
+                permit_type=PermitType(p.get("permit_type", "building_access")),
+                description=p.get("description", ""),
+                required=p.get("required", True),
+                obtained=p.get("obtained", False),
+                reference=p.get("reference", ""),
+            )
+            for p in data.get("required_permits", [])
+        ]
+
+        # Build description incorporating SPEN fields
+        description = data.get("description", "")
+        scheme_ref = data.get("scheme_ref", "")
+        if scheme_ref and scheme_ref not in description:
+            description = f"[Scheme: {scheme_ref}] {description}"
+
+        planned_outage = data.get("planned_outage", False)
+        notified_date = data.get("notified_date", "")
+
+        # If planned outage and customer not confirmed, flag it
+        customer_confirmed = data.get("customer_confirmed", False)
+        if planned_outage and notified_date:
+            # Customer is considered notified if notified_date is provided
+            customer_confirmed = customer_confirmed or bool(notified_date)
+
+        special_instructions = data.get("special_instructions", "")
+        if work_category:
+            special_instructions = f"SPEN Work Category: {work_category}. {special_instructions}".strip()
+
+        return ParsedWorkOrder(
+            work_order_id=data.get("work_order_id", data.get("id", "unknown")),
+            work_order_type=wo_type,
+            description=description,
+            location=data.get("location", ""),
+            scheduled_date=data.get("scheduled_date"),
+            priority=data.get("priority", "normal"),
+            required_skills=skills,
+            required_permits=permits,
+            prerequisites=data.get("prerequisites", []),
+            estimated_duration_hours=data.get("estimated_duration_hours", 0),
+            customer=data.get("customer", ""),
+            site_id=data.get("site_id", ""),
+            scheduled_end=data.get("scheduled_end"),
+            dependencies=data.get("dependencies", []),
+            materials_required=data.get("materials_required", []),
+            special_instructions=special_instructions,
+            linked_contract_id=data.get("linked_contract_id"),
+            customer_confirmed=customer_confirmed,
+            weather_conditions=data.get("weather_conditions"),
+        )
+
+    def infer_readiness_gates(
+        self,
+        work_order: ParsedWorkOrder,
+        work_category: str,
+    ) -> list[SPENReadinessGate]:
+        """Auto-generate required readiness gates based on SPEN work category.
+
+        Uses predefined gate templates per category and checks work order
+        data to determine initial satisfaction status.
+        """
+        gates: list[SPENReadinessGate] = []
+        templates = _SPEN_GATE_TEMPLATES.get(work_category, [])
+
+        for tmpl in templates:
+            satisfied = self._check_gate_satisfaction(tmpl, work_order)
+            gates.append(SPENReadinessGate(
+                gate_name=tmpl["gate_name"],
+                gate_type=tmpl["gate_type"],
+                required=True,
+                satisfied=satisfied,
+                blocking=True,
+                description=tmpl.get("description", ""),
+            ))
+
+        return gates
+
+    def _map_category_to_type(self, work_category: str) -> WorkOrderType:
+        """Map SPEN work category to a generic WorkOrderType."""
+        install_categories = {
+            SPENWorkCategory.metering_installation,
+            SPENWorkCategory.new_connection,
+            SPENWorkCategory.transformer_installation,
+            SPENWorkCategory.pole_erection,
+        }
+        repair_categories = {
+            SPENWorkCategory.lv_fault_repair,
+        }
+        maintenance_categories = {
+            SPENWorkCategory.substation_maintenance,
+            SPENWorkCategory.metering_exchange,
+            SPENWorkCategory.tree_cutting,
+        }
+
+        if work_category in install_categories:
+            return WorkOrderType.installation
+        if work_category in repair_categories:
+            return WorkOrderType.repair
+        if work_category in maintenance_categories:
+            return WorkOrderType.maintenance
+        return WorkOrderType.maintenance
+
+    def _check_gate_satisfaction(self, template: dict, work_order: ParsedWorkOrder) -> bool:
+        """Check if a gate can be considered satisfied from work order data."""
+        gate_type = template["gate_type"]
+        gate_name = template["gate_name"]
+
+        if gate_type == "permit":
+            # Check if a matching permit is obtained
+            for p in work_order.required_permits:
+                if p.obtained and (
+                    gate_name.replace("_permit", "") in p.permit_type.value
+                    or p.permit_type.value in gate_name
+                ):
+                    return True
+            return False
+
+        if gate_type == "customer":
+            return work_order.customer_confirmed
+
+        if gate_type == "materials":
+            # Check no unavailable materials
+            unavailable = [m for m in work_order.materials_required if not m.get("available", True)]
+            return len(unavailable) == 0
+
+        if gate_type == "design":
+            # Check if design dependency is approved
+            for dep in work_order.dependencies:
+                if dep.get("type") == "design" and dep.get("status") in ("approved", "completed", "resolved"):
+                    return True
+            for prereq in work_order.prerequisites:
+                if prereq.get("type") == "design" and prereq.get("status") in ("approved", "completed", "resolved"):
+                    return True
+            return False
+
+        if gate_type == "access":
+            # Access gates default to unsatisfied unless explicitly marked
+            return False
+
+        if gate_type == "dependency":
+            # Check if a matching dependency is resolved
+            for dep in work_order.dependencies:
+                dep_desc = str(dep.get("description", "")).lower()
+                if gate_name.replace("_", " ") in dep_desc and dep.get("status") in ("completed", "resolved", "approved"):
+                    return True
+            return False
+
+        if gate_type == "safety":
+            # Safety gates default to unsatisfied — must be explicitly verified
+            return False
+
+        return False

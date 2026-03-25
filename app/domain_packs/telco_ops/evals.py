@@ -271,4 +271,340 @@ TELCO_OPS_EVAL_CASES = [
             "affected_service_count": 3,
         },
     },
+    # ==================================================================
+    # Vodafone UK managed-services eval cases
+    # ==================================================================
+    # ------------------------------------------------------------------
+    # 9. Vodafone P1 core network outage
+    # ------------------------------------------------------------------
+    {
+        "name": "vodafone_p1_core_network_outage",
+        "domain": "telco_ops",
+        "workflow_type": "vodafone_managed_services",
+        "description": (
+            "P1 core network outage should trigger L3 escalation with bridge call, "
+            "MIM process activation, and field dispatch"
+        ),
+        "input_payload": {
+            "incident": {
+                "incident_id": "VF-INC-001",
+                "severity": "p1",
+                "state": "new",
+                "title": "Core MSC failure — London region complete outage",
+                "description": (
+                    "MSC-LON-01 has suffered a total failure. All voice calls in "
+                    "the London region are failing. HLR lookup timeouts observed. "
+                    "Approximately 250,000 subscribers affected."
+                ),
+                "affected_services": ["core_network", "voice_platform"],
+                "tags": ["outage", "major_incident"],
+                "created_at": "2026-03-25T02:15:00Z",
+            },
+            "service_domain": "core_network",
+            "sla_status": {
+                "response_sla": "within",
+                "resolution_sla": "within",
+                "update_overdue": False,
+                "minutes_to_breach": 225,
+                "bridge_call_required": True,
+            },
+        },
+        "expected_output": {
+            "escalate": True,
+            "escalation_level": "management",
+            "bridge_call_required": True,
+            "dispatch_needed": True,
+            "next_action": "dispatch",
+        },
+    },
+    # ------------------------------------------------------------------
+    # 10. Vodafone P2 RAN degradation
+    # ------------------------------------------------------------------
+    {
+        "name": "vodafone_p2_ran_degradation",
+        "domain": "telco_ops",
+        "workflow_type": "vodafone_managed_services",
+        "description": (
+            "P2 RAN degradation without full outage should trigger L2 escalation "
+            "and remote remediation first"
+        ),
+        "input_payload": {
+            "incident": {
+                "incident_id": "VF-INC-002",
+                "severity": "p2",
+                "state": "investigating",
+                "title": "eNodeB sector degradation — Birmingham cluster",
+                "description": (
+                    "Multiple eNodeB sectors in Birmingham showing elevated RSSI "
+                    "and throughput degradation. Suspected radio interference. "
+                    "Approx 15,000 subscribers experiencing poor data speeds."
+                ),
+                "affected_services": ["ran_radio"],
+                "tags": [],
+                "created_at": "2026-03-25T08:30:00Z",
+            },
+            "service_domain": "ran_radio",
+            "sla_status": {
+                "response_sla": "within",
+                "resolution_sla": "within",
+                "update_overdue": False,
+                "minutes_to_breach": 420,
+                "bridge_call_required": False,
+            },
+        },
+        "expected_output": {
+            "escalate": True,
+            "escalation_level": "l2",
+            "next_action": "remote_remediation",
+            "dispatch_needed": False,
+        },
+    },
+    # ------------------------------------------------------------------
+    # 11. Vodafone P1 SLA breached
+    # ------------------------------------------------------------------
+    {
+        "name": "vodafone_p1_sla_breached",
+        "domain": "telco_ops",
+        "workflow_type": "vodafone_managed_services",
+        "description": (
+            "P1 incident with 5 hours elapsed exceeds 4-hour resolution SLA — "
+            "should trigger management escalation"
+        ),
+        "input_payload": {
+            "incident": {
+                "incident_id": "VF-INC-003",
+                "severity": "p1",
+                "state": "investigating",
+                "title": "GGSN data plane failure — nationwide impact",
+                "description": (
+                    "GGSN-CORE-01 data plane failure causing nationwide mobile "
+                    "data connectivity issues. Investigation ongoing for 5 hours "
+                    "without resolution. Vendor engaged."
+                ),
+                "affected_services": ["core_network"],
+                "assigned_to": "senior_engineering",
+                "tags": ["outage", "major_incident"],
+                "created_at": "2026-03-25T01:00:00Z",
+                "timeline": [
+                    {"timestamp": "2026-03-25T01:00:00Z", "event_type": "created", "actor": "monitoring", "description": "Incident auto-created by NMS"},
+                    {"timestamp": "2026-03-25T01:10:00Z", "event_type": "acknowledged", "actor": "noc_operator", "description": "Acknowledged by NOC"},
+                    {"timestamp": "2026-03-25T01:30:00Z", "event_type": "escalation", "actor": "system", "description": "Escalated to L3"},
+                    {"timestamp": "2026-03-25T06:00:00Z", "event_type": "sla_breach", "actor": "system", "description": "Resolution SLA breached at 300 min"},
+                ],
+            },
+            "service_domain": "core_network",
+            "sla_status": {
+                "response_sla": "within",
+                "resolution_sla": "breached",
+                "update_overdue": True,
+                "minutes_to_breach": 0,
+                "bridge_call_required": True,
+            },
+            "current_time_minutes": 300,
+        },
+        "expected_output": {
+            "escalate": True,
+            "escalation_level": "management",
+            "sla_breached": True,
+            "management_escalation": True,
+        },
+    },
+    # ------------------------------------------------------------------
+    # 12. Vodafone closure blocked — no RCA
+    # ------------------------------------------------------------------
+    {
+        "name": "vodafone_closure_blocked_no_rca",
+        "domain": "telco_ops",
+        "workflow_type": "vodafone_managed_services",
+        "description": (
+            "P1 incident resolved but RCA not submitted — closure should be blocked"
+        ),
+        "input_payload": {
+            "incident": {
+                "incident_id": "VF-INC-004",
+                "severity": "p1",
+                "state": "resolved",
+                "title": "IMS platform failure — VoLTE service impact",
+                "description": "IMS CSCF failure resolved by failover. RCA pending.",
+                "affected_services": ["voip_ims"],
+                "tags": ["major_incident"],
+                "created_at": "2026-03-24T14:00:00Z",
+            },
+            "closure_gates": [
+                {"prerequisite": "service_restored", "satisfied": True, "evidence_ref": "SR-001"},
+                {"prerequisite": "customer_notified", "satisfied": True, "evidence_ref": "COMMS-001"},
+                {"prerequisite": "rca_submitted", "satisfied": False, "evidence_ref": ""},
+                {"prerequisite": "problem_record_created", "satisfied": True, "evidence_ref": "PRB-001"},
+            ],
+            "major_incident": {
+                "incident_id": "VF-INC-004",
+                "phase": "rca_pending",
+                "bridge_call_id": "BC-004",
+                "bridge_participants": ["noc", "ims_team", "vendor"],
+                "customer_comms_sent": [{"type": "email", "timestamp": "2026-03-24T15:00:00Z"}],
+                "rca_status": "not_started",
+                "rca_due_date": "2026-03-27",
+                "problem_record_id": "PRB-001",
+            },
+        },
+        "expected_output": {
+            "closure_allowed": False,
+            "blocked_by": ["rca_submitted"],
+            "mandatory_gates_unsatisfied": 1,
+        },
+    },
+    # ------------------------------------------------------------------
+    # 13. Vodafone dispatch — hardware failure
+    # ------------------------------------------------------------------
+    {
+        "name": "vodafone_dispatch_hardware_failure",
+        "domain": "telco_ops",
+        "workflow_type": "vodafone_managed_services",
+        "description": (
+            "Hardware failure should trigger immediate dispatch without "
+            "requiring remote remediation first"
+        ),
+        "input_payload": {
+            "incident": {
+                "incident_id": "VF-INC-005",
+                "severity": "p1",
+                "state": "investigating",
+                "title": "RRU failure at cell site BHM-042",
+                "description": (
+                    "Remote Radio Unit hardware failure at Birmingham cell site "
+                    "BHM-042. VSWR alarm triggered. Sector 2 offline. "
+                    "Hardware replacement required."
+                ),
+                "affected_services": ["ran_radio"],
+                "tags": ["hardware"],
+                "created_at": "2026-03-25T06:00:00Z",
+            },
+            "remote_remediation_attempted": False,
+            "has_runbook": True,
+            "service_domain": "ran_radio",
+            "incident_category": "hardware_failure",
+        },
+        "expected_output": {
+            "next_action": "dispatch",
+            "dispatch_needed": True,
+            "remote_required_first": False,
+        },
+    },
+    # ------------------------------------------------------------------
+    # 14. Vodafone dispatch — software, remote first
+    # ------------------------------------------------------------------
+    {
+        "name": "vodafone_dispatch_software_remote_first",
+        "domain": "telco_ops",
+        "workflow_type": "vodafone_managed_services",
+        "description": (
+            "Software bug should require remote remediation before dispatch"
+        ),
+        "input_payload": {
+            "incident": {
+                "incident_id": "VF-INC-006",
+                "severity": "p2",
+                "state": "investigating",
+                "title": "SMSC message queue stall — software bug",
+                "description": (
+                    "SMSC-01 experiencing message queue stall after overnight "
+                    "patch. SMS delivery delays across the platform. Suspected "
+                    "software regression in queue handler module."
+                ),
+                "affected_services": ["vas_platforms"],
+                "tags": [],
+                "created_at": "2026-03-25T07:00:00Z",
+            },
+            "remote_remediation_attempted": False,
+            "has_runbook": True,
+            "service_domain": "vas_platforms",
+            "incident_category": "software_bug",
+        },
+        "expected_output": {
+            "next_action": "remote_remediation",
+            "dispatch_needed": False,
+            "remote_required_first": True,
+        },
+    },
+    # ------------------------------------------------------------------
+    # 15. Vodafone repeated incident escalation
+    # ------------------------------------------------------------------
+    {
+        "name": "vodafone_repeated_incident_escalate",
+        "domain": "telco_ops",
+        "workflow_type": "vodafone_managed_services",
+        "description": (
+            "4th incident on the same service within 30 days should "
+            "trigger L3 escalation regardless of severity"
+        ),
+        "input_payload": {
+            "incident": {
+                "incident_id": "VF-INC-007",
+                "severity": "p3",
+                "state": "new",
+                "title": "Recurring provisioning failure — SIM activation",
+                "description": (
+                    "SIM activation failures recurring on the provisioning "
+                    "platform. This is the 4th incident in 30 days. Previous "
+                    "incidents: VF-INC-101, VF-INC-102, VF-INC-103."
+                ),
+                "affected_services": ["provisioning"],
+                "tags": [],
+                "created_at": "2026-03-25T09:00:00Z",
+            },
+            "service_domain": "provisioning",
+            "sla_status": {
+                "response_sla": "within",
+                "resolution_sla": "within",
+                "update_overdue": False,
+                "minutes_to_breach": 1400,
+                "bridge_call_required": False,
+            },
+            "repeat_count": 4,
+        },
+        "expected_output": {
+            "escalate": True,
+            "escalation_level": "l3",
+            "reason_contains": "Repeated incident",
+        },
+    },
+    # ------------------------------------------------------------------
+    # 16. Vodafone fibre cut — dispatch + NRSWA
+    # ------------------------------------------------------------------
+    {
+        "name": "vodafone_fibre_cut_dispatch_plus_nrswa",
+        "domain": "telco_ops",
+        "workflow_type": "vodafone_managed_services",
+        "description": (
+            "Fibre cut should trigger immediate dispatch with NRSWA "
+            "permit coordination"
+        ),
+        "input_payload": {
+            "incident": {
+                "incident_id": "VF-INC-008",
+                "severity": "p1",
+                "state": "investigating",
+                "title": "Fibre cut on trunk route Manchester–Leeds",
+                "description": (
+                    "Major fibre cut detected on trunk route between Manchester "
+                    "and Leeds exchanges. Third-party contractor damage during "
+                    "road works. Multiple DWDM circuits affected. NRSWA permit "
+                    "required for emergency excavation."
+                ),
+                "affected_services": ["transport_network"],
+                "tags": ["fibre_cut", "outage"],
+                "created_at": "2026-03-25T10:00:00Z",
+            },
+            "remote_remediation_attempted": False,
+            "has_runbook": True,
+            "service_domain": "transport_network",
+            "incident_category": "fibre_cut",
+        },
+        "expected_output": {
+            "next_action": "dispatch",
+            "dispatch_needed": True,
+            "nrswa_coordination": True,
+            "reason_contains": "NRSWA",
+        },
+    },
 ]

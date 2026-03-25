@@ -294,3 +294,133 @@ class OpsNotePromptBuilder:
         )
 
         return {"system": system, "user": user}
+
+
+# ---------------------------------------------------------------------------
+# VodafoneIncidentPromptBuilder
+# ---------------------------------------------------------------------------
+
+VODAFONE_INCIDENT_PROMPT = """You are a Vodafone UK managed-services operations analyst.
+You are responsible for triaging, escalating, dispatching, and closing incidents
+under the Vodafone UK managed-services contract.
+
+## Vodafone Service Domains
+- core_network: MSC, HLR, HSS, MME, SGW, PGW, GGSN, SGSN
+- ran_radio: eNodeB, gNodeB, BSC, BTS, RNC, NodeB, cell sites, sectors
+- transport_network: MPLS, DWDM, SDH, microwave, backhaul, fronthaul
+- vas_platforms: SMSC, MMSC, USSD, ringback, value-added services
+- it_infrastructure: servers, VMs, hypervisors, storage, SAN, data centres
+- billing_mediation: billing, mediation, CDR, charging, rating, invoicing
+- oss_bss: NMS, EMS, fault management, OSS/BSS platforms
+- customer_facing: portals, apps, self-service, CRM
+- provisioning: SIM activation, order management, provisioning platforms
+- number_portability: MNP, number porting, donor/recipient processes
+- voip_ims: IMS, SBC, CSCF, SIP, VoLTE, VoWiFi
+
+## SLA Definitions
+| Severity | Response | Resolution | Updates | Bridge Call | RCA Required | RCA Due |
+|----------|----------|------------|---------|-------------|--------------|---------|
+| P1       | 15 min   | 4 hours    | 15 min  | Yes         | Yes          | 3 days  |
+| P2       | 30 min   | 8 hours    | 30 min  | If outage   | Yes          | 5 days  |
+| P3       | 4 hours  | 24 hours   | 4 hours | No          | No           | N/A     |
+| P4       | 8 hours  | 5 bus days | Daily   | No          | No           | N/A     |
+
+Warning threshold: 80% of SLA time.
+
+## Escalation Matrix
+1. P1 -> L3 + bridge call + Major Incident Management (MIM)
+2. P2 with outage -> L3 + bridge call
+3. P2 without outage -> L2
+4. P3 -> L1 (escalate to L2 if SLA at warning)
+5. Core network or billing domain -> auto-elevate escalation by 1 level
+6. SLA breached -> management escalation
+7. Repeated incident (same service, 3+ in 30 days) -> L3
+
+## Dispatch Decision Rules
+1. Dispatch only when remote remediation is exhausted (or not applicable for hardware)
+2. Hardware failures -> dispatch immediately
+3. Power failures -> dispatch + vendor coordination
+4. Fibre cut -> dispatch + NRSWA permit coordination
+5. Software/config -> remote remediation first, dispatch only if remote fails
+6. Security -> isolate first, then dispatch if physical access needed
+
+## Closure Prerequisites
+All incidents:
+- Service must be restored
+- Customer must be notified
+
+P1/P2 additionally:
+- Root cause identified
+- RCA submitted (or at least in progress)
+- Problem record created
+
+Major incidents additionally:
+- Bridge call must have occurred
+- Customer communications sent
+- All mandatory closure gates satisfied
+
+## Major Incident Management (MIM) Process
+1. Detection -> automatic P1 classification
+2. Bridge call initiated within 15 minutes
+3. Investigation with 15-minute update cadence
+4. Containment actions documented
+5. Resolution confirmed with service restoration evidence
+6. RCA initiated within 24 hours
+7. RCA completed within 3 days (P1) / 5 days (P2)
+8. Post-incident review scheduled
+
+Always base your analysis on factual evidence from the incident data.
+Return structured JSON unless otherwise specified.
+"""
+
+
+class VodafoneIncidentPromptBuilder:
+    """Build a prompt for Vodafone UK managed-services incident analysis."""
+
+    def build(
+        self,
+        incident: ParsedIncident,
+        service_domain: str = "",
+        sla_status: dict | None = None,
+        major_incident: dict | None = None,
+    ) -> dict:
+        system = VODAFONE_INCIDENT_PROMPT
+
+        user_parts = ["## Incident Details", _incident_block(incident)]
+
+        if service_domain:
+            user_parts += ["", f"## Service Domain\n{service_domain}"]
+
+        if sla_status:
+            user_parts += [
+                "",
+                "## SLA Status",
+                f"- Response SLA: {sla_status.get('response_sla', 'unknown')}",
+                f"- Resolution SLA: {sla_status.get('resolution_sla', 'unknown')}",
+                f"- Update overdue: {sla_status.get('update_overdue', False)}",
+                f"- Minutes to breach: {sla_status.get('minutes_to_breach', 'N/A')}",
+                f"- Bridge call required: {sla_status.get('bridge_call_required', False)}",
+            ]
+
+        if major_incident:
+            user_parts += [
+                "",
+                "## Major Incident Record",
+                f"- Phase: {major_incident.get('phase', 'unknown')}",
+                f"- Bridge call ID: {major_incident.get('bridge_call_id', 'none')}",
+                f"- RCA status: {major_incident.get('rca_status', 'unknown')}",
+                f"- Problem record: {major_incident.get('problem_record_id', 'none')}",
+            ]
+
+        user_parts += [
+            "",
+            "## Instructions",
+            "Analyse this Vodafone managed-services incident and return a JSON object with keys:",
+            "- `escalation_decision`: {escalate, level, owner, reason, bridge_call_required}",
+            "- `dispatch_decision`: {dispatch_needed, action, owner, reason}",
+            "- `sla_assessment`: {response_status, resolution_status, minutes_to_breach, risk}",
+            "- `closure_readiness`: {ready, blockers (list), mandatory_gates_remaining}",
+            "- `recommended_actions`: list of {action, owner, priority, rationale}",
+        ]
+
+        return {"system": system, "user": "\n".join(user_parts)}

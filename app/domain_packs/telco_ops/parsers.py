@@ -6,6 +6,8 @@ import re
 from datetime import datetime, timezone
 
 from app.domain_packs.telco_ops.schemas import (
+    ClosureGate,
+    ClosurePrerequisite,
     ImpactLevel,
     IncidentSeverity,
     IncidentState,
@@ -18,6 +20,7 @@ from app.domain_packs.telco_ops.schemas import (
     ServiceState,
     ServiceStateObject,
     TimelineEvent,
+    VodafoneIncidentCategory,
 )
 
 
@@ -240,6 +243,223 @@ class IncidentParser:
             "segment": data.get("customer_segment", "unknown"),
             "impact_description": data.get("impact_description", ""),
         }
+
+    # -- Vodafone-specific classification -----------------------------------
+
+    _VODAFONE_CATEGORY_KEYWORDS: dict[str, list[str]] = {
+        VodafoneIncidentCategory.network_outage.value: [
+            "outage", "down", "unreachable", "total loss", "no service",
+        ],
+        VodafoneIncidentCategory.network_degradation.value: [
+            "degradation", "degraded", "slow", "latency", "packet loss",
+            "intermittent", "jitter", "throughput",
+        ],
+        VodafoneIncidentCategory.capacity_breach.value: [
+            "capacity", "utilization", "threshold", "congestion",
+            "overload", "saturation", "exhaustion",
+        ],
+        VodafoneIncidentCategory.config_error.value: [
+            "config", "misconfigured", "configuration", "acl", "policy",
+            "routing table", "bgp peer", "ospf",
+        ],
+        VodafoneIncidentCategory.hardware_failure.value: [
+            "hardware", "disk", "power supply", "psu", "fan", "chassis",
+            "nic", "card", "module", "rru", "antenna", "rectifier",
+        ],
+        VodafoneIncidentCategory.software_bug.value: [
+            "software", "bug", "crash", "exception", "core dump",
+            "segfault", "memory leak", "deadlock", "patch",
+        ],
+        VodafoneIncidentCategory.security_incident.value: [
+            "security", "breach", "intrusion", "ddos", "malware",
+            "ransomware", "unauthorized", "vulnerability",
+        ],
+        VodafoneIncidentCategory.planned_maintenance_overrun.value: [
+            "maintenance overrun", "maintenance window", "change overrun",
+            "planned work", "extended maintenance",
+        ],
+        VodafoneIncidentCategory.vendor_dependency.value: [
+            "vendor", "supplier", "third party", "3rd party",
+            "huawei", "ericsson", "nokia", "cisco",
+        ],
+        VodafoneIncidentCategory.power_failure.value: [
+            "power", "ups", "generator", "mains", "battery",
+            "rectifier", "dc power",
+        ],
+        VodafoneIncidentCategory.fibre_cut.value: [
+            "fibre cut", "fiber cut", "fibre break", "fiber break",
+            "cable cut", "nrswa", "duct damage",
+        ],
+        VodafoneIncidentCategory.radio_interference.value: [
+            "interference", "pim", "passive intermod", "rssi",
+            "radio", "spectrum", "co-channel",
+        ],
+    }
+
+    _VODAFONE_DOMAIN_KEYWORDS: dict[str, list[str]] = {
+        "core_network": ["msc", "hlr", "hss", "mme", "sgw", "pgw", "ggsn", "sgsn", "core"],
+        "ran_radio": ["ran", "enodeb", "gnodeb", "bsc", "bts", "rnc", "nodeb", "cell site", "sector", "antenna"],
+        "transport_network": ["transport", "mpls", "dwdm", "sdh", "microwave", "backhaul", "fronthaul"],
+        "vas_platforms": ["vas", "smsc", "mmsc", "ussd", "ringback", "value added"],
+        "it_infrastructure": ["server", "vm", "hypervisor", "storage", "san", "data centre", "data center"],
+        "billing_mediation": ["billing", "mediation", "cdr", "charging", "rating", "invoice"],
+        "oss_bss": ["oss", "bss", "nms", "ems", "monitoring", "fault management"],
+        "customer_facing": ["portal", "app", "self-service", "customer", "crm", "web"],
+        "provisioning": ["provisioning", "activation", "sim", "order management"],
+        "number_portability": ["number port", "mnp", "porting", "donor", "recipient"],
+        "voip_ims": ["ims", "sbc", "cscf", "sip", "voip", "volte", "vowifi"],
+    }
+
+    def classify_vodafone_category(self, text: str) -> str:
+        """Classify text into a VodafoneIncidentCategory using keyword matching."""
+        text_lower = text.lower()
+        scores: dict[str, int] = {}
+        for category, keywords in self._VODAFONE_CATEGORY_KEYWORDS.items():
+            score = sum(1 for kw in keywords if kw in text_lower)
+            if score > 0:
+                scores[category] = score
+        if not scores:
+            return "network_degradation"  # safe default
+        return max(scores, key=scores.get)  # type: ignore[arg-type]
+
+    def classify_vodafone_domain(self, text: str) -> str:
+        """Classify text into a VodafoneServiceDomain using keyword matching."""
+        text_lower = text.lower()
+        scores: dict[str, int] = {}
+        for domain, keywords in self._VODAFONE_DOMAIN_KEYWORDS.items():
+            score = sum(1 for kw in keywords if kw in text_lower)
+            if score > 0:
+                scores[domain] = score
+        if not scores:
+            return "it_infrastructure"  # safe default
+        return max(scores, key=scores.get)  # type: ignore[arg-type]
+
+    def extract_sla_context(self, incident: ParsedIncident) -> dict:
+        """Extract SLA-relevant timing information from a parsed incident."""
+        created_at = incident.created_at
+        acknowledged_at = ""
+        response_time_minutes = 0
+
+        # Scan timeline for acknowledgment
+        for evt in incident.timeline:
+            evt_type = evt.get("event_type", evt.get("type", ""))
+            if evt_type in ("acknowledged", "acknowledgment", "ack"):
+                acknowledged_at = evt.get("timestamp", evt.get("time", ""))
+                break
+
+        if created_at and acknowledged_at:
+            response_time_minutes = _minutes_between(created_at, acknowledged_at)
+
+        # Resolution target from severity
+        resolution_targets: dict[str, int] = {
+            "p1": 240,
+            "p2": 480,
+            "p3": 1440,
+            "p4": 7200,
+        }
+
+        return {
+            "created_at": created_at,
+            "acknowledged_at": acknowledged_at,
+            "response_time_minutes": response_time_minutes,
+            "resolution_target_minutes": resolution_targets.get(incident.severity.value, 1440),
+        }
+
+
+# ---------------------------------------------------------------------------
+# VodafoneTicketParser
+# ---------------------------------------------------------------------------
+
+
+class VodafoneTicketParser:
+    """Parse Vodafone-format tickets into domain objects."""
+
+    def parse_vodafone_ticket(self, data: dict) -> ParsedIncident:
+        """Parse a Vodafone-format ticket payload into a ParsedIncident.
+
+        Supports additional fields: service_domain, category,
+        major_incident flag, bridge_call_id.
+        """
+        severity = data.get("severity", "p3").lower()
+        state = data.get("state", data.get("status", "new")).lower()
+
+        tags = list(data.get("tags", []))
+        # Inject Vodafone-specific context as tags for downstream engines
+        if data.get("service_domain"):
+            tags.append(f"domain:{data['service_domain']}")
+        if data.get("category"):
+            tags.append(f"category:{data['category']}")
+        if data.get("major_incident"):
+            tags.append("major_incident")
+        if data.get("bridge_call_id"):
+            tags.append(f"bridge:{data['bridge_call_id']}")
+
+        # Add outage tag if state indicates it
+        if state in ("outage",) or data.get("service_state") == "outage":
+            if "outage" not in tags:
+                tags.append("outage")
+
+        return ParsedIncident(
+            incident_id=data.get("incident_id", data.get("id", "unknown")),
+            title=data.get("title", ""),
+            description=data.get("description", ""),
+            severity=(
+                IncidentSeverity(severity)
+                if severity in IncidentSeverity.__members__
+                else IncidentSeverity.p3
+            ),
+            state=(
+                IncidentState(state)
+                if state in IncidentState.__members__
+                else IncidentState.new
+            ),
+            affected_services=data.get("affected_services", []),
+            reported_by=data.get("reported_by", ""),
+            assigned_to=data.get("assigned_to", ""),
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at", ""),
+            timeline=data.get("timeline", []),
+            tags=tags,
+        )
+
+    def extract_closure_gates(self, data: dict) -> list[ClosureGate]:
+        """Extract closure prerequisite gates from ticket data.
+
+        Expects ``data["closure_gates"]`` as a list of dicts with keys:
+        prerequisite, satisfied, evidence_ref, mandatory.
+
+        Falls back to inferring gates from ticket state if not present.
+        """
+        raw_gates = data.get("closure_gates", [])
+        if raw_gates:
+            gates: list[ClosureGate] = []
+            for g in raw_gates:
+                prereq_str = g.get("prerequisite", "")
+                if prereq_str in ClosurePrerequisite.__members__:
+                    gates.append(ClosureGate(
+                        prerequisite=ClosurePrerequisite(prereq_str),
+                        satisfied=g.get("satisfied", False),
+                        evidence_ref=g.get("evidence_ref", ""),
+                        mandatory=g.get("mandatory", True),
+                    ))
+            return gates
+
+        # Infer default gates based on severity
+        severity = data.get("severity", "p3").lower()
+        default_gates = [
+            ClosureGate(prerequisite=ClosurePrerequisite.service_restored, mandatory=True),
+            ClosureGate(prerequisite=ClosurePrerequisite.customer_notified, mandatory=True),
+        ]
+        if severity in ("p1", "p2"):
+            default_gates.extend([
+                ClosureGate(prerequisite=ClosurePrerequisite.root_cause_identified, mandatory=True),
+                ClosureGate(prerequisite=ClosurePrerequisite.rca_submitted, mandatory=True),
+                ClosureGate(prerequisite=ClosurePrerequisite.problem_record_created, mandatory=True),
+                ClosureGate(prerequisite=ClosurePrerequisite.workaround_documented, mandatory=False),
+                ClosureGate(prerequisite=ClosurePrerequisite.permanent_fix_planned, mandatory=False),
+                ClosureGate(prerequisite=ClosurePrerequisite.change_request_raised, mandatory=False),
+            ])
+        return default_gates
 
 
 # ---------------------------------------------------------------------------

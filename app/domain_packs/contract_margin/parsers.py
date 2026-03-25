@@ -183,3 +183,222 @@ class ContractParser:
     def _extract_penalty_amount(self, text: str) -> str:
         match = re.search(r'(\d+%|\$[\d,.]+)', text)
         return match.group(1) if match else ""
+
+    # -- SPEN / Vodafone extraction helpers --------------------------------
+
+    def extract_billing_gates(self, clauses: list[ExtractedClause]) -> list[BillingGate]:
+        """Extract billing prerequisite gates from clause text.
+
+        Scans obligation- and rate-type clauses for keywords that indicate
+        a billing prerequisite must be satisfied before invoicing.
+        """
+        _GATE_KEYWORDS: dict[str, BillingPrerequisite] = {
+            "prior approval": BillingPrerequisite.prior_approval,
+            "purchase order": BillingPrerequisite.purchase_order,
+            "variation order": BillingPrerequisite.variation_order,
+            "daywork sheet": BillingPrerequisite.daywork_sheet_signed,
+            "completion certificate": BillingPrerequisite.completion_certificate,
+            "customer sign-off": BillingPrerequisite.customer_sign_off,
+            "customer sign off": BillingPrerequisite.customer_sign_off,
+            "as-built": BillingPrerequisite.as_built_submitted,
+            "as built": BillingPrerequisite.as_built_submitted,
+            "permit": BillingPrerequisite.permit_closed_out,
+        }
+
+        gates: list[BillingGate] = []
+        seen: set[BillingPrerequisite] = set()
+
+        for clause in clauses:
+            lower = clause.text.lower()
+            for keyword, gate_type in _GATE_KEYWORDS.items():
+                if keyword in lower and gate_type not in seen:
+                    gates.append(BillingGate(
+                        gate_type=gate_type,
+                        description=f"Extracted from clause {clause.id}: {clause.text[:120]}",
+                    ))
+                    seen.add(gate_type)
+
+        return gates
+
+    def extract_reattendance_rules(self, clauses: list[ExtractedClause]) -> list[ReattendanceRule]:
+        """Extract re-attendance billing rules from clause text.
+
+        Looks for clauses mentioning re-attendance, revisit, rework or
+        similar terminology and maps them to structured rules.
+        """
+        _TRIGGER_PATTERNS: dict[str, dict] = {
+            r"provider\s*fault|contractor\s*fault|quality\s*failure|rework": {
+                "trigger": "provider_fault",
+                "billable": False,
+                "evidence_required": ["root_cause_report", "quality_nonconformance"],
+                "description": "Provider-fault re-attendance is non-billable",
+            },
+            r"customer\s*fault|customer\s*cancel|no[\s-]access\s*customer": {
+                "trigger": "customer_fault",
+                "billable": True,
+                "evidence_required": ["customer_confirmation", "site_attendance_record"],
+                "description": "Customer-fault re-attendance is billable",
+            },
+            r"dno\s*fault|network\s*fault|distribution\s*fault": {
+                "trigger": "dno_fault",
+                "billable": True,
+                "evidence_required": ["dno_instruction", "network_event_log"],
+                "description": "DNO-fault re-attendance is billable",
+            },
+            r"third[\s-]party|external\s*damage": {
+                "trigger": "third_party",
+                "billable": True,
+                "evidence_required": ["third_party_incident_ref", "site_report"],
+                "description": "Third-party-caused re-attendance is billable",
+            },
+            r"weather|adverse\s*conditions|storm|flood": {
+                "trigger": "weather",
+                "billable": True,
+                "evidence_required": ["weather_event_record", "risk_assessment"],
+                "description": "Weather-related re-attendance is billable",
+            },
+        }
+
+        rules: list[ReattendanceRule] = []
+        seen_triggers: set[str] = set()
+
+        for clause in clauses:
+            lower = clause.text.lower()
+            if not any(kw in lower for kw in ("reattend", "re-attend", "revisit", "re-visit", "rework", "re-work")):
+                continue
+            for pattern, rule_data in _TRIGGER_PATTERNS.items():
+                if re.search(pattern, lower) and rule_data["trigger"] not in seen_triggers:
+                    rules.append(ReattendanceRule(**rule_data))
+                    seen_triggers.add(rule_data["trigger"])
+
+        return rules
+
+    def extract_service_credits(self, clauses: list[ExtractedClause]) -> list[ServiceCreditRule]:
+        """Extract service credit mechanisms from clause text.
+
+        Identifies SLA-linked credit clauses and parses metric, threshold,
+        credit percentage, and cap where present.
+        """
+        _METRIC_PATTERNS: dict[str, str] = {
+            r"response\s*time": "response_time",
+            r"resolution\s*time|fix\s*time": "resolution_time",
+            r"first[\s-]time\s*fix": "first_time_fix",
+            r"appointment\s*kept|appointment\s*window": "appointment_kept",
+        }
+
+        rules: list[ServiceCreditRule] = []
+
+        for clause in clauses:
+            lower = clause.text.lower()
+            if "service credit" not in lower and "credit" not in lower:
+                continue
+
+            for pattern, metric in _METRIC_PATTERNS.items():
+                if not re.search(pattern, lower):
+                    continue
+
+                # Attempt to extract percentage values
+                pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', clause.text)
+                credit_pct = float(pct_matches[0]) if pct_matches else 5.0
+                cap_pct = float(pct_matches[1]) if len(pct_matches) > 1 else 10.0
+
+                # Attempt to extract threshold value (hours or percentage)
+                threshold_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:hour|hr|h\b)', lower)
+                if threshold_match:
+                    threshold = float(threshold_match.group(1))
+                else:
+                    threshold_match = re.search(r'(\d+(?:\.\d+)?)\s*%', lower)
+                    threshold = float(threshold_match.group(1)) / 100.0 if threshold_match else 0.0
+
+                # Extract exclusions
+                exclusions: list[str] = []
+                if "force majeure" in lower:
+                    exclusions.append("force_majeure")
+                if "customer caused" in lower or "customer fault" in lower:
+                    exclusions.append("customer_caused")
+
+                rules.append(ServiceCreditRule(
+                    sla_metric=metric,
+                    threshold_value=threshold,
+                    credit_percentage=credit_pct,
+                    cap_percentage=cap_pct,
+                    exclusions=exclusions,
+                ))
+
+        return rules
+
+
+class SPENRateCardParser:
+    """Parse SPEN electricity distribution rate card data."""
+
+    def parse_rate_card(self, data: list[dict]) -> list[SPENRateCard]:
+        """Parse a list of rate card dictionaries into typed SPENRateCard models.
+
+        Each dict should contain at minimum: ``work_category``, ``activity_code``,
+        ``description``, ``unit``, and ``base_rate``.
+        """
+        cards: list[SPENRateCard] = []
+        for entry in data:
+            try:
+                work_cat = entry.get("work_category", "")
+                # Normalise to enum value
+                if isinstance(work_cat, str):
+                    work_cat = work_cat.lower().replace(" ", "_").replace("-", "_")
+                cards.append(SPENRateCard(
+                    work_category=WorkCategory(work_cat),
+                    activity_code=str(entry.get("activity_code", "")),
+                    description=str(entry.get("description", "")),
+                    unit=str(entry.get("unit", "each")),
+                    base_rate=float(entry.get("base_rate", 0.0)),
+                    emergency_multiplier=float(entry.get("emergency_multiplier", 1.5)),
+                    overtime_multiplier=float(entry.get("overtime_multiplier", 1.3)),
+                    weekend_multiplier=float(entry.get("weekend_multiplier", 1.5)),
+                    currency=str(entry.get("currency", "GBP")),
+                    effective_from=str(entry.get("effective_from", "")),
+                    effective_to=str(entry.get("effective_to", "")),
+                    requires_approval_above=(
+                        float(entry["requires_approval_above"])
+                        if entry.get("requires_approval_above") is not None
+                        else None
+                    ),
+                ))
+            except (ValueError, KeyError):
+                continue
+        return cards
+
+    def parse_from_table(self, rows: list[dict]) -> list[SPENRateCard]:
+        """Parse tabular rate card data (e.g. from spreadsheet export).
+
+        Accepts rows with column names that may use human-readable headers.
+        Normalises column names before delegating to ``parse_rate_card``.
+        """
+        _COLUMN_MAP: dict[str, str] = {
+            "category": "work_category",
+            "work category": "work_category",
+            "code": "activity_code",
+            "activity code": "activity_code",
+            "activity": "activity_code",
+            "desc": "description",
+            "rate": "base_rate",
+            "base rate": "base_rate",
+            "price": "base_rate",
+            "uom": "unit",
+            "unit of measure": "unit",
+            "emergency": "emergency_multiplier",
+            "overtime": "overtime_multiplier",
+            "weekend": "weekend_multiplier",
+            "ccy": "currency",
+            "from": "effective_from",
+            "to": "effective_to",
+            "approval threshold": "requires_approval_above",
+        }
+
+        normalised: list[dict] = []
+        for row in rows:
+            mapped: dict = {}
+            for key, value in row.items():
+                canonical = _COLUMN_MAP.get(key.lower().strip(), key.lower().strip().replace(" ", "_"))
+                mapped[canonical] = value
+            normalised.append(mapped)
+
+        return self.parse_rate_card(normalised)

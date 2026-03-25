@@ -628,3 +628,484 @@ class DispatchNeedEngine:
             "sla_requires_physical_presence": sla_requires,
             "reasons": reasons,
         }
+
+
+# ---------------------------------------------------------------------------
+# Vodafone UK managed-services engines
+# ---------------------------------------------------------------------------
+
+_VODAFONE_CRITICAL_DOMAINS = {"core_network", "billing_mediation"}
+_VODAFONE_WARNING_THRESHOLD = 0.80
+
+
+class VodafoneSLAEngine:
+    """Evaluate SLA status against Vodafone managed-services definitions."""
+
+    def check_sla_status(
+        self,
+        incident: ParsedIncident,
+        sla_definitions: list[VodafoneSLADefinition],
+        current_time_minutes: int,
+    ) -> dict:
+        """Return SLA compliance status for *incident*.
+
+        Returns
+        -------
+        dict with keys:
+            response_sla, resolution_sla  – "within" | "warning" | "breached"
+            update_overdue                – bool
+            minutes_to_breach             – int (resolution)
+            bridge_call_required          – bool
+        """
+        # Find matching SLA definition
+        sla: VodafoneSLADefinition | None = None
+        for defn in sla_definitions:
+            if defn.severity == incident.severity:
+                sla = defn
+                break
+
+        if sla is None:
+            return {
+                "response_sla": "within",
+                "resolution_sla": "within",
+                "update_overdue": False,
+                "minutes_to_breach": 0,
+                "bridge_call_required": False,
+            }
+
+        # Response SLA
+        response_status = self._threshold_status(
+            current_time_minutes, sla.response_time_minutes
+        )
+
+        # Resolution SLA
+        resolution_status = self._threshold_status(
+            current_time_minutes, sla.resolution_time_minutes
+        )
+
+        minutes_to_breach = max(0, sla.resolution_time_minutes - current_time_minutes)
+
+        # Update overdue check
+        update_overdue = False
+        if sla.update_frequency_minutes > 0 and current_time_minutes > 0:
+            update_overdue = (current_time_minutes % sla.update_frequency_minutes) == 0 or current_time_minutes > sla.update_frequency_minutes
+
+        return {
+            "response_sla": response_status,
+            "resolution_sla": resolution_status,
+            "update_overdue": update_overdue,
+            "minutes_to_breach": minutes_to_breach,
+            "bridge_call_required": sla.bridge_call_required,
+        }
+
+    def calculate_service_credit(
+        self,
+        sla_breaches: list[dict],
+        credit_rules: list,
+    ) -> dict:
+        """Calculate total service credit based on breach count and severity.
+
+        Each entry in *sla_breaches* should contain:
+            severity (str), breach_type (str: "response" | "resolution"),
+            breach_minutes (int).
+
+        *credit_rules* is a list of dicts with:
+            severity (str), per_breach_pct (float), max_pct (float).
+
+        Returns dict with total_credit_pct, breach_count, breakdown.
+        """
+        # Build rule lookup
+        rule_map: dict[str, dict] = {}
+        for rule in credit_rules:
+            rule_map[rule.get("severity", "")] = rule
+
+        breakdown: list[dict] = []
+        total_credit_pct = 0.0
+
+        for breach in sla_breaches:
+            sev = breach.get("severity", "p3")
+            rule = rule_map.get(sev, {"per_breach_pct": 1.0, "max_pct": 10.0})
+            credit = rule.get("per_breach_pct", 1.0)
+            breakdown.append({
+                "severity": sev,
+                "breach_type": breach.get("breach_type", "resolution"),
+                "breach_minutes": breach.get("breach_minutes", 0),
+                "credit_pct": credit,
+            })
+            total_credit_pct += credit
+
+        # Apply max cap from highest-severity rule
+        max_cap = max((r.get("max_pct", 100.0) for r in credit_rules), default=100.0)
+        total_credit_pct = min(total_credit_pct, max_cap)
+
+        return {
+            "total_credit_pct": round(total_credit_pct, 2),
+            "breach_count": len(sla_breaches),
+            "breakdown": breakdown,
+        }
+
+    @staticmethod
+    def _threshold_status(elapsed: int, limit: int) -> str:
+        if elapsed >= limit:
+            return "breached"
+        if elapsed >= limit * _VODAFONE_WARNING_THRESHOLD:
+            return "warning"
+        return "within"
+
+
+class VodafoneEscalationEngine:
+    """Vodafone-specific escalation rules for managed services."""
+
+    _LEVEL_ORDER = {"l1": 1, "l2": 2, "l3": 3, "management": 4}
+
+    def evaluate(
+        self,
+        incident: ParsedIncident,
+        sla_status: dict,
+        service_domain: str,
+        repeat_count: int = 0,
+    ) -> EscalationDecision:
+        """Determine escalation per Vodafone managed-services rules.
+
+        Rules applied in priority order:
+        1. P1 -> L3 + bridge call + MIM process
+        2. P2 with outage -> L3 + bridge call
+        3. P2 without outage -> L2
+        4. P3 -> L1 (escalate to L2 if SLA at warning)
+        5. Core network or billing domain -> auto-elevate by 1 level
+        6. SLA breached -> escalate to management
+        7. Repeated incident (3+ in 30 days) -> L3
+        """
+        should_escalate = False
+        level: EscalationLevel | None = None
+        reasons: list[str] = []
+
+        is_outage = any(
+            s in ("outage",)
+            for s in [t.lower() for t in incident.tags]
+        ) or sla_status.get("bridge_call_required", False)
+
+        # Rule 1: P1 -> L3 + bridge + MIM
+        if incident.severity == IncidentSeverity.p1:
+            should_escalate = True
+            level = EscalationLevel.l3
+            reasons.append("P1 incident: L3 escalation with bridge call and MIM process")
+
+        # Rule 2: P2 with outage -> L3 + bridge
+        elif incident.severity == IncidentSeverity.p2 and is_outage:
+            should_escalate = True
+            level = EscalationLevel.l3
+            reasons.append("P2 incident with outage: L3 escalation with bridge call")
+
+        # Rule 3: P2 without outage -> L2
+        elif incident.severity == IncidentSeverity.p2:
+            should_escalate = True
+            level = EscalationLevel.l2
+            reasons.append("P2 incident without outage: L2 escalation")
+
+        # Rule 4: P3 -> L1, escalate to L2 if SLA at warning
+        elif incident.severity == IncidentSeverity.p3:
+            sla_res = sla_status.get("resolution_sla", "within")
+            if sla_res == "warning":
+                should_escalate = True
+                level = EscalationLevel.l2
+                reasons.append("P3 incident with SLA at warning: escalated to L2")
+            else:
+                level = EscalationLevel.l1
+                reasons.append("P3 incident: L1 handling")
+
+        # Rule 5: Critical domain -> elevate by 1 level
+        if service_domain in _VODAFONE_CRITICAL_DOMAINS:
+            if level is not None:
+                current_order = self._LEVEL_ORDER.get(level.value, 1)
+                for lev, order in sorted(self._LEVEL_ORDER.items(), key=lambda x: x[1]):
+                    if order == current_order + 1:
+                        level = EscalationLevel(lev)
+                        should_escalate = True
+                        reasons.append(
+                            f"Critical domain '{service_domain}': escalation elevated by 1 level to {level.value}"
+                        )
+                        break
+
+        # Rule 6: SLA breached -> management
+        if sla_status.get("resolution_sla") == "breached":
+            should_escalate = True
+            level = EscalationLevel.management
+            reasons.append("SLA breached: management escalation required")
+
+        # Rule 7: Repeated incident (3+ in 30 days) -> L3
+        if repeat_count >= 3:
+            should_escalate = True
+            if level is None or self._LEVEL_ORDER.get(level.value, 0) < self._LEVEL_ORDER.get("l3", 3):
+                level = EscalationLevel.l3
+            reasons.append(f"Repeated incident ({repeat_count} occurrences in 30 days): L3 escalation")
+
+        owner = self._determine_owner(level) if should_escalate else ""
+
+        return EscalationDecision(
+            escalate=should_escalate,
+            level=level,
+            owner=owner,
+            reason="; ".join(reasons),
+        )
+
+    @staticmethod
+    def _determine_owner(level: EscalationLevel | None) -> str:
+        owners = {
+            EscalationLevel.l1: "vodafone_service_desk",
+            EscalationLevel.l2: "vodafone_engineering_team",
+            EscalationLevel.l3: "vodafone_senior_engineering",
+            EscalationLevel.management: "vodafone_service_delivery_manager",
+        }
+        return owners.get(level, "unassigned") if level else "unassigned"
+
+
+class VodafoneClosureEngine:
+    """Validate incident closure against Vodafone managed-services prerequisites."""
+
+    def validate_closure(
+        self,
+        incident: ParsedIncident,
+        closure_gates: list[ClosureGate],
+        major_incident: MajorIncidentRecord | None = None,
+    ) -> list[RuleResult]:
+        """Evaluate whether the incident may be closed.
+
+        Rules:
+        1. Service must be restored
+        2. Customer must be notified
+        3. P1/P2: RCA must be submitted or at least planned
+        4. P1/P2: Problem record must exist
+        5. Major incident: bridge call must have occurred, customer comms sent
+        6. All mandatory closure gates must be satisfied
+        """
+        results: list[RuleResult] = []
+
+        # Build gate lookup
+        gate_map: dict[str, ClosureGate] = {g.prerequisite.value: g for g in closure_gates}
+
+        # Rule 1: Service must be restored
+        service_restored_gate = gate_map.get(ClosurePrerequisite.service_restored.value)
+        restored = service_restored_gate is not None and service_restored_gate.satisfied
+        results.append(RuleResult(
+            rule_name="vodafone_closure_service_restored",
+            passed=restored,
+            message="Service has been restored" if restored else "Service has not been confirmed as restored",
+            severity="error" if not restored else "info",
+        ))
+
+        # Rule 2: Customer must be notified
+        customer_notified_gate = gate_map.get(ClosurePrerequisite.customer_notified.value)
+        notified = customer_notified_gate is not None and customer_notified_gate.satisfied
+        results.append(RuleResult(
+            rule_name="vodafone_closure_customer_notified",
+            passed=notified,
+            message="Customer has been notified" if notified else "Customer has not been notified of resolution",
+            severity="error" if not notified else "info",
+        ))
+
+        # Rule 3: P1/P2 -> RCA submitted or planned
+        if incident.severity in (IncidentSeverity.p1, IncidentSeverity.p2):
+            rca_gate = gate_map.get(ClosurePrerequisite.rca_submitted.value)
+            rca_ok = rca_gate is not None and rca_gate.satisfied
+            # Also accept if major_incident shows RCA in progress or submitted
+            if not rca_ok and major_incident:
+                rca_ok = major_incident.rca_status in ("in_progress", "submitted", "accepted")
+            results.append(RuleResult(
+                rule_name="vodafone_closure_rca_required",
+                passed=rca_ok,
+                message=(
+                    "RCA submitted or in progress"
+                    if rca_ok
+                    else f"RCA required for {incident.severity.value} incident but not submitted"
+                ),
+                severity="error" if not rca_ok else "info",
+            ))
+
+        # Rule 4: P1/P2 -> Problem record must exist
+        if incident.severity in (IncidentSeverity.p1, IncidentSeverity.p2):
+            problem_gate = gate_map.get(ClosurePrerequisite.problem_record_created.value)
+            problem_ok = problem_gate is not None and problem_gate.satisfied
+            if not problem_ok and major_incident:
+                problem_ok = bool(major_incident.problem_record_id)
+            results.append(RuleResult(
+                rule_name="vodafone_closure_problem_record",
+                passed=problem_ok,
+                message=(
+                    "Problem record exists"
+                    if problem_ok
+                    else f"Problem record required for {incident.severity.value} incident but not created"
+                ),
+                severity="error" if not problem_ok else "info",
+            ))
+
+        # Rule 5: Major incident -> bridge call + customer comms
+        if major_incident is not None:
+            bridge_ok = bool(major_incident.bridge_call_id)
+            results.append(RuleResult(
+                rule_name="vodafone_closure_bridge_call",
+                passed=bridge_ok,
+                message=(
+                    "Bridge call was conducted"
+                    if bridge_ok
+                    else "Major incident closure requires a bridge call record"
+                ),
+                severity="error" if not bridge_ok else "info",
+            ))
+
+            comms_ok = bool(major_incident.customer_comms_sent)
+            results.append(RuleResult(
+                rule_name="vodafone_closure_customer_comms",
+                passed=comms_ok,
+                message=(
+                    f"{len(major_incident.customer_comms_sent)} customer communication(s) sent"
+                    if comms_ok
+                    else "Major incident closure requires at least one customer communication"
+                ),
+                severity="error" if not comms_ok else "info",
+            ))
+
+        # Rule 6: All mandatory closure gates must be satisfied
+        unsatisfied_mandatory = [
+            g for g in closure_gates if g.mandatory and not g.satisfied
+        ]
+        all_gates_ok = len(unsatisfied_mandatory) == 0
+        results.append(RuleResult(
+            rule_name="vodafone_closure_all_mandatory_gates",
+            passed=all_gates_ok,
+            message=(
+                "All mandatory closure gates satisfied"
+                if all_gates_ok
+                else (
+                    f"{len(unsatisfied_mandatory)} mandatory gate(s) unsatisfied: "
+                    + ", ".join(g.prerequisite.value for g in unsatisfied_mandatory)
+                )
+            ),
+            severity="error" if not all_gates_ok else "info",
+        ))
+
+        return results
+
+
+class VodafoneDispatchEngine:
+    """Vodafone-specific dispatch decision rules."""
+
+    _HARDWARE_CATEGORIES = {"hardware_failure"}
+    _POWER_CATEGORIES = {"power_failure"}
+    _FIBRE_CATEGORIES = {"fibre_cut"}
+    _SECURITY_CATEGORIES = {"security_incident"}
+    _SOFTWARE_CATEGORIES = {"software_bug", "config_error"}
+
+    def should_dispatch(
+        self,
+        incident: ParsedIncident,
+        remote_remediation_attempted: bool,
+        has_runbook: bool,
+        service_domain: str,
+        incident_category: str = "",
+    ) -> NextAction:
+        """Determine whether a field dispatch is required.
+
+        Rules:
+        1. Dispatch only valid when remote remediation exhausted (or N/A for hardware)
+        2. Hardware failures -> dispatch immediately
+        3. Power failures -> dispatch + vendor coordination
+        4. Fibre cut -> dispatch + NRSWA coordination
+        5. Software/config -> remote first, dispatch only if remote fails
+        6. Security -> isolate first, then dispatch if physical access needed
+        """
+        text = f"{incident.title} {incident.description}".lower()
+        category = incident_category or self._infer_category(text)
+
+        # Rule 2: Hardware failures -> immediate dispatch
+        if category in self._HARDWARE_CATEGORIES or "hardware" in text:
+            return NextAction(
+                action="dispatch",
+                owner="vodafone_field_engineering",
+                reason="Hardware failure detected: immediate field dispatch required",
+                priority="critical" if incident.severity == IncidentSeverity.p1 else "high",
+            )
+
+        # Rule 3: Power failures -> dispatch + vendor coordination
+        if category in self._POWER_CATEGORIES or "power" in text:
+            return NextAction(
+                action="dispatch",
+                owner="vodafone_field_engineering",
+                reason="Power failure: field dispatch with vendor coordination required",
+                priority="critical" if incident.severity == IncidentSeverity.p1 else "high",
+            )
+
+        # Rule 4: Fibre cut -> dispatch + NRSWA coordination
+        if category in self._FIBRE_CATEGORIES or "fibre cut" in text or "fiber cut" in text:
+            return NextAction(
+                action="dispatch",
+                owner="vodafone_field_engineering",
+                reason="Fibre cut: field dispatch with NRSWA permit coordination required",
+                priority="critical" if incident.severity == IncidentSeverity.p1 else "high",
+            )
+
+        # Rule 6: Security -> isolate first
+        if category in self._SECURITY_CATEGORIES or "security" in text:
+            if not remote_remediation_attempted:
+                return NextAction(
+                    action="isolate",
+                    owner="vodafone_security_team",
+                    reason="Security incident: isolate affected systems before dispatch",
+                    priority="critical",
+                )
+            return NextAction(
+                action="dispatch",
+                owner="vodafone_field_engineering",
+                reason="Security incident: physical access required after isolation",
+                priority="high",
+            )
+
+        # Rule 5: Software/config -> remote first
+        if category in self._SOFTWARE_CATEGORIES or any(
+            kw in text for kw in ("software", "config", "bug", "patch")
+        ):
+            if not remote_remediation_attempted:
+                return NextAction(
+                    action="remote_remediation",
+                    owner="vodafone_engineering_team",
+                    reason="Software/config issue: attempt remote remediation before dispatch",
+                    priority="high" if incident.severity in (IncidentSeverity.p1, IncidentSeverity.p2) else "normal",
+                )
+            return NextAction(
+                action="dispatch",
+                owner="vodafone_field_engineering",
+                reason="Remote remediation unsuccessful: field dispatch required",
+                priority="high",
+            )
+
+        # Rule 1: Generic — dispatch only if remote exhausted
+        if remote_remediation_attempted:
+            return NextAction(
+                action="dispatch",
+                owner="vodafone_field_engineering",
+                reason="Remote remediation exhausted: field dispatch required",
+                priority="high" if incident.severity in (IncidentSeverity.p1, IncidentSeverity.p2) else "normal",
+            )
+
+        return NextAction(
+            action="remote_remediation",
+            owner="vodafone_engineering_team",
+            reason="Attempt remote remediation before considering field dispatch",
+            priority="normal",
+        )
+
+    @staticmethod
+    def _infer_category(text: str) -> str:
+        """Best-effort category from free text."""
+        mapping = [
+            ("hardware_failure", ["hardware", "disk", "psu", "fan", "chassis", "card", "module"]),
+            ("power_failure", ["power", "ups", "generator", "mains"]),
+            ("fibre_cut", ["fibre cut", "fiber cut", "fibre break", "fiber break"]),
+            ("security_incident", ["security", "breach", "intrusion", "ddos", "malware"]),
+            ("software_bug", ["software", "bug", "crash", "core dump", "segfault"]),
+            ("config_error", ["config", "misconfigured", "acl", "policy"]),
+        ]
+        for cat, keywords in mapping:
+            if any(kw in text for kw in keywords):
+                return cat
+        return ""

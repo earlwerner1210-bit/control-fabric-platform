@@ -987,3 +987,545 @@ class CrossPlaneReconciler:
                 objects.append(co)
 
         return objects
+
+
+# ---------------------------------------------------------------------------
+# SPEN / Vodafone domain-hardened linkers
+# ---------------------------------------------------------------------------
+
+
+class FieldCompletionBillabilityLinker:
+    """Links field completion state to billability determination."""
+
+    def evaluate(
+        self,
+        work_order: dict,
+        completion_evidence: list[dict],
+        billing_gates: list[dict],
+        reattendance_info: dict | None = None,
+    ) -> dict:
+        """
+        Check if completed field work is actually billable.
+
+        Returns dict with: billable (bool), blockers (list), leakage_triggers (list)
+
+        Rules:
+        1. If completion evidence is missing required items -> non-billable
+        2. If billing gates not all satisfied -> non-billable
+        3. If reattendance due to provider fault -> non-billable
+        4. If abortive visit (customer no-access) -> billable as abortive_visit category
+        5. If daywork sheet not signed -> non-billable
+        6. If variation work without change order -> non-billable, leakage trigger
+        """
+        blockers: list[dict] = []
+        leakage_triggers: list[dict] = []
+        billable = True
+        category = work_order.get("category", "standard")
+
+        # Rule 1: completion evidence check
+        required_evidence_types = set(work_order.get("required_evidence_types", []))
+        provided_evidence_types = {
+            e.get("evidence_type", e.get("type", ""))
+            for e in completion_evidence
+            if e.get("provided", False)
+        }
+        missing_evidence = required_evidence_types - provided_evidence_types
+        if missing_evidence:
+            billable = False
+            blockers.append({
+                "rule": "missing_completion_evidence",
+                "description": f"Missing required evidence: {', '.join(sorted(missing_evidence))}",
+                "severity": "error",
+            })
+            leakage_triggers.append({
+                "trigger_type": "incomplete_evidence_prevents_billing",
+                "description": f"Cannot invoice — missing evidence: {', '.join(sorted(missing_evidence))}",
+                "severity": "error",
+            })
+
+        # Rule 2: billing gates
+        unsatisfied_gates = [
+            g for g in billing_gates
+            if not g.get("satisfied", False)
+        ]
+        if unsatisfied_gates:
+            billable = False
+            for gate in unsatisfied_gates:
+                blockers.append({
+                    "rule": "billing_gate_unsatisfied",
+                    "gate_type": gate.get("gate_type", "unknown"),
+                    "description": gate.get("description", "Billing gate not satisfied"),
+                    "severity": "error",
+                })
+
+        # Rule 3: reattendance — provider fault
+        if reattendance_info:
+            trigger = reattendance_info.get("trigger", "")
+            if trigger == "provider_fault":
+                billable = False
+                blockers.append({
+                    "rule": "reattendance_provider_fault",
+                    "description": "Re-attendance caused by provider fault — non-billable",
+                    "severity": "error",
+                })
+                if reattendance_info.get("billed", False):
+                    leakage_triggers.append({
+                        "trigger_type": "reattendance_incorrectly_billed",
+                        "description": "Provider-fault re-visit was billed to customer",
+                        "severity": "critical",
+                    })
+
+            # Rule 4: abortive visit
+            elif trigger == "customer_no_access":
+                billable = True
+                category = "abortive_visit"
+
+        # Rule 5: daywork sheet
+        if work_order.get("category") == "daywork" and not work_order.get("daywork_sheet_signed", False):
+            billable = False
+            blockers.append({
+                "rule": "daywork_sheet_not_signed",
+                "description": "Daywork sheet not signed — cannot invoice",
+                "severity": "error",
+            })
+
+        # Rule 6: variation without change order
+        if work_order.get("is_variation", False) and not work_order.get("variation_order_ref"):
+            billable = False
+            blockers.append({
+                "rule": "variation_no_change_order",
+                "description": "Variation work without formal change order — non-billable",
+                "severity": "error",
+            })
+            leakage_triggers.append({
+                "trigger_type": "variation_work_unbilled",
+                "description": "Out-of-scope variation work done without variation order — cannot bill",
+                "severity": "error",
+            })
+
+        return {
+            "billable": billable,
+            "category": category,
+            "blockers": blockers,
+            "leakage_triggers": leakage_triggers,
+        }
+
+
+class TicketClosureHandoverLinker:
+    """Links incident ticket closure to field handover state."""
+
+    def evaluate(
+        self,
+        incident: dict,
+        work_order: dict,
+        completion_evidence: list[dict],
+        closure_gates: list[dict],
+    ) -> dict:
+        """
+        Check if ticket can be closed based on field handover state.
+
+        Returns dict with: can_close (bool), blockers (list), mismatches (list)
+
+        Rules:
+        1. If incident resolved but field completion evidence missing -> cannot close
+        2. If work order status != "completed" but ticket state = "resolved" -> mismatch
+        3. If P1/P2 ticket: RCA must be submitted before closure
+        4. If work order has open permits -> cannot close (permit not closed out)
+        5. If customer sign-off required but not obtained -> cannot close
+        """
+        blockers: list[dict] = []
+        mismatches: list[dict] = []
+        can_close = True
+
+        inc_state = _safe_str(incident.get("state", ""))
+        inc_severity = _safe_str(incident.get("severity", ""))
+        wo_status = _safe_str(work_order.get("status", ""))
+
+        # Rule 1: incident resolved but no completion evidence
+        if inc_state in ("resolved", "closed"):
+            has_evidence = any(e.get("provided", False) for e in completion_evidence)
+            if not has_evidence:
+                can_close = False
+                blockers.append({
+                    "rule": "missing_completion_evidence",
+                    "description": "Incident resolved but field completion evidence not provided",
+                    "severity": "error",
+                })
+
+        # Rule 2: state mismatch
+        if inc_state == "resolved" and wo_status and wo_status != "completed":
+            can_close = False
+            mismatches.append({
+                "field": "state_alignment",
+                "incident_value": inc_state,
+                "work_order_value": wo_status,
+                "severity": "error",
+                "description": f"Ticket is '{inc_state}' but work order is '{wo_status}'",
+            })
+
+        # Rule 3: P1/P2 require RCA
+        if inc_severity in ("p1", "p2"):
+            rca_submitted = any(
+                g.get("prerequisite") == "rca_submitted" and g.get("satisfied", False)
+                for g in closure_gates
+            )
+            if not rca_submitted:
+                can_close = False
+                blockers.append({
+                    "rule": "rca_not_submitted",
+                    "description": f"{inc_severity.upper()} ticket requires RCA before closure",
+                    "severity": "error",
+                })
+
+        # Rule 4: open permits
+        open_permits = [
+            g for g in closure_gates
+            if g.get("prerequisite") == "permit_closed_out"
+            and not g.get("satisfied", False)
+        ]
+        if open_permits:
+            can_close = False
+            blockers.append({
+                "rule": "open_permits",
+                "description": "Work order has permits not closed out",
+                "severity": "error",
+            })
+
+        # Rule 5: customer sign-off
+        needs_sign_off = any(
+            g.get("prerequisite") == "customer_sign_off" for g in closure_gates
+        )
+        has_sign_off = any(
+            g.get("prerequisite") == "customer_sign_off" and g.get("satisfied", False)
+            for g in closure_gates
+        )
+        if needs_sign_off and not has_sign_off:
+            can_close = False
+            blockers.append({
+                "rule": "customer_sign_off_missing",
+                "description": "Customer sign-off required but not obtained",
+                "severity": "error",
+            })
+
+        return {
+            "can_close": can_close,
+            "blockers": blockers,
+            "mismatches": mismatches,
+        }
+
+
+class SLAAccountabilityLinker:
+    """Determines SLA accountability when field blockers exist."""
+
+    def evaluate(
+        self,
+        sla_status: dict,
+        field_blockers: list[dict],
+        contract_assumptions: list[dict],
+    ) -> dict:
+        """
+        Determine if SLA breach is provider-accountable or has mitigating factors.
+
+        Returns dict with: accountable (bool), mitigation_factors (list), adjusted_sla_status (str)
+
+        Rules:
+        1. Access blocker caused by customer -> SLA clock paused (not accountable)
+        2. Permit delay caused by local authority -> SLA clock paused
+        3. Weather event (force majeure) -> SLA exclusion applies
+        4. Material supply failure by customer-nominated supplier -> not accountable
+        5. Third-party dependency (DNO, council) -> partial mitigation
+        6. Provider's own resource shortage -> fully accountable
+        """
+        mitigation_factors: list[dict] = []
+        accountable = True
+        adjusted_status = sla_status.get("status", "within")
+
+        blocker_type_map = {
+            "customer_access": {
+                "accountable": False,
+                "mitigation": "SLA clock paused — customer access blocker",
+                "adjusted_status": "paused",
+            },
+            "local_authority_permit": {
+                "accountable": False,
+                "mitigation": "SLA clock paused — local authority permit delay",
+                "adjusted_status": "paused",
+            },
+            "weather_force_majeure": {
+                "accountable": False,
+                "mitigation": "SLA exclusion — force majeure weather event",
+                "adjusted_status": "excluded",
+            },
+            "customer_nominated_supplier": {
+                "accountable": False,
+                "mitigation": "Material supply failure by customer-nominated supplier",
+                "adjusted_status": "paused",
+            },
+            "third_party_dependency": {
+                "accountable": True,
+                "mitigation": "Third-party dependency (DNO/council) — partial mitigation",
+                "adjusted_status": "mitigated",
+            },
+            "provider_resource_shortage": {
+                "accountable": True,
+                "mitigation": None,
+                "adjusted_status": None,
+            },
+        }
+
+        has_non_accountable = False
+        fully_accountable_only = True
+
+        for blocker in field_blockers:
+            blocker_type = blocker.get("blocker_type", "")
+            mapping = blocker_type_map.get(blocker_type)
+            if mapping:
+                if not mapping["accountable"]:
+                    has_non_accountable = True
+                    fully_accountable_only = False
+                    mitigation_factors.append({
+                        "blocker_type": blocker_type,
+                        "mitigation": mapping["mitigation"],
+                        "description": blocker.get("description", ""),
+                    })
+                    if mapping["adjusted_status"]:
+                        adjusted_status = mapping["adjusted_status"]
+                elif mapping["mitigation"]:
+                    # Partial mitigation (e.g. third_party_dependency)
+                    fully_accountable_only = False
+                    mitigation_factors.append({
+                        "blocker_type": blocker_type,
+                        "mitigation": mapping["mitigation"],
+                        "description": blocker.get("description", ""),
+                    })
+                    if mapping["adjusted_status"]:
+                        adjusted_status = mapping["adjusted_status"]
+
+        if has_non_accountable:
+            accountable = False
+        elif not fully_accountable_only and mitigation_factors:
+            # Partial mitigation — still accountable but with factors
+            accountable = True
+
+        return {
+            "accountable": accountable,
+            "mitigation_factors": mitigation_factors,
+            "adjusted_sla_status": adjusted_status,
+        }
+
+
+class MarginLeakageReconciler:
+    """Comprehensive margin leakage detection across all three planes."""
+
+    def reconcile(
+        self,
+        contract_data: dict,
+        field_data: dict,
+        ops_data: dict,
+    ) -> dict:
+        """
+        Full cross-plane margin leakage analysis.
+
+        Returns dict with: leakage_triggers (list), total_at_risk_value (float),
+        recommendations (list)
+
+        Specific leakage patterns to detect:
+        1.  field_completion_not_billed
+        2.  abortive_visit_not_claimed
+        3.  emergency_billed_at_base_rate
+        4.  reattendance_incorrectly_billed
+        5.  permit_cost_not_recovered
+        6.  rate_escalation_not_applied
+        7.  variation_work_unbilled
+        8.  sla_credit_not_deducted
+        9.  incomplete_evidence_prevents_billing
+        10. duplicate_claim_risk
+        """
+        triggers: list[dict] = []
+        total_at_risk = 0.0
+        recommendations: list[str] = []
+
+        work_orders = field_data.get("work_orders", [])
+        invoices = contract_data.get("invoices", [])
+        rate_card = contract_data.get("rate_card", [])
+        sla_breaches = ops_data.get("sla_breaches", [])
+
+        # Build lookup sets
+        invoiced_wo_ids = {inv.get("work_order_id") for inv in invoices}
+        rate_map: dict[str, dict] = {}
+        for rc in rate_card:
+            activity = _safe_str(rc.get("activity", ""))
+            if activity:
+                rate_map[activity.lower()] = rc
+
+        for wo in work_orders:
+            wo_id = wo.get("work_order_id", "")
+            wo_status = wo.get("status", "")
+            wo_activity = _safe_str(wo.get("activity", ""))
+            wo_value = _safe_float(wo.get("value", wo.get("estimated_value", 0)))
+
+            # 1. field_completion_not_billed
+            if wo_status == "completed" and wo_id not in invoiced_wo_ids:
+                triggers.append({
+                    "trigger_type": "field_completion_not_billed",
+                    "work_order_id": wo_id,
+                    "description": f"Work order {wo_id} completed but no invoice raised",
+                    "severity": "error",
+                    "at_risk_value": wo_value,
+                })
+                total_at_risk += wo_value
+                recommendations.append(f"Raise invoice for completed work order {wo_id}")
+
+            # 2. abortive_visit_not_claimed
+            if wo.get("abortive", False) and not wo.get("abortive_claimed", False):
+                abortive_value = _safe_float(wo.get("abortive_value", 0))
+                triggers.append({
+                    "trigger_type": "abortive_visit_not_claimed",
+                    "work_order_id": wo_id,
+                    "description": f"Abortive visit for {wo_id} not claimed",
+                    "severity": "warning",
+                    "at_risk_value": abortive_value,
+                })
+                total_at_risk += abortive_value
+                recommendations.append(f"Claim abortive visit charge for {wo_id}")
+
+            # 3. emergency_billed_at_base_rate
+            if wo.get("is_emergency", False):
+                billed_rate = _safe_float(wo.get("billed_rate", 0))
+                rc = rate_map.get(wo_activity.lower(), {})
+                base_rate = _safe_float(rc.get("rate", rc.get("base_rate", 0)))
+                emergency_multiplier = _safe_float(rc.get("emergency_multiplier", 1.5))
+                expected_rate = base_rate * emergency_multiplier
+                if billed_rate > 0 and base_rate > 0 and billed_rate < expected_rate * 0.99:
+                    diff = expected_rate - billed_rate
+                    triggers.append({
+                        "trigger_type": "emergency_billed_at_base_rate",
+                        "work_order_id": wo_id,
+                        "description": (
+                            f"Emergency callout billed at {billed_rate} "
+                            f"instead of expected {expected_rate}"
+                        ),
+                        "severity": "error",
+                        "at_risk_value": diff,
+                    })
+                    total_at_risk += diff
+                    recommendations.append(
+                        f"Rebill {wo_id} at emergency rate ({expected_rate})"
+                    )
+
+            # 4. reattendance_incorrectly_billed
+            reattendance = wo.get("reattendance_info", {})
+            if reattendance.get("trigger") == "provider_fault" and reattendance.get("billed", False):
+                triggers.append({
+                    "trigger_type": "reattendance_incorrectly_billed",
+                    "work_order_id": wo_id,
+                    "description": f"Provider-fault re-visit {wo_id} billed to customer",
+                    "severity": "critical",
+                    "at_risk_value": wo_value,
+                })
+                total_at_risk += wo_value
+                recommendations.append(f"Issue credit note for incorrectly billed rework {wo_id}")
+
+            # 5. permit_cost_not_recovered
+            permit_cost = _safe_float(wo.get("permit_cost", 0))
+            if permit_cost > 0 and not wo.get("permit_cost_recovered", False):
+                triggers.append({
+                    "trigger_type": "permit_cost_not_recovered",
+                    "work_order_id": wo_id,
+                    "description": f"NRSWA permit cost {permit_cost:.2f} not passed through",
+                    "severity": "warning",
+                    "at_risk_value": permit_cost,
+                })
+                total_at_risk += permit_cost
+                recommendations.append(f"Recover permit cost {permit_cost:.2f} for {wo_id}")
+
+            # 6. rate_escalation_not_applied
+            if wo.get("escalation_due", False) and not wo.get("escalation_applied", False):
+                contract_rate = _safe_float(wo.get("contract_rate", 0))
+                esc_pct = _safe_float(wo.get("escalation_percentage", 0))
+                volume = _safe_float(wo.get("volume", 1))
+                delta = contract_rate * esc_pct / 100.0 * volume
+                if delta > 0:
+                    triggers.append({
+                        "trigger_type": "rate_escalation_not_applied",
+                        "work_order_id": wo_id,
+                        "description": f"Annual rate escalation not applied — under-recovery {delta:.2f}",
+                        "severity": "warning",
+                        "at_risk_value": delta,
+                    })
+                    total_at_risk += delta
+                    recommendations.append(f"Apply rate escalation for {wo_id}")
+
+            # 7. variation_work_unbilled
+            if wo.get("is_variation", False) and not wo.get("variation_order_ref"):
+                triggers.append({
+                    "trigger_type": "variation_work_unbilled",
+                    "work_order_id": wo_id,
+                    "description": f"Variation work on {wo_id} without variation order — cannot bill",
+                    "severity": "error",
+                    "at_risk_value": wo_value,
+                })
+                total_at_risk += wo_value
+                recommendations.append(f"Raise variation order for {wo_id} before invoicing")
+
+            # 9. incomplete_evidence_prevents_billing
+            required_evidence = set(wo.get("required_evidence_types", []))
+            provided_evidence = {
+                e.get("evidence_type", "")
+                for e in wo.get("completion_evidence", [])
+                if e.get("provided", False)
+            }
+            missing = required_evidence - provided_evidence
+            if missing and wo_status == "completed":
+                triggers.append({
+                    "trigger_type": "incomplete_evidence_prevents_billing",
+                    "work_order_id": wo_id,
+                    "description": f"Missing evidence ({', '.join(sorted(missing))}) prevents invoicing",
+                    "severity": "error",
+                    "at_risk_value": wo_value,
+                })
+                total_at_risk += wo_value
+                recommendations.append(f"Collect missing evidence for {wo_id}")
+
+        # 8. sla_credit_not_deducted
+        for breach in sla_breaches:
+            if not breach.get("credit_applied", False):
+                credit_value = _safe_float(breach.get("credit_value", 0))
+                triggers.append({
+                    "trigger_type": "sla_credit_not_deducted",
+                    "incident_id": breach.get("incident_id", ""),
+                    "description": f"SLA breach but service credit not applied",
+                    "severity": "warning",
+                    "at_risk_value": credit_value,
+                })
+                total_at_risk += credit_value
+                recommendations.append("Apply SLA service credit for breach")
+
+        # 10. duplicate_claim_risk
+        activity_wo_map: dict[str, list[str]] = {}
+        for wo in work_orders:
+            key = (
+                _safe_str(wo.get("activity", "")).lower()
+                + "|"
+                + _safe_str(wo.get("location", "")).lower()
+                + "|"
+                + _safe_str(wo.get("scheduled_date", ""))
+            )
+            if key and key != "||":
+                activity_wo_map.setdefault(key, []).append(wo.get("work_order_id", ""))
+        for key, wo_ids in activity_wo_map.items():
+            if len(wo_ids) > 1:
+                triggers.append({
+                    "trigger_type": "duplicate_claim_risk",
+                    "work_order_ids": wo_ids,
+                    "description": f"Possible duplicate claim across work orders: {', '.join(wo_ids)}",
+                    "severity": "warning",
+                    "at_risk_value": 0.0,
+                })
+                recommendations.append(f"Review potential duplicate: {', '.join(wo_ids)}")
+
+        return {
+            "leakage_triggers": triggers,
+            "total_at_risk_value": round(total_at_risk, 2),
+            "recommendations": recommendations,
+        }

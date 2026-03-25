@@ -300,95 +300,72 @@ class TestMarginDiagnosisUsesCrossPack:
         parsed = contract_parser.parse_contract(sample_contract_data)
         compiled = contract_compiler.compile(parsed)
 
-        # Convert compiled objects to dicts for reconciliation
-        contract_objects = compiled.control_object_payloads
+        # Step 2: Build contract data dict for reconciliation
+        contract_data = {
+            "rate_card": [
+                {"activity": rc["activity"], "rate": rc["rate"], "unit": rc["unit"]}
+                for rc in compiled.rate_card_entries
+            ],
+            "obligations": [
+                {"clause_id": ob["clause_id"], "description": ob["description"],
+                 "status": ob["status"], "due_type": ob["due_type"]}
+                for ob in compiled.obligations
+            ],
+            "scope_boundaries": [],
+        }
 
-        # Step 2: Define work order and incident objects
-        work_order_objects = [
-            {
-                "work_order_id": "WO-MARGIN-001",
-                "activity": "network_maintenance",
-                "description": "Scheduled maintenance at site A",
-                "scope": "network maintenance",
-                "status": "completed",
-                "rate": 125.0,
-                "hours": 8.0,
-                "billed": True,
-                "incident_id": "INC-MARGIN-001",
-            },
-            {
-                "work_order_id": "WO-MARGIN-002",
-                "activity": "ad_hoc_consulting",
-                "description": "Ad hoc consulting work",
-                "scope": "consulting",
-                "status": "completed",
-                "rate": 150.0,
-                "hours": 4.0,
-                "billed": False,
-            },
-        ]
-        incident_objects = [
-            {
-                "incident_id": "INC-MARGIN-001",
-                "title": "Network issue",
-                "description": "Network maintenance required",
-                "state": "resolved",
-                "affected_services": ["core_network"],
-            },
-        ]
+        # Step 3: Define work order data
+        wo_data = {
+            "work_order_id": "WO-MARGIN-001",
+            "description": "Scheduled network maintenance at site A",
+            "rate": 125.0,
+            "priority": "normal",
+        }
 
-        # Step 3: Run cross-pack reconciliation
+        # Step 4: Run cross-pack reconciliation
         reconciler = CrossPlaneReconciler()
-        result = reconciler.reconcile_all(
-            contract_objects, work_order_objects, incident_objects
-        )
+        result = reconciler.reconcile_contract_to_work_order(contract_data, wo_data)
 
-        assert len(result["links"]) >= 0  # May or may not have links to nested payloads
-        assert "summary" in result
+        assert "links" in result
+        assert "conflicts" in result
+        assert "evidence" in result
 
-        # Step 4: Assemble margin evidence
+        # Evidence should contain items from contract and field domains
+        evidence = result["evidence"]
+        assert evidence["total_items"] > 0
+
+    def test_margin_evidence_assembly(self):
+        """MarginEvidenceAssembler should assemble proper evidence bundle."""
         assembler = MarginEvidenceAssembler()
-        bundle = assembler.assemble_margin_evidence(
-            contract_objects, work_order_objects, incident_objects
-        )
 
-        assert bundle.bundle_type == "margin_evidence"
-        assert len(bundle.field_objects) == 2
-
-        # Step 5: Calculate margin impact
-        impact = assembler.calculate_margin_impact(bundle)
-
-        assert impact["total_billed"] > 0  # WO-MARGIN-001 is billed
-        assert impact["total_billable"] > impact["total_billed"]  # WO-MARGIN-002 is unbilled
-        assert impact["leakage_amount"] > 0
-
-    def test_no_leakage_when_all_billed(self):
-        """No leakage should be detected when all work is properly billed."""
         contract_objects = [
-            {
-                "control_type": "rate_card",
-                "activity": "maintenance",
-                "label": "maintenance",
-                "rate": 100.0,
-            },
+            {"type": "rate_card", "activity": "maintenance", "rate": 100.0, "description": "maintenance"},
         ]
-        work_orders = [
-            {
-                "work_order_id": "WO-OK",
-                "activity": "maintenance",
-                "status": "completed",
-                "rate": 100.0,
-                "hours": 8.0,
-                "billed": True,
-            },
+        work_history = [
+            {"work_order_id": "WO-001", "description": "Maintenance work", "billed": True},
+            {"work_order_id": "WO-002", "description": "Extra work", "billed": False},
         ]
-        incidents: list[dict] = []
+        leakage_triggers = [
+            {"trigger_type": "unbilled_work", "description": "WO-002 not billed", "severity": "error"},
+        ]
 
+        bundle = assembler.assemble(contract_objects, work_history, leakage_triggers)
+
+        assert bundle.total_items == 4  # 1 contract + 2 WOs + 1 trigger
+        assert bundle.confidence > 0
+        assert "contract_margin" in bundle.domains
+        assert "utilities_field" in bundle.domains
+
+    def test_no_leakage_with_clean_data(self):
+        """No leakage triggers should produce lower confidence."""
         assembler = MarginEvidenceAssembler()
-        bundle = assembler.assemble_margin_evidence(
-            contract_objects, work_orders, incidents
-        )
-        impact = assembler.calculate_margin_impact(bundle)
 
-        assert impact["leakage_amount"] == 0.0
-        assert impact["total_billed"] == impact["total_billable"]
+        bundle = assembler.assemble(
+            contract_objects=[{"type": "rate_card", "activity": "maintenance", "rate": 100.0}],
+            work_history=[{"work_order_id": "WO-CLEAN", "description": "Clean work", "billed": True}],
+            leakage_triggers=[],
+        )
+
+        assert bundle.total_items == 2
+        # Without leakage triggers, confidence should be lower
+        assert bundle.confidence < 1.0

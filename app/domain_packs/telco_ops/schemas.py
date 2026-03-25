@@ -8,6 +8,11 @@ import uuid
 from pydantic import BaseModel
 
 
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+
 class IncidentSeverity(str, enum.Enum):
     p1 = "p1"
     p2 = "p2"
@@ -36,6 +41,31 @@ class EscalationLevel(str, enum.Enum):
     l2 = "l2"
     l3 = "l3"
     management = "management"
+
+
+class ImpactLevel(str, enum.Enum):
+    critical = "critical"
+    major = "major"
+    minor = "minor"
+    negligible = "negligible"
+
+
+class ReconciliationStatus(str, enum.Enum):
+    aligned = "aligned"
+    mismatched = "mismatched"
+    partial = "partial"
+    unknown = "unknown"
+
+
+class SLAStatus(str, enum.Enum):
+    within = "within"
+    warning = "warning"
+    breached = "breached"
+
+
+# ---------------------------------------------------------------------------
+# Core incident / runbook models (existing)
+# ---------------------------------------------------------------------------
 
 
 class ParsedIncident(BaseModel):
@@ -100,3 +130,132 @@ class OpsNote(BaseModel):
     escalation_owner: str | None = None
     service_state_explanation: str = ""
     evidence_ids: list[uuid.UUID] = []
+
+
+# ---------------------------------------------------------------------------
+# NEW: Timeline models
+# ---------------------------------------------------------------------------
+
+
+class TimelineEvent(BaseModel):
+    """A single event in an incident timeline."""
+
+    timestamp: str
+    event_type: str  # created, acknowledged, assigned, note, state_change, escalation, resolution
+    actor: str
+    description: str
+    state_change: str | None = None  # e.g. "new -> acknowledged"
+
+
+class IncidentTimeline(BaseModel):
+    """Structured timeline for an incident."""
+
+    events: list[TimelineEvent] = []
+    total_duration_minutes: int = 0
+    sla_status: str = "within"  # within, warning, breached
+    breach_at: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# NEW: Service state model
+# ---------------------------------------------------------------------------
+
+
+class ServiceStateObject(BaseModel):
+    """Detailed representation of a service's operational state."""
+
+    service_id: str
+    service_name: str
+    state: ServiceState
+    last_state_change: str = ""
+    affected_customers: int = 0
+    impact_level: ImpactLevel = ImpactLevel.negligible
+    dependencies: list[str] = []
+    recovery_eta_minutes: int | None = None
+
+
+# ---------------------------------------------------------------------------
+# NEW: Runbook reference / step models
+# ---------------------------------------------------------------------------
+
+
+class RunbookStep(BaseModel):
+    """A single step within a runbook."""
+
+    step_number: int
+    action: str
+    expected_result: str
+    escalation_on_failure: str = ""
+    automated: bool = False
+    timeout_minutes: int = 10
+
+
+class RunbookReferenceObject(BaseModel):
+    """A fully-typed runbook reference with steps and metadata."""
+
+    runbook_id: str
+    title: str
+    applicable_severity: list[str] = []
+    applicable_services: list[str] = []
+    steps: list[RunbookStep] = []
+    estimated_time_minutes: int = 0
+    success_rate: float = 0.0
+    last_updated: str = ""
+
+
+# ---------------------------------------------------------------------------
+# NEW: Ownership rule model
+# ---------------------------------------------------------------------------
+
+
+class OwnershipRuleObject(BaseModel):
+    """Declarative ownership assignment rule."""
+
+    incident_type: str
+    severity: str
+    primary_owner: str
+    secondary_owner: str = ""
+    escalation_chain: list[str] = []
+    time_to_own_minutes: int = 15
+
+
+# ---------------------------------------------------------------------------
+# NEW: Reconciliation models
+# ---------------------------------------------------------------------------
+
+
+class ReconciliationMismatch(BaseModel):
+    """A single field-level mismatch between incident and work order."""
+
+    field: str
+    incident_value: str = ""
+    work_order_value: str = ""
+    severity: str = "info"  # info, warning, error, critical
+    resolution: str = ""
+
+
+class ReconciliationResult(BaseModel):
+    """Result of reconciling an incident against a work order or service state."""
+
+    status: ReconciliationStatus = ReconciliationStatus.unknown
+    mismatches: list[ReconciliationMismatch] = []
+    recommendations: list[str] = []
+    confidence: float = 0.0
+
+
+# ---------------------------------------------------------------------------
+# NEW: Ops recommendation model
+# ---------------------------------------------------------------------------
+
+
+class OpsRecommendation(BaseModel):
+    """A structured operational recommendation."""
+
+    action: str
+    owner: str = ""
+    priority: str = "normal"
+    rationale: str = ""
+    evidence_ids: list[uuid.UUID] = []
+    estimated_resolution_minutes: int = 0
+    runbook_ref: str | None = None
+    risk_if_delayed: str = ""

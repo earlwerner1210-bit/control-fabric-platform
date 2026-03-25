@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from domain_packs.utilities_field.rules.readiness_rules import ReadinessRuleEngine
+from services.readiness_engine import ReadinessRuleEngine
 from workflows.work_order_readiness.workflow import (
     WorkOrderReadinessWorkflow,
     WorkOrderReadinessResult,

@@ -42,6 +42,44 @@ class ReadinessStatus(str, enum.Enum):
     escalate = "escalate"
 
 
+class PreconditionType(str, enum.Enum):
+    ppe = "ppe"
+    certification = "certification"
+    risk_assessment = "risk_assessment"
+    method_statement = "method_statement"
+    toolbox_talk = "toolbox_talk"
+
+
+class ExceptionType(str, enum.Enum):
+    rework = "rework"
+    revisit = "revisit"
+    no_access = "no_access"
+    safety_stop = "safety_stop"
+    wrong_materials = "wrong_materials"
+    skill_gap = "skill_gap"
+    weather = "weather"
+    customer_refusal = "customer_refusal"
+
+
+class RecommendationType(str, enum.Enum):
+    dispatch = "dispatch"
+    hold = "hold"
+    reassign = "reassign"
+    reschedule = "reschedule"
+    cancel = "cancel"
+
+
+class RiskLevel(str, enum.Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
+# ---------------------------------------------------------------------------
+# Core records
+# ---------------------------------------------------------------------------
+
+
 class SkillRecord(BaseModel):
     skill_name: str
     category: SkillCategory
@@ -86,6 +124,19 @@ class ParsedWorkOrder(BaseModel):
     prerequisites: list[dict] = []
     estimated_duration_hours: float = 0
     customer: str = ""
+    site_id: str = ""
+    scheduled_end: str | None = None
+    dependencies: list[dict] = []
+    materials_required: list[dict] = []
+    special_instructions: str = ""
+    linked_contract_id: uuid.UUID | None = None
+    customer_confirmed: bool = False
+    weather_conditions: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Analysis & decision schemas
+# ---------------------------------------------------------------------------
 
 
 class SkillFitAnalysis(BaseModel):
@@ -109,3 +160,104 @@ class ReadinessDecision(BaseModel):
     blockers: list[ComplianceBlocker] = []
     recommendation: str = ""
     confidence: float = 1.0
+
+
+# ---------------------------------------------------------------------------
+# New schemas
+# ---------------------------------------------------------------------------
+
+
+class WorkOrderObject(BaseModel):
+    """Full work order object with extended attributes."""
+
+    work_order_id: str
+    work_order_type: WorkOrderType = WorkOrderType.maintenance
+    description: str = ""
+    location: str = ""
+    site_id: str = ""
+    customer: str = ""
+    scheduled_start: str | None = None
+    scheduled_end: str | None = None
+    priority: str = "normal"
+    estimated_duration_hours: float = 0
+    actual_duration_hours: float | None = None
+    status: str = "pending"
+    dependencies: list[dict] = []
+    materials_required: list[dict] = []
+    special_instructions: str = ""
+    linked_contract_id: uuid.UUID | None = None
+
+
+class SafetyPreconditionObject(BaseModel):
+    """A single safety precondition that must be met before dispatch."""
+
+    precondition_type: PreconditionType
+    description: str
+    required: bool = True
+    verified: bool = False
+    verified_by: str = ""
+    verified_at: str = ""
+
+
+class MissingPrerequisite(BaseModel):
+    """A prerequisite that is missing or unresolved."""
+
+    prerequisite_type: str  # permit, skill, accreditation, access, dependency, safety, customer
+    description: str
+    severity: str = "error"
+    resolution_action: str = ""
+    estimated_resolution_time_hours: float = 0.0
+    blocking: bool = True
+
+
+class DispatchRecommendation(BaseModel):
+    """A recommendation on whether to dispatch an engineer."""
+
+    recommendation: RecommendationType
+    reasons: list[str] = []
+    alternative_engineers: list[str] = []
+    suggested_date: str | None = None
+    risk_level: str = "low"
+    confidence: float = 1.0
+
+
+class FieldExceptionClassification(BaseModel):
+    """Classification of a field exception event."""
+
+    exception_type: ExceptionType
+    description: str = ""
+    root_cause: str = ""
+    preventable: bool = False
+    cost_impact: float = 0.0
+    recommended_action: str = ""
+
+
+class FieldSummaryResult(BaseModel):
+    """Comprehensive field summary combining all analysis outputs."""
+
+    work_order_id: str
+    readiness: ReadinessDecision
+    dispatch_recommendation: DispatchRecommendation
+    exceptions: list[FieldExceptionClassification] = []
+    engineer_briefing: str = ""
+    risk_assessment: str = ""
+
+
+class RepeatVisitRisk(BaseModel):
+    """Assessment of repeat-visit risk for a work order."""
+
+    risk_level: RiskLevel
+    contributing_factors: list[str] = []
+    previous_visit_count: int = 0
+    recommended_mitigations: list[str] = []
+
+
+class MaterialRequirement(BaseModel):
+    """A single material requirement for a work order."""
+
+    material_id: str = ""
+    description: str = ""
+    quantity: float = 1.0
+    unit: str = "each"
+    available: bool = True
+    alternative: str = ""

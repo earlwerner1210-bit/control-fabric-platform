@@ -35,8 +35,8 @@ from domain_packs.contract_margin.taxonomy.contract_taxonomy import (
     ClauseType,
     ContractType,
 )
-from domain_packs.telco_ops.rules.escalation_rules import EscalationRuleEngine
-from domain_packs.utilities_field.rules.readiness_rules import ReadinessRuleEngine
+from services.escalation_engine import EscalationRuleEngine
+from services.readiness_engine import ReadinessRuleEngine
 
 
 # ---------------------------------------------------------------------------

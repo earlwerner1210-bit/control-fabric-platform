@@ -146,7 +146,7 @@ class TestBillabilityRuleEngine:
             clauses=[],
             billable_events=[
                 BillableEvent(
-                    description="Emergency repair work",
+                    description="emergency_repair work",
                     category=BillableCategory.time_and_materials,
                     requires_approval=True,
                     excluded_activities=[],

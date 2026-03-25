@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from domain_packs.telco_ops.rules.escalation_rules import EscalationRuleEngine
+from services.escalation_engine import EscalationRuleEngine
 from workflows.incident_dispatch_reconcile.workflow import (
     IncidentDispatchWorkflow,
     IncidentDispatchResult,

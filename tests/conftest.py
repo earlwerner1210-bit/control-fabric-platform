@@ -109,12 +109,12 @@ def auth_token() -> str:
     """Create a valid JWT token for test requests."""
     from shared.security.auth import create_access_token
 
-    return create_access_token({
-        "sub": TEST_USER_ID,
-        "email": TEST_USER_EMAIL,
-        "role": "admin",
-        "tenant_id": TEST_TENANT_ID,
-    })
+    return create_access_token(
+        tenant_id=uuid.UUID(TEST_TENANT_ID),
+        user_id=uuid.UUID(TEST_USER_ID),
+        roles=["admin"],
+        extra_claims={"email": TEST_USER_EMAIL},
+    )
 
 
 @pytest.fixture

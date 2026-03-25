@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from domain_packs.telco_ops.rules.escalation_rules import (
+from services.escalation_engine import (
     EscalationRuleEngine,
     EscalationResult,
 )

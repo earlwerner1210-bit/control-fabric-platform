@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from domain_packs.utilities_field.rules.readiness_rules import (
+from services.readiness_engine import (
     ReadinessRuleEngine,
     ReadinessResult,
 )
@@ -32,6 +32,14 @@ class TestReadinessRuleEngine:
         wo["materials"] = [
             {"item": "Fiber cable", "quantity": 200, "unit": "meters", "status": "in_stock"},
         ]
+        # Update certifications to future dates so they don't expire
+        wo["engineer"] = {
+            **wo.get("engineer", {}),
+            "certifications": [
+                {"type": "fiber_optic_certified", "expiry": "2028-06-15"},
+                {"type": "confined_space", "expiry": "2028-03-01"},
+            ],
+        }
         result = engine.evaluate(wo)
         assert result.ready is True
         assert result.verdict == "ready"

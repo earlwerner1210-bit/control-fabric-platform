@@ -1,0 +1,69 @@
+[
+  {
+    "id": "eval-cm-001",
+    "name": "billable_standard_maintenance",
+    "domain": "contract-margin",
+    "rule_type": "billability",
+    "input": {
+      "event_id": "WE-001",
+      "description": "Scheduled fiber inspection at North Tower",
+      "activity_type": "standard_maintenance",
+      "hours": 4.0,
+      "role": "standard_maintenance",
+      "has_approval": false,
+      "sla_met": true
+    },
+    "expected": {
+      "billable": true,
+      "confidence_min": 0.8
+    }
+  },
+  {
+    "id": "eval-cm-002",
+    "name": "not_billable_excluded_activity",
+    "domain": "contract-margin",
+    "rule_type": "billability",
+    "input": {
+      "event_id": "WE-002",
+      "description": "Internal travel between sites",
+      "activity_type": "travel",
+      "hours": 2.0,
+      "role": "field_engineer",
+      "has_approval": false,
+      "sla_met": true
+    },
+    "expected": {
+      "billable": false
+    }
+  },
+  {
+    "id": "eval-cm-003",
+    "name": "leakage_unbilled_work",
+    "domain": "contract-margin",
+    "rule_type": "leakage",
+    "input": {
+      "work_history": [
+        {"entry_id": "WH-001", "description": "Emergency repair", "role": "standard_maintenance", "hours": 6.0, "actual_rate": 125.0, "date": "2024-03-01", "billed": false, "in_original_scope": true}
+      ]
+    },
+    "expected": {
+      "has_leakage": true,
+      "driver": "unbilled_work"
+    }
+  },
+  {
+    "id": "eval-cm-004",
+    "name": "leakage_rate_erosion",
+    "domain": "contract-margin",
+    "rule_type": "leakage",
+    "input": {
+      "work_history": [
+        {"entry_id": "WH-002", "description": "Maintenance work", "role": "standard_maintenance", "hours": 8.0, "actual_rate": 100.0, "date": "2024-03-02", "billed": true, "in_original_scope": true}
+      ]
+    },
+    "expected": {
+      "has_leakage": true,
+      "driver": "rate_erosion"
+    }
+  }
+]

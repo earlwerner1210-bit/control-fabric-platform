@@ -1,94 +1,203 @@
-version: "3.9"
+###############################################################################
+# Control Fabric Platform -- Local Development Docker Compose
+###############################################################################
 
 services:
-  api:
-    build: ./apps/api
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/control_fabric
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - db
-      - redis
-    volumes:
-      - ./apps/api:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-  operator-ui:
-    build: ./apps/operator-ui
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    volumes:
-      - ./apps/operator-ui:/app
+  # ── Infrastructure ─────────────────────────────────────────────────────
 
-  admin-console:
-    build: ./apps/admin-console
-    ports:
-      - "3001:3001"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    volumes:
-      - ./apps/admin-console:/app
-
-  auth-service:
-    build: ./services/auth-service
-    ports:
-      - "8001:8001"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/control_fabric
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
-    depends_on:
-      - db
-
-  ingest-service:
-    build: ./services/ingest-service
-    ports:
-      - "8002:8002"
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - STORAGE_BUCKET=${STORAGE_BUCKET:-local}
-    depends_on:
-      - redis
-
-  embedding-service:
-    build: ./services/embedding-service
-    ports:
-      - "8003:8003"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-
-  retrieval-service:
-    build: ./services/retrieval-service
-    ports:
-      - "8004:8004"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/control_fabric
-      - VECTOR_DB_URL=${VECTOR_DB_URL:-postgresql://postgres:postgres@db:5432/control_fabric}
-    depends_on:
-      - db
-
-  db:
+  postgres:
     image: pgvector/pgvector:pg16
+    container_name: cfp-postgres
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=control_fabric
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: control_fabric
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    container_name: cfp-redis
     ports:
       - "6379:6379"
     volumes:
       - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: cfp-temporal
+    ports:
+      - "7233:7233"
+    environment:
+      DB: postgresql
+      DB_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PWD: postgres
+      POSTGRES_SEEDS: postgres
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: cfp-temporal-ui
+    ports:
+      - "8088:8080"
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+    depends_on:
+      temporal:
+        condition: service_started
+    restart: unless-stopped
+
+  # ── Application Services ──────────────────────────────────────────────
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: cfp-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/control_fabric
+      REDIS_URL: redis://redis:6379/0
+      TEMPORAL_HOST: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_MINUTES: 60
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ENVIRONMENT: dev
+      LOG_LEVEL: INFO
+      S3_ENDPOINT: http://localhost:9000
+      S3_BUCKET: control-fabric
+    volumes:
+      - ./shared:/app/shared
+      - ./apps:/app/apps
+      - ./services:/app/services
+      - ./workflows:/app/workflows
+      - ./domain-packs:/app/domain-packs
+      - ./domain_packs:/app/domain_packs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    command: >
+      uvicorn apps.api.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.worker
+    container_name: cfp-worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/control_fabric
+      REDIS_URL: redis://redis:6379/0
+      TEMPORAL_HOST: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ENVIRONMENT: dev
+      LOG_LEVEL: INFO
+    volumes:
+      - ./shared:/app/shared
+      - ./services:/app/services
+      - ./workflows:/app/workflows
+      - ./domain-packs:/app/domain-packs
+      - ./domain_packs:/app/domain_packs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+    restart: unless-stopped
+
+  # ── Frontend Applications ─────────────────────────────────────────────
+
+  operator-ui:
+    build:
+      context: ./apps/operator-ui
+      dockerfile: ../../infra/docker/Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    container_name: cfp-operator-ui
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    volumes:
+      - ./apps/operator-ui:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      api:
+        condition: service_healthy
+    command: npm run dev
+    restart: unless-stopped
+
+  admin-console:
+    build:
+      context: ./apps/admin-console
+      dockerfile: ../../infra/docker/Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    container_name: cfp-admin-console
+    ports:
+      - "3001:3001"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      PORT: 3001
+    volumes:
+      - ./apps/admin-console:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      api:
+        condition: service_healthy
+    command: npm run dev -- --port 3001
+    restart: unless-stopped
 
 volumes:
   pgdata:
+    driver: local
   redisdata:
+    driver: local

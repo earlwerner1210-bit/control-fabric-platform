@@ -5,15 +5,16 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
+import uuid
+from datetime import timedelta
 from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.config import get_settings
 from shared.db.models import User
-from shared.security.auth import create_access_token, create_refresh_token, decode_token
+from shared.security.auth import create_access_token, decode_token
 from shared.telemetry.logging import get_logger
 
 logger = get_logger("auth_service")
@@ -43,11 +44,15 @@ class AuthService:
         self.db = db
 
     async def create_user(
-        self, email: str, password: str, full_name: str, tenant_id: str
+        self,
+        email: str,
+        password: str,
+        full_name: str,
+        tenant_id: uuid.UUID,
     ) -> User:
         """Register a new user."""
-        existing = await self.db.execute(select(User).where(User.email == email))
-        if existing.scalar_one_or_none():
+        result = await self.db.execute(select(User).where(User.email == email))
+        if result.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Email already registered",
@@ -82,14 +87,19 @@ class AuthService:
 
     def generate_tokens(self, user: User) -> dict[str, str]:
         """Generate access and refresh JWT tokens for a user."""
-        payload = {
-            "sub": str(user.id),
-            "email": user.email,
-            "tenant_id": str(user.tenant_id),
-        }
+        access = create_access_token(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+        )
+        refresh = create_access_token(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            extra_claims={"type": "refresh"},
+            expires_delta=timedelta(days=7),
+        )
         return {
-            "access_token": create_access_token(payload),
-            "refresh_token": create_refresh_token(payload),
+            "access_token": access,
+            "refresh_token": refresh,
             "token_type": "bearer",
         }
 
@@ -109,19 +119,13 @@ class AuthService:
         result = await self.db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         return self.generate_tokens(user)
 
-    async def get_user_by_id(self, user_id: str) -> User:
+    async def get_user_by_id(self, user_id: uuid.UUID) -> User:
         """Retrieve a user by their ID."""
         result = await self.db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         return user

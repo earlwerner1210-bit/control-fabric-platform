@@ -1,0 +1,1 @@
+"""Telco operations taxonomy enumerations."""

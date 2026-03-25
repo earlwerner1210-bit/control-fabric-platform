@@ -1,0 +1,48 @@
+{
+  "work_order_id": "WO-2024-001",
+  "title": "Fiber Installation - North Tower Site",
+  "work_order_type": "equipment_installation",
+  "status": "scheduled",
+  "priority": "P2",
+  "contract_reference": "MSA-2024-001",
+  "customer": "TelcoCorp Inc.",
+  "site": {
+    "name": "North Tower Site",
+    "address": "1200 Network Drive, Chicago, IL 60601",
+    "region": "midwest",
+    "coordinates": {"lat": 41.8781, "lng": -87.6298},
+    "access_requirements": ["badge_required", "escort_required"]
+  },
+  "engineer": {
+    "id": "ENG-042",
+    "name": "Sarah Chen",
+    "skills": ["fiber_splicing", "otdr_testing", "confined_space"],
+    "certifications": [
+      {"type": "fiber_optic_certified", "expiry": "2025-06-15"},
+      {"type": "confined_space", "expiry": "2025-03-01"}
+    ]
+  },
+  "schedule": {
+    "scheduled_date": "2024-03-15",
+    "time_window": "08:00-12:00",
+    "estimated_duration_hours": 4,
+    "timezone": "America/Chicago"
+  },
+  "required_skills": ["fiber_splicing", "otdr_testing"],
+  "required_certifications": ["fiber_optic_certified"],
+  "required_permits": [
+    {"type": "street_access", "status": "approved", "permit_number": "SA-2024-0315"},
+    {"type": "building_access", "status": "pending", "permit_number": null}
+  ],
+  "materials": [
+    {"item": "Single-mode fiber cable", "quantity": 200, "unit": "meters", "status": "in_stock"},
+    {"item": "SC/APC connectors", "quantity": 12, "unit": "pieces", "status": "in_stock"},
+    {"item": "Splice trays", "quantity": 2, "unit": "pieces", "status": "ordered"}
+  ],
+  "billable_items": [
+    {"description": "Fiber installation labor", "rate": 125.00, "quantity": 4, "unit": "hours"},
+    {"description": "Equipment installation", "rate": 350.00, "quantity": 1, "unit": "unit"},
+    {"description": "OTDR testing", "rate": 125.00, "quantity": 1, "unit": "hours"}
+  ],
+  "notes": "Customer requires advance notification 24 hours before arrival. Building management contact: John Smith (312-555-0100)."
+}

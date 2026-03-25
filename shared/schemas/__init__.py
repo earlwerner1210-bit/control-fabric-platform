@@ -1,35 +1,86 @@
-"""Shared Pydantic schemas used across services."""
+"""Shared Pydantic schemas -- re-exported for convenience."""
 
-from __future__ import annotations
-
+from shared.schemas.audit import AuditEventCreate, AuditEventResponse
 from shared.schemas.common import (
-    AuditEntry,
-    ChunkRecord,
-    ControlObject,
-    DocumentMeta,
-    EmbeddingRecord,
-    EntityRecord,
-    EvalResult,
-    NotificationRecord,
-    ReportRecord,
-    TenantMixin,
-    TimestampMixin,
-    UserRecord,
-    ValidationResult,
+    BaseSchema,
+    ErrorResponse,
+    HealthResponse,
+    PaginatedResponse,
+    TenantContext,
+)
+from shared.schemas.control_objects import (
+    ControlLinkCreate,
+    ControlLinkResponse,
+    ControlObjectCreate,
+    ControlObjectResponse,
+    ControlObjectType,
+)
+from shared.schemas.documents import (
+    DocumentChunkResponse,
+    DocumentResponse,
+    DocumentUploadRequest,
+)
+from shared.schemas.validation import (
+    ValidationResultCreate,
+    ValidationResultResponse,
+    ValidationRuleResult,
+    ValidationSeverity,
+)
+from shared.schemas.workflows import (
+    CaseVerdict,
+    ContractCompileInput,
+    ContractCompileOutput,
+    IncidentDispatchInput,
+    IncidentDispatchOutput,
+    MarginDiagnosisInput,
+    MarginDiagnosisOutput,
+    MarginVerdict,
+    ReadinessVerdict,
+    WorkflowCaseCreate,
+    WorkflowCaseResponse,
+    WorkflowStatus,
+    WorkOrderReadinessInput,
+    WorkOrderReadinessOutput,
 )
 
 __all__ = [
-    "AuditEntry",
-    "ChunkRecord",
-    "ControlObject",
-    "DocumentMeta",
-    "EmbeddingRecord",
-    "EntityRecord",
-    "EvalResult",
-    "NotificationRecord",
-    "ReportRecord",
-    "TenantMixin",
-    "TimestampMixin",
-    "UserRecord",
-    "ValidationResult",
+    # common
+    "BaseSchema",
+    "ErrorResponse",
+    "HealthResponse",
+    "PaginatedResponse",
+    "TenantContext",
+    # documents
+    "DocumentChunkResponse",
+    "DocumentResponse",
+    "DocumentUploadRequest",
+    # control objects
+    "ControlLinkCreate",
+    "ControlLinkResponse",
+    "ControlObjectCreate",
+    "ControlObjectResponse",
+    "ControlObjectType",
+    # workflows
+    "CaseVerdict",
+    "ContractCompileInput",
+    "ContractCompileOutput",
+    "IncidentDispatchInput",
+    "IncidentDispatchOutput",
+    "MarginDiagnosisInput",
+    "MarginDiagnosisOutput",
+    "MarginVerdict",
+    "ReadinessVerdict",
+    "WorkflowCaseCreate",
+    "WorkflowCaseResponse",
+    "WorkflowStatus",
+    "WorkOrderReadinessInput",
+    "WorkOrderReadinessOutput",
+    # validation
+    "ValidationResultCreate",
+    "ValidationResultResponse",
+    "ValidationRuleResult",
+    "ValidationSeverity",
+    # audit
+    "AuditEventCreate",
+    "AuditEventResponse",
 ]

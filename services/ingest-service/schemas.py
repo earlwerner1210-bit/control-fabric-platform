@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
+import uuid
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-
-class UploadResponse(BaseModel):
-    id: str
-    filename: str
-    content_type: str
-    size_bytes: int
-    checksum: str
-    status: str
+from shared.schemas.common import BaseSchema
 
 
 class ParseRequest(BaseModel):
@@ -21,21 +16,30 @@ class ParseRequest(BaseModel):
     options: dict[str, Any] = Field(default_factory=dict)
 
 
-class ParseResponse(BaseModel):
-    document_id: str
+class UploadResponse(BaseSchema):
+    id: uuid.UUID
+    filename: str
+    content_type: str
+    size_bytes: int
+    checksum: str
+    status: str
+
+
+class ParseResponse(BaseSchema):
+    document_id: uuid.UUID
     status: str
     document_type: str | None = None
     parsed_content: dict[str, Any] | None = None
 
 
-class DocumentResponse(BaseModel):
-    id: str
+class DocumentListItem(BaseSchema):
+    id: uuid.UUID
     filename: str
     content_type: str
     size_bytes: int
     checksum: str
     status: str
     document_type: str | None = None
-    storage_path: str
-    tenant_id: str
-    created_at: str
+    s3_key: str
+    tenant_id: uuid.UUID
+    created_at: datetime

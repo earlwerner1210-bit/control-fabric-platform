@@ -1,0 +1,68 @@
+# ------------------------------------------------------------------
+# Control Fabric Platform -- API Service
+# Multi-stage Python build for the FastAPI gateway
+# ------------------------------------------------------------------
+
+# ── Stage 1: Builder ──────────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+# Install system deps needed for building Python packages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pip and poetry
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Copy dependency files first for layer caching
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir poetry && \
+    poetry config virtualenvs.create false && \
+    poetry install --only main --no-interaction --no-ansi || \
+    pip install fastapi uvicorn[standard] pydantic sqlalchemy alembic \
+        httpx python-jose[cryptography] passlib[bcrypt] python-multipart \
+        openai anthropic boto3 redis pydantic-settings asyncpg pgvector PyJWT
+
+# ── Stage 2: Runtime ─────────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+# Install runtime system deps
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libpq5 \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy source code
+COPY shared/ /app/shared/
+COPY apps/ /app/apps/
+COPY services/ /app/services/
+COPY workflows/ /app/workflows/
+COPY domain-packs/ /app/domain-packs/
+COPY domain_packs/ /app/domain_packs/
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+EXPOSE 8000
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app
+
+CMD ["uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

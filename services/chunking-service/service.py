@@ -14,7 +14,6 @@ from shared.telemetry.logging import get_logger
 
 logger = get_logger("chunking_service")
 
-# Rough chars-per-token approximation for splitting
 CHARS_PER_TOKEN = 4
 
 
@@ -26,8 +25,8 @@ class ChunkingService:
 
     async def chunk_document(
         self,
-        document_id: str,
-        tenant_id: str,
+        document_id: uuid.UUID,
+        tenant_id: uuid.UUID,
         chunk_size: int = 512,
         overlap: int = 64,
     ) -> list[DocumentChunk]:
@@ -39,7 +38,6 @@ class ChunkingService:
         if not doc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-        # Extract text from parsed content or use a placeholder
         text = ""
         if doc.metadata_ and "parsed_content" in doc.metadata_:
             pc = doc.metadata_["parsed_content"]
@@ -50,7 +48,6 @@ class ChunkingService:
         if not text:
             text = f"[Document content for {doc.filename}]"
 
-        # Split into chunks
         chunk_char_size = chunk_size * CHARS_PER_TOKEN
         overlap_chars = overlap * CHARS_PER_TOKEN
         step = max(chunk_char_size - overlap_chars, 1)
@@ -61,9 +58,9 @@ class ChunkingService:
         while pos < len(text):
             chunk_text = text[pos : pos + chunk_char_size]
             token_count = max(len(chunk_text) // CHARS_PER_TOKEN, 1)
-            metadata = self.enrich_metadata(document_id, idx, token_count)
+            metadata = self.enrich_metadata(str(document_id), idx, token_count)
             chunk = DocumentChunk(
-                id=str(uuid.uuid4()),
+                id=uuid.uuid4(),
                 tenant_id=tenant_id,
                 document_id=document_id,
                 chunk_index=idx,
@@ -95,15 +92,12 @@ class ChunkingService:
         await self.db.flush()
 
     async def get_chunks_by_document(
-        self, document_id: str, tenant_id: str
+        self, document_id: uuid.UUID, tenant_id: uuid.UUID
     ) -> list[DocumentChunk]:
         """Retrieve all chunks for a given document."""
         result = await self.db.execute(
             select(DocumentChunk)
-            .where(
-                DocumentChunk.document_id == document_id,
-                DocumentChunk.tenant_id == tenant_id,
-            )
+            .where(DocumentChunk.document_id == document_id, DocumentChunk.tenant_id == tenant_id)
             .order_by(DocumentChunk.chunk_index)
         )
         return list(result.scalars().all())

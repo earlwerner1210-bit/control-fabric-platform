@@ -6,15 +6,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.db.base import get_db
+from shared.schemas.common import TenantContext
 from shared.security.auth import get_current_user
 
-from .schemas import (
-    LoginRequest,
-    RefreshRequest,
-    RegisterRequest,
-    TokenResponse,
-    UserResponse,
-)
+from .schemas import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserResponse
 from .service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -29,14 +24,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         full_name=body.full_name,
         tenant_id=body.tenant_id,
     )
-    return UserResponse(
-        id=str(user.id),
-        email=user.email,
-        full_name=user.full_name,
-        role=str(user.role_id) if user.role_id else None,
-        is_active=user.is_active,
-        tenant_id=str(user.tenant_id),
-    )
+    return UserResponse.model_validate(user)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -49,19 +37,12 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 @router.get("/me", response_model=UserResponse)
 async def me(
-    current_user: dict = Depends(get_current_user),
+    ctx: TenantContext = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     svc = AuthService(db)
-    user = await svc.get_user_by_id(current_user["sub"])
-    return UserResponse(
-        id=str(user.id),
-        email=user.email,
-        full_name=user.full_name,
-        role=str(user.role_id) if user.role_id else None,
-        is_active=user.is_active,
-        tenant_id=str(user.tenant_id),
-    )
+    user = await svc.get_user_by_id(ctx.user_id)
+    return UserResponse.model_validate(user)
 
 
 @router.post("/refresh", response_model=TokenResponse)

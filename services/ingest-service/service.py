@@ -23,12 +23,12 @@ class IngestService:
         self.db = db
 
     async def upload_document(
-        self, file: UploadFile, tenant_id: str
+        self, file: UploadFile, tenant_id: uuid.UUID
     ) -> Document:
         """Save uploaded file, compute checksum, store metadata."""
         content = await file.read()
         checksum = hashlib.sha256(content).hexdigest()
-        doc_id = str(uuid.uuid4())
+        doc_id = uuid.uuid4()
         storage_path = f"documents/{tenant_id}/{doc_id}/{file.filename}"
 
         doc = Document(
@@ -47,7 +47,11 @@ class IngestService:
         return doc
 
     async def parse_document(
-        self, document_id: str, tenant_id: str, domain: str | None = None, options: dict[str, Any] | None = None
+        self,
+        document_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        domain: str | None = None,
+        options: dict[str, Any] | None = None,
     ) -> Document:
         """Route document to appropriate domain parser and update status."""
         result = await self.db.execute(
@@ -57,19 +61,15 @@ class IngestService:
         if not doc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-        # Classify document type if not already set
-        if not doc.metadata_.get("document_type") if doc.metadata_ else True:
-            doc_type = self.classify_document_type(doc.filename, doc.content_type)
-            doc.metadata_ = {**(doc.metadata_ or {}), "document_type": doc_type}
-
-        # Simulate parsing — in production this would call domain-specific parsers
+        doc_type = self.classify_document_type(doc.filename, doc.content_type)
         parsed_content = {
             "domain": domain or "general",
+            "document_type": doc_type,
             "sections": [],
             "entities_found": [],
             "options_applied": options or {},
         }
-        doc.metadata_ = {**(doc.metadata_ or {}), "parsed_content": parsed_content}
+        doc.metadata_ = {**(doc.metadata_ or {}), "parsed_content": parsed_content, "document_type": doc_type}
         doc.status = "parsed"
         await self.db.flush()
         logger.info("Parsed document %s with domain=%s", document_id, domain)
@@ -91,7 +91,7 @@ class IngestService:
             return "pdf_document"
         return "general"
 
-    async def get_document(self, document_id: str, tenant_id: str) -> Document:
+    async def get_document(self, document_id: uuid.UUID, tenant_id: uuid.UUID) -> Document:
         """Retrieve a single document by ID."""
         result = await self.db.execute(
             select(Document).where(Document.id == document_id, Document.tenant_id == tenant_id)
@@ -102,7 +102,7 @@ class IngestService:
         return doc
 
     async def list_documents(
-        self, tenant_id: str, skip: int = 0, limit: int = 50
+        self, tenant_id: uuid.UUID, skip: int = 0, limit: int = 50
     ) -> list[Document]:
         """List documents for a tenant."""
         result = await self.db.execute(

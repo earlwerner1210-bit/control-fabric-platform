@@ -1,51 +1,123 @@
-"""Authentication / authorisation FastAPI dependencies."""
+"""JWT authentication, token creation/verification, and FastAPI dependencies."""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from typing import Any
+import uuid
+from datetime import datetime, timedelta, timezone
+from typing import Annotated, Any
 
-import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
 
 from shared.config import get_settings
+from shared.schemas.common import TenantContext
+
+_bearer_scheme = HTTPBearer()
 
 
-def create_access_token(data: dict[str, Any], expires_minutes: int | None = None) -> str:
+def create_access_token(
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    roles: list[str] | None = None,
+    extra_claims: dict[str, Any] | None = None,
+    expires_delta: timedelta | None = None,
+) -> str:
+    """Create a signed JWT access token.
+
+    Parameters
+    ----------
+    tenant_id:
+        The tenant this token belongs to.
+    user_id:
+        The authenticated user.
+    roles:
+        List of role names (e.g. ``["admin", "analyst"]``).
+    extra_claims:
+        Additional claims to embed in the token payload.
+    expires_delta:
+        Custom expiry; defaults to ``JWT_EXPIRATION_MINUTES`` from settings.
+    """
     settings = get_settings()
-    expire = datetime.utcnow() + timedelta(minutes=expires_minutes or settings.JWT_EXPIRATION_MINUTES)
-    to_encode = {**data, "exp": expire}
-    return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or timedelta(minutes=settings.JWT_EXPIRATION_MINUTES))
 
+    payload: dict[str, Any] = {
+        "sub": str(user_id),
+        "tenant_id": str(tenant_id),
+        "roles": roles or [],
+        "iat": now,
+        "exp": expire,
+    }
+    if extra_claims:
+        payload.update(extra_claims)
 
-def create_refresh_token(data: dict[str, Any]) -> str:
-    settings = get_settings()
-    expire = datetime.utcnow() + timedelta(days=7)
-    to_encode = {**data, "exp": expire, "type": "refresh"}
-    return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
 def decode_token(token: str) -> dict[str, Any]:
+    """Decode and validate a JWT token, returning the claims dict.
+
+    Raises ``HTTPException`` (401) on invalid / expired tokens.
+    """
     settings = get_settings()
     try:
-        return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        payload: dict[str, Any] = jwt.decode(
+            token,
+            settings.JWT_SECRET,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+        return payload
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid or expired token: {exc}",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
 
 
-async def get_current_user(authorization: str = Header(..., alias="Authorization")) -> dict[str, Any]:
-    """Extract and validate the bearer token, return decoded payload."""
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authorization header")
-    token = authorization.removeprefix("Bearer ")
-    return decode_token(token)
+async def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(_bearer_scheme)],
+) -> TenantContext:
+    """FastAPI dependency that extracts and validates the JWT bearer token.
+
+    Returns a ``TenantContext`` with tenant_id, user_id, and roles.
+    """
+    claims = decode_token(credentials.credentials)
+
+    sub = claims.get("sub")
+    tenant_id = claims.get("tenant_id")
+    if not sub or not tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing required claims (sub, tenant_id)",
+        )
+
+    return TenantContext(
+        tenant_id=uuid.UUID(tenant_id),
+        user_id=uuid.UUID(sub),
+        roles=claims.get("roles", []),
+    )
 
 
-async def get_current_tenant(user: dict[str, Any] = Depends(get_current_user)) -> str:
-    """Return the tenant_id from the current JWT payload."""
-    tenant_id = user.get("tenant_id")
-    if not tenant_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Missing tenant_id in token")
-    return tenant_id
+def require_role(*required_roles: str):
+    """Return a FastAPI dependency that enforces role-based access.
+
+    Usage::
+
+        @router.get("/admin", dependencies=[Depends(require_role("admin"))])
+        async def admin_only():
+            ...
+    """
+
+    async def _check_roles(
+        ctx: Annotated[TenantContext, Depends(get_current_user)],
+    ) -> TenantContext:
+        if not any(role in ctx.roles for role in required_roles):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"One of the following roles is required: {', '.join(required_roles)}",
+            )
+        return ctx
+
+    return _check_roles

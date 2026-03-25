@@ -1,0 +1,62 @@
+[
+  {
+    "id": "eval-to-001",
+    "name": "p1_auto_escalate",
+    "domain": "telco-ops",
+    "rule_type": "escalation",
+    "input": {
+      "incident_id": "INC-TEST-001",
+      "priority": "P1",
+      "severity": 1,
+      "status": "investigating",
+      "escalation_level": 0,
+      "reported_at": "2024-03-14T14:00:00Z",
+      "acknowledged_at": "2024-03-14T14:05:00Z",
+      "affected_services": []
+    },
+    "expected": {
+      "should_escalate": true,
+      "recommended_level_min": 2
+    }
+  },
+  {
+    "id": "eval-to-002",
+    "name": "p3_no_escalation",
+    "domain": "telco-ops",
+    "rule_type": "escalation",
+    "input": {
+      "incident_id": "INC-TEST-002",
+      "priority": "P3",
+      "severity": 3,
+      "status": "investigating",
+      "escalation_level": 0,
+      "reported_at": "2024-03-14T14:00:00Z",
+      "acknowledged_at": "2024-03-14T14:10:00Z",
+      "affected_services": []
+    },
+    "expected": {
+      "should_escalate": false
+    }
+  },
+  {
+    "id": "eval-to-003",
+    "name": "sla_breach_escalation",
+    "domain": "telco-ops",
+    "rule_type": "escalation",
+    "input": {
+      "incident_id": "INC-TEST-003",
+      "priority": "P2",
+      "severity": 2,
+      "status": "investigating",
+      "escalation_level": 0,
+      "reported_at": "2024-03-14T06:00:00Z",
+      "acknowledged_at": "2024-03-14T06:05:00Z",
+      "affected_services": [],
+      "_test_current_time": "2024-03-14T14:30:00Z"
+    },
+    "expected": {
+      "should_escalate": true,
+      "sla_status": "breached"
+    }
+  }
+]

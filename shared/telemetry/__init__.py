@@ -1,5 +1,6 @@
-"""Telemetry and observability helpers."""
+"""Telemetry: structured logging and Prometheus metrics."""
 
-from shared.telemetry.logging import get_logger
+from shared.telemetry.logging import configure_logging, get_logger
+from shared.telemetry.metrics import RequestMetrics
 
-__all__ = ["get_logger"]
+__all__ = ["RequestMetrics", "configure_logging", "get_logger"]

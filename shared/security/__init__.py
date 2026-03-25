@@ -1,5 +1,15 @@
-"""Security helpers."""
+"""Security utilities: JWT auth and RBAC."""
 
-from shared.security.auth import get_current_tenant, get_current_user
+from shared.security.auth import (
+    create_access_token,
+    decode_token,
+    get_current_user,
+    require_role,
+)
 
-__all__ = ["get_current_tenant", "get_current_user"]
+__all__ = [
+    "create_access_token",
+    "decode_token",
+    "get_current_user",
+    "require_role",
+]

@@ -22,96 +22,72 @@ from app.domain_packs.reconciliation import (
 # ---------------------------------------------------------------------------
 
 
-def _make_contract_objects() -> list[dict]:
+def _make_contract_data() -> dict:
+    """Contract data dict as expected by CrossPlaneReconciler methods."""
+    return {
+        "rate_card": [
+            {
+                "id": "rc-001",
+                "activity": "standard_maintenance",
+                "rate": 125.0,
+                "unit": "hour",
+            },
+            {
+                "id": "rc-002",
+                "activity": "emergency_repair",
+                "rate": 187.50,
+                "unit": "hour",
+            },
+        ],
+        "obligations": [
+            {
+                "id": "ob-001",
+                "clause_id": "CL-001",
+                "description": "Provider shall deliver all scheduled maintenance",
+                "status": "active",
+            },
+        ],
+        "scope_boundaries": [
+            {
+                "id": "sb-001",
+                "scope_type": "in_scope",
+                "description": "Network maintenance and monitoring in scope",
+                "activities": ["maintenance", "monitoring"],
+            },
+        ],
+    }
+
+
+def _make_work_order_dict() -> dict:
+    """A single work order dict for linker methods that take a single WO."""
+    return {
+        "work_order_id": "WO-001",
+        "work_order_type": "maintenance",
+        "description": "Scheduled standard maintenance at Building A",
+        "location": "Building A",
+        "site_id": "SITE-A",
+        "rate": 125.0,
+        "status": "completed",
+        "scheduled_date": "2024-04-01T08:00:00",
+        "scheduled_end": "2024-04-01T16:00:00",
+    }
+
+
+def _make_work_order_dict_mismatch() -> dict:
+    """Work order with rate mismatch vs contract rate for emergency_repair."""
+    return {
+        "work_order_id": "WO-002",
+        "work_order_type": "repair",
+        "description": "Emergency repair of fiber cabinet",
+        "location": "Building B",
+        "rate": 150.0,  # lower than contract rate of 187.50
+        "status": "completed",
+    }
+
+
+def _make_incident_dicts() -> list[dict]:
     return [
         {
-            "control_type": "billable_event",
-            "id": "be-001",
-            "activity": "standard_maintenance",
-            "label": "standard_maintenance",
-            "rate": 125.0,
-            "unit": "hour",
-        },
-        {
-            "control_type": "billable_event",
-            "id": "be-002",
-            "activity": "emergency_repair",
-            "label": "emergency_repair",
-            "rate": 187.50,
-            "unit": "hour",
-        },
-        {
-            "control_type": "rate_card",
-            "id": "rc-001",
-            "activity": "standard_maintenance",
-            "label": "standard_maintenance",
-            "rate": 125.0,
-            "unit": "hour",
-        },
-        {
-            "control_type": "obligation",
-            "id": "ob-001",
-            "description": "Provider shall deliver all scheduled maintenance",
-            "text": "Provider shall deliver all scheduled maintenance",
-            "clause_id": "CL-001",
-        },
-        {
-            "control_type": "penalty_condition",
-            "id": "pc-001",
-            "description": "Penalty for SLA breach",
-            "trigger": "sla_breach response time",
-            "clause_id": "CL-002",
-        },
-        {
-            "control_type": "scope_boundary",
-            "id": "sb-001",
-            "description": "Network maintenance and monitoring in scope",
-        },
-    ]
-
-
-def _make_work_order_objects() -> list[dict]:
-    return [
-        {
-            "control_type": "work_order",
-            "id": "wo-001",
-            "work_order_id": "WO-001",
-            "activity": "standard maintenance",
-            "description": "Scheduled standard maintenance at Building A",
-            "scope": "Scheduled standard maintenance at Building A",
-            "status": "completed",
-            "location": "Building A",
-            "site_id": "SITE-A",
-            "billed_rate": 125.0,
-            "rate": 125.0,
-            "hours": 4,
-            "billed": True,
-            "scheduled_date": "2024-04-01",
-            "affected_services": ["core_network"],
-        },
-        {
-            "control_type": "work_order",
-            "id": "wo-002",
-            "work_order_id": "WO-002",
-            "activity": "emergency repair",
-            "description": "Emergency repair of fiber cabinet",
-            "scope": "Emergency repair of fiber cabinet",
-            "status": "completed",
-            "location": "Building B",
-            "billed_rate": 150.0,  # lower than contract rate of 187.50
-            "rate": 150.0,
-            "hours": 3,
-            "billed": True,
-            "incident_id": "INC-001",
-        },
-    ]
-
-
-def _make_incident_objects() -> list[dict]:
-    return [
-        {
-            "control_type": "incident",
-            "id": "inc-001",
             "incident_id": "INC-001",
             "title": "Core network degradation",
             "description": "Core network experiencing packet loss",
@@ -119,6 +95,9 @@ def _make_incident_objects() -> list[dict]:
             "state": "investigating",
             "affected_services": ["core_network", "voip"],
             "assigned_to": "senior_engineer",
+            "created_at": "2024-04-01T10:00:00",
+            "location": "Building A",
+            "site_id": "SITE-A",
         },
     ]
 
@@ -133,10 +112,20 @@ class TestContractWorkOrderLinking:
 
     def test_links_generated_by_activity_match(self):
         linker = ContractWorkOrderLinker()
-        links = linker.link_contract_to_work_order(
-            _make_contract_objects(),
-            _make_work_order_objects(),
-        )
+        contract_data = _make_contract_data()
+
+        # Flatten contract objects as the linker.link() expects
+        contract_objects = []
+        for rc in contract_data["rate_card"]:
+            obj = dict(rc)
+            obj.setdefault("type", "rate_card")
+            contract_objects.append(obj)
+        for ob in contract_data["obligations"]:
+            obj = dict(ob)
+            obj.setdefault("type", "obligation")
+            contract_objects.append(obj)
+
+        links = linker.link(contract_objects, _make_work_order_dict())
 
         assert len(links) > 0
         assert all(isinstance(l, CrossPlaneLink) for l in links)
@@ -147,23 +136,29 @@ class TestContractWorkOrderLinking:
 
     def test_link_metadata_contains_activity(self):
         linker = ContractWorkOrderLinker()
-        links = linker.link_contract_to_work_order(
-            _make_contract_objects(),
-            _make_work_order_objects(),
-        )
+        contract_objects = [
+            {"type": "rate_card", "id": "rc-1", "activity": "standard_maintenance", "rate": 125.0},
+        ]
+        wo = _make_work_order_dict()
 
-        maps_to_links = [l for l in links if l.link_type == "maps_to"]
-        assert len(maps_to_links) > 0
+        links = linker.link(contract_objects, wo)
+
+        rate_links = [l for l in links if l.link_type == "rate_card_to_activity"]
+        assert len(rate_links) >= 1
+        assert "activity" in rate_links[0].metadata
 
     def test_no_links_when_no_overlap(self):
         linker = ContractWorkOrderLinker()
-        links = linker.link_contract_to_work_order(
-            [{"control_type": "billable_event", "activity": "zzz_no_match", "id": "x"}],
-            [{"control_type": "work_order", "activity": "aaa_other", "description": "other", "scope": "other", "id": "y"}],
-        )
+        contract_objects = [
+            {"type": "rate_card", "id": "rc-x", "activity": "zzz_no_match_xyz", "rate": 100.0},
+        ]
+        wo = {
+            "work_order_id": "WO-X",
+            "description": "completely unrelated plumbing in another city",
+        }
 
-        maps_to = [l for l in links if l.link_type == "maps_to"]
-        assert len(maps_to) == 0
+        links = linker.link(contract_objects, wo)
+        assert len(links) == 0
 
 
 class TestConflictDetectionRateMismatch:
@@ -171,37 +166,33 @@ class TestConflictDetectionRateMismatch:
 
     def test_rate_mismatch_detected(self):
         linker = ContractWorkOrderLinker()
-        conflicts = linker.detect_commercial_field_conflicts(
-            _make_contract_objects(),
-            _make_work_order_objects(),
-        )
+        contract_objects = [
+            {"type": "rate_card", "id": "rc-er", "activity": "emergency_repair", "rate": 187.50, "unit": "hour"},
+        ]
+        wo = _make_work_order_dict_mismatch()
 
-        rate_conflicts = [c for c in conflicts if c.conflict_type == "rate_mismatch"]
-        # WO-002 billed at $150 vs contract $187.50 for emergency_repair
+        # First generate links
+        links = linker.link(contract_objects, wo)
+
+        # Then detect conflicts using those links
+        contract_data = {"rate_card": [{"activity": "emergency_repair", "rate": 187.50}]}
+        conflicts = linker.detect_conflicts(links, contract_data, wo)
+
+        rate_conflicts = [c for c in conflicts if c.field == "rate"]
+        # WO rate 150 vs contract 187.50 -> mismatch
         assert len(rate_conflicts) >= 1
-        assert any("emergency" in c.description.lower() for c in rate_conflicts)
 
     def test_no_rate_mismatch_when_rates_match(self):
         linker = ContractWorkOrderLinker()
+        contract_objects = [
+            {"type": "rate_card", "id": "rc-sm", "activity": "standard_maintenance", "rate": 125.0},
+        ]
+        wo = _make_work_order_dict()  # rate=125.0
 
-        wo = [{
-            "control_type": "work_order",
-            "activity": "standard_maintenance",
-            "description": "maintenance",
-            "scope": "maintenance",
-            "status": "completed",
-            "rate": 125.0,
-            "billed_rate": 125.0,
-            "id": "wo-x",
-        }]
-        co = [{
-            "control_type": "rate_card",
-            "activity": "standard_maintenance",
-            "rate": 125.0,
-            "id": "rc-x",
-        }]
-        conflicts = linker.detect_commercial_field_conflicts(co, wo)
-        rate_conflicts = [c for c in conflicts if c.conflict_type == "rate_mismatch"]
+        links = linker.link(contract_objects, wo)
+        conflicts = linker.detect_conflicts(links, {"rate_card": []}, wo)
+
+        rate_conflicts = [c for c in conflicts if c.field == "rate"]
         assert len(rate_conflicts) == 0
 
 
@@ -211,46 +202,43 @@ class TestConflictDetectionRateMismatch:
 
 
 class TestWorkOrderIncidentLinking:
-    """test_work_order_incident_linking: WO links to incident by service."""
+    """test_work_order_incident_linking: WO links to incident by service/location/time."""
 
-    def test_direct_reference_link(self):
+    def test_service_and_location_link(self):
         linker = WorkOrderIncidentLinker()
-        links = linker.link_work_order_to_incident(
-            _make_work_order_objects(),
-            _make_incident_objects(),
-        )
+        wo = {
+            "work_order_id": "WO-LINK",
+            "description": "core_network maintenance at Building A",
+            "location": "Building A",
+            "site_id": "SITE-A",
+            "scheduled_date": "2024-04-01T08:00:00",
+        }
+        incidents = _make_incident_dicts()
 
-        # WO-002 has incident_id = INC-001 which matches the incident
-        direct = [l for l in links if l.metadata.get("match_type") == "direct_reference"]
-        assert len(direct) >= 1
+        links = linker.link(wo, incidents)
 
-    def test_service_overlap_link(self):
-        linker = WorkOrderIncidentLinker()
-
-        # WO with affected_services matching incident
-        wo = [{
-            "id": "wo-svc",
-            "work_order_id": "WO-SVC",
-            "description": "service maintenance",
-            "affected_services": ["core_network"],
-        }]
-        inc = [{
-            "id": "inc-svc",
-            "incident_id": "INC-SVC",
-            "affected_services": ["core_network"],
-        }]
-        links = linker.link_work_order_to_incident(wo, inc)
-
-        svc_links = [l for l in links if l.metadata.get("match_type") == "service_overlap"]
-        assert len(svc_links) == 1
+        # Should link because WO description mentions core_network, location/site matches,
+        # and time is close
+        assert len(links) >= 1
+        assert all(isinstance(l, CrossPlaneLink) for l in links)
+        assert links[0].source_domain == "utilities_field"
+        assert links[0].target_domain == "telco_ops"
 
     def test_no_link_when_no_match(self):
         linker = WorkOrderIncidentLinker()
+        wo = {
+            "work_order_id": "WO-NOMATCH",
+            "description": "painting a fence in another country",
+            "location": "Remote Village",
+        }
+        incidents = [{
+            "incident_id": "INC-NOMATCH",
+            "affected_services": ["billing"],
+            "description": "billing issue",
+            "location": "Data Center Z",
+        }]
 
-        wo = [{"id": "wo-x", "work_order_id": "WO-X", "description": "painting"}]
-        inc = [{"id": "inc-x", "incident_id": "INC-X", "affected_services": ["billing"]}]
-        links = linker.link_work_order_to_incident(wo, inc)
-
+        links = linker.link(wo, incidents)
         assert len(links) == 0
 
 
@@ -260,70 +248,111 @@ class TestWorkOrderIncidentLinking:
 
 
 class TestMarginEvidenceAssembly:
-    """test_margin_evidence_assembly: Evidence bundle has correct item count."""
+    """test_margin_evidence_assembly: Evidence bundle has correct structure."""
 
-    def test_bundle_has_all_objects(self):
+    def test_bundle_has_items(self):
         assembler = MarginEvidenceAssembler()
-        bundle = assembler.assemble_margin_evidence(
-            contract_objects=_make_contract_objects(),
-            work_objects=_make_work_order_objects(),
-            incident_objects=_make_incident_objects(),
-        )
+        contract_objects = [
+            {"type": "rate_card", "activity": "maintenance", "rate": 125.0},
+        ]
+        work_history = [
+            {"work_order_id": "WO-1", "description": "maintenance", "status": "completed"},
+        ]
+        leakage_triggers = [
+            {"trigger_type": "unbilled_work", "description": "Unbilled completed work", "severity": "warning"},
+        ]
+
+        bundle = assembler.assemble(contract_objects, work_history, leakage_triggers)
 
         assert isinstance(bundle, EvidenceBundle)
-        assert bundle.bundle_type == "margin_evidence"
-        assert len(bundle.contract_objects) == len(_make_contract_objects())
-        assert len(bundle.field_objects) == len(_make_work_order_objects())
-        assert len(bundle.ops_objects) == len(_make_incident_objects())
+        assert bundle.total_items == 3  # 1 contract + 1 WO + 1 trigger
+        assert len(bundle.evidence_items) == 3
+        assert len(bundle.domains) >= 1
 
-    def test_bundle_has_cross_links(self):
+    def test_bundle_confidence_with_triggers(self):
         assembler = MarginEvidenceAssembler()
-        bundle = assembler.assemble_margin_evidence(
-            _make_contract_objects(),
-            _make_work_order_objects(),
-            _make_incident_objects(),
+        bundle = assembler.assemble(
+            [{"type": "rate_card", "activity": "maint"}],
+            [{"work_order_id": "WO-1"}],
+            [{"trigger_type": "unbilled", "description": "leak"}],
         )
 
-        assert len(bundle.cross_links) > 0
+        # With contract, work, and triggers, confidence should be significant
+        assert bundle.confidence > 0.5
+
+    def test_empty_inputs(self):
+        assembler = MarginEvidenceAssembler()
+        bundle = assembler.assemble([], [], [])
+
+        assert isinstance(bundle, EvidenceBundle)
+        assert bundle.total_items == 0
+        assert bundle.confidence == 0.0
 
 
 class TestReadinessEvidenceAssembly:
-    """test_readiness_evidence_assembly: Evidence bundle includes blockers."""
+    """test_readiness_evidence_assembly: Evidence bundle includes WO, engineer, blockers."""
 
     def test_readiness_bundle(self):
         assembler = ReadinessEvidenceAssembler()
-        bundle = assembler.assemble_readiness_evidence(
-            work_order_objects=_make_work_order_objects(),
-            engineer_objects=[{"engineer_id": "ENG-1", "skills": []}],
-            contract_objects=_make_contract_objects(),
+        bundle = assembler.assemble(
+            work_order={"work_order_id": "WO-1", "description": "maintenance"},
+            engineer={"engineer_id": "ENG-1", "name": "Test Eng"},
+            blockers=[],
+            skill_fit={"fit": True, "matched_skills": ["fiber"]},
         )
 
         assert isinstance(bundle, EvidenceBundle)
-        assert bundle.bundle_type == "readiness_evidence"
-        # field_objects = work_orders + engineers
-        assert len(bundle.field_objects) == len(_make_work_order_objects()) + 1
+        assert bundle.domains == ["utilities_field"]
+        # WO + engineer + skill_fit = 3 items (no blockers)
+        assert bundle.total_items == 3
+
+    def test_readiness_with_blockers(self):
+        assembler = ReadinessEvidenceAssembler()
+        bundle = assembler.assemble(
+            work_order={"work_order_id": "WO-1", "description": "repair"},
+            engineer={"engineer_id": "ENG-1", "name": "Eng"},
+            blockers=[
+                {"blocker_type": "missing_skill", "description": "Missing gas_fitting", "severity": "error"},
+            ],
+            skill_fit={"fit": False},
+        )
+
+        assert bundle.total_items == 4  # WO + engineer + 1 blocker + skill_fit
+        # Low confidence due to blocker and no fit
+        assert bundle.confidence < 0.7
 
 
 class TestOpsEvidenceAssembly:
-    """test_ops_evidence_assembly: Evidence bundle includes escalation."""
+    """test_ops_evidence_assembly: Evidence bundle includes incident + escalation."""
 
     def test_ops_bundle(self):
         assembler = OpsEvidenceAssembler()
-        bundle = assembler.assemble_ops_evidence(
-            incident_objects=_make_incident_objects(),
-            work_order_objects=_make_work_order_objects(),
-            service_state_objects=[{
-                "service_id": "svc-001",
-                "service_name": "core_network",
-                "state": "outage",
-            }],
+        bundle = assembler.assemble(
+            incident={"incident_id": "INC-1", "title": "Network outage", "severity": "p1"},
+            service_states=[
+                {"service_id": "svc-1", "service_name": "core_network", "state": "outage"},
+            ],
+            escalation={"level": "l3", "reason": "P1 severity requires L3"},
+            next_action={"action": "investigate", "reason": "Begin investigation"},
         )
 
         assert isinstance(bundle, EvidenceBundle)
-        assert bundle.bundle_type == "ops_evidence"
-        # ops_objects = incidents + service_states
-        assert len(bundle.ops_objects) == len(_make_incident_objects()) + 1
-        assert len(bundle.field_objects) == len(_make_work_order_objects())
+        assert bundle.domains == ["telco_ops"]
+        # incident + 1 service_state + escalation + next_action = 4
+        assert bundle.total_items == 4
+        assert bundle.confidence > 0.7
+
+    def test_ops_minimal(self):
+        assembler = OpsEvidenceAssembler()
+        bundle = assembler.assemble(
+            incident={"incident_id": "INC-2", "title": "Minor issue"},
+            service_states=[],
+            escalation={},
+            next_action={},
+        )
+
+        assert bundle.total_items == 1  # just the incident
+        assert bundle.confidence >= 0.3
 
 
 # ---------------------------------------------------------------------------
@@ -334,66 +363,77 @@ class TestOpsEvidenceAssembly:
 class TestFullReconciliation:
     """test_full_reconciliation: End-to-end reconciliation across all 3 domains."""
 
-    def test_reconcile_all_returns_dict(self):
+    def test_full_reconciliation_returns_dict(self):
         reconciler = CrossPlaneReconciler()
-        result = reconciler.reconcile_all(
-            contract_objects=_make_contract_objects(),
-            work_order_objects=_make_work_order_objects(),
-            incident_objects=_make_incident_objects(),
+        result = reconciler.full_reconciliation(
+            contract_data=_make_contract_data(),
+            wo_data=_make_work_order_dict(),
+            incident_data={"incidents": _make_incident_dicts()},
+        )
+
+        assert isinstance(result, dict)
+        assert "all_links" in result
+        assert "all_conflicts" in result
+        assert "aggregate_evidence" in result
+        assert "contract_to_wo" in result
+        assert "wo_to_incident" in result
+
+    def test_contract_to_wo_links(self):
+        reconciler = CrossPlaneReconciler()
+        result = reconciler.reconcile_contract_to_work_order(
+            contract_data=_make_contract_data(),
+            wo_data=_make_work_order_dict(),
         )
 
         assert isinstance(result, dict)
         assert "links" in result
         assert "conflicts" in result
-        assert "has_conflicts" in result
-        assert "summary" in result
+        assert "evidence" in result
+        assert len(result["links"]) > 0
 
-    def test_links_span_both_planes(self):
+    def test_wo_to_incident_links(self):
         reconciler = CrossPlaneReconciler()
-        result = reconciler.reconcile_all(
-            _make_contract_objects(),
-            _make_work_order_objects(),
-            _make_incident_objects(),
+        wo = {
+            "work_order_id": "WO-INC",
+            "description": "core_network maintenance at Building A",
+            "location": "Building A",
+            "site_id": "SITE-A",
+            "scheduled_date": "2024-04-01T08:00:00",
+        }
+        result = reconciler.reconcile_work_order_to_incident(
+            wo_data=wo,
+            incident_data={"incidents": _make_incident_dicts()},
         )
 
-        links = result["links"]
-        assert len(links) > 0
-
-        # Should have contract-field and field-ops links
-        cw_links = [l for l in links if l.source_domain == "contract_margin"]
-        wi_links = [l for l in links if l.source_domain == "utilities_field"]
-        assert len(cw_links) > 0
-        assert len(wi_links) > 0
-
-    def test_summary_counts(self):
-        reconciler = CrossPlaneReconciler()
-        result = reconciler.reconcile_all(
-            _make_contract_objects(),
-            _make_work_order_objects(),
-            _make_incident_objects(),
-        )
-
-        summary = result["summary"]
-        assert summary["total_links"] > 0
-        assert summary["contract_work_order_links"] > 0
-        assert summary["work_order_incident_links"] > 0
-        assert isinstance(summary["total_conflicts"], int)
+        assert isinstance(result, dict)
+        assert "links" in result
+        assert "evidence" in result
 
     def test_rate_mismatch_in_conflicts(self):
         reconciler = CrossPlaneReconciler()
-        result = reconciler.reconcile_all(
-            _make_contract_objects(),
-            _make_work_order_objects(),
-            _make_incident_objects(),
-        )
+        contract_data = {
+            "rate_card": [
+                {"activity": "emergency_repair", "rate": 187.50, "unit": "hour"},
+            ],
+        }
+        wo_data = _make_work_order_dict_mismatch()
 
-        conflict_types = result["summary"].get("conflict_types", {})
-        assert "rate_mismatch" in conflict_types
+        result = reconciler.reconcile_contract_to_work_order(contract_data, wo_data)
+
+        rate_conflicts = [
+            c for c in result["conflicts"]
+            if c.get("field") == "rate"
+        ]
+        assert len(rate_conflicts) >= 1
 
     def test_empty_inputs_no_crash(self):
         reconciler = CrossPlaneReconciler()
-        result = reconciler.reconcile_all([], [], [])
+        result = reconciler.full_reconciliation(
+            contract_data={},
+            wo_data={},
+            incident_data={},
+        )
 
-        assert result["has_conflicts"] is False
-        assert len(result["links"]) == 0
-        assert len(result["conflicts"]) == 0
+        assert isinstance(result, dict)
+        assert len(result["all_links"]) == 0
+        assert len(result["all_conflicts"]) == 0

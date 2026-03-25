@@ -1,174 +1,401 @@
-"""Tests for the utilities-field compiler (parser)."""
+"""Tests for the FieldCompiler from app.domain_packs.utilities_field.compiler."""
 
 from __future__ import annotations
 
 import pytest
 
-from app.domain_packs.utilities_field.parsers import (
-    EngineerProfileParser,
-    WorkOrderParser,
-)
+from app.domain_packs.utilities_field.compiler import FieldCompiler, FieldCompileResult
 from app.domain_packs.utilities_field.schemas import (
+    Accreditation,
     EngineerProfile,
     ParsedWorkOrder,
+    PermitRequirement,
     PermitType,
+    PreconditionType,
     SkillCategory,
+    SkillRecord,
     WorkOrderType,
 )
 
 
-@pytest.fixture
-def wo_parser() -> WorkOrderParser:
-    return WorkOrderParser()
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
-def eng_parser() -> EngineerProfileParser:
-    return EngineerProfileParser()
+def compiler() -> FieldCompiler:
+    return FieldCompiler()
 
 
 @pytest.fixture
-def sample_wo_data() -> dict:
-    return {
-        "work_order_id": "WO-001",
-        "work_order_type": "maintenance",
-        "description": "Scheduled fiber maintenance at central office",
-        "location": "Building A, Floor 3",
-        "scheduled_date": "2024-04-15",
-        "priority": "normal",
-        "required_skills": [
-            {"skill_name": "fiber", "category": "fiber"},
-            {"skill_name": "electrical", "category": "electrical"},
+def full_work_order() -> ParsedWorkOrder:
+    return ParsedWorkOrder(
+        work_order_id="WO-100",
+        work_order_type=WorkOrderType.repair,
+        description="Emergency repair of fiber cabinet at central office",
+        location="Building A, Floor 3",
+        site_id="SITE-001",
+        customer="TelcoCorp",
+        scheduled_date="2024-04-15T08:00:00",
+        scheduled_end="2024-04-15T16:00:00",
+        priority="urgent",
+        estimated_duration_hours=6.0,
+        required_skills=[
+            SkillRecord(skill_name="fiber", category=SkillCategory.fiber, level="expert"),
+            SkillRecord(skill_name="electrical", category=SkillCategory.electrical, level="qualified"),
         ],
-        "required_permits": [
-            {"permit_type": "building_access", "required": True, "obtained": True},
-            {"permit_type": "confined_space", "required": True, "obtained": False},
+        required_permits=[
+            PermitRequirement(
+                permit_type=PermitType.building_access,
+                description="Building access permit",
+                required=True,
+                obtained=True,
+                reference="BA-123",
+            ),
+            PermitRequirement(
+                permit_type=PermitType.confined_space,
+                description="Confined space entry",
+                required=True,
+                obtained=False,
+            ),
         ],
-        "prerequisites": [{"type": "risk_assessment", "completed": True}],
-        "estimated_duration_hours": 4.0,
-        "customer": "TelcoCorp",
-    }
+        materials_required=[
+            {"material_id": "MAT-001", "description": "Fiber splice tray", "quantity": 2, "unit": "each", "available": True},
+            {"material_id": "MAT-002", "description": "Fusion splice kit", "quantity": 1, "unit": "kit", "available": False, "alternative": "MAT-003"},
+        ],
+        special_instructions="Customer requires escort in building.",
+        dependencies=[{"id": "WO-099", "type": "work_order", "status": "completed"}],
+    )
 
 
 @pytest.fixture
-def sample_engineer_data() -> dict:
-    return {
-        "engineer_id": "ENG-001",
-        "name": "John Smith",
-        "skills": [
-            {"skill_name": "fiber", "category": "fiber", "level": "expert"},
-            {"skill_name": "electrical", "category": "electrical", "level": "qualified"},
+def full_engineer() -> EngineerProfile:
+    return EngineerProfile(
+        engineer_id="ENG-200",
+        name="Jane Doe",
+        skills=[
+            SkillRecord(skill_name="fiber", category=SkillCategory.fiber, level="expert"),
+            SkillRecord(skill_name="electrical", category=SkillCategory.electrical, level="qualified"),
         ],
-        "accreditations": [
-            {"name": "confined_space_certification", "issuing_body": "SafetyCert", "is_valid": True},
-            {"name": "general_competency", "issuing_body": "TrainingCo", "is_valid": True},
+        accreditations=[
+            Accreditation(name="confined_space_certification", issuing_body="SafetyCert", is_valid=True),
+            Accreditation(name="general_competency", issuing_body="TrainingCo", is_valid=True),
         ],
-        "availability": "available",
-        "location": "Depot A",
-    }
+        availability="available",
+        location="Depot B",
+    )
 
 
-class TestFieldCompiler:
-    """Tests for the work order and engineer profile parsers."""
+@pytest.fixture
+def minimal_work_order() -> ParsedWorkOrder:
+    return ParsedWorkOrder(
+        work_order_id="WO-MIN",
+        work_order_type=WorkOrderType.inspection,
+        description="Routine inspection",
+    )
 
-    def test_compile_dispatch_preconditions(self, wo_parser: WorkOrderParser, sample_wo_data: dict):
-        """Work order should compile dispatch preconditions from permits and prerequisites."""
-        parsed = wo_parser.parse_work_order(sample_wo_data)
 
-        assert isinstance(parsed, ParsedWorkOrder)
-        assert len(parsed.required_permits) == 2
-        # One permit obtained, one not
-        obtained = [p for p in parsed.required_permits if p.obtained]
-        not_obtained = [p for p in parsed.required_permits if not p.obtained]
-        assert len(obtained) == 1
-        assert len(not_obtained) == 1
-        assert not_obtained[0].permit_type == PermitType.confined_space
-        assert parsed.prerequisites is not None
+@pytest.fixture
+def minimal_engineer() -> EngineerProfile:
+    return EngineerProfile(
+        engineer_id="ENG-MIN",
+        name="Minimal Engineer",
+    )
 
-    def test_compile_skill_requirements(self, wo_parser: WorkOrderParser, sample_wo_data: dict):
-        """Work order should compile required skills."""
-        parsed = wo_parser.parse_work_order(sample_wo_data)
 
-        assert len(parsed.required_skills) == 2
-        skill_names = {s.skill_name for s in parsed.required_skills}
-        assert "fiber" in skill_names
-        assert "electrical" in skill_names
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
 
-        # Categories should be parsed
-        skill_categories = {s.category for s in parsed.required_skills}
-        assert SkillCategory.fiber in skill_categories
-        assert SkillCategory.electrical in skill_categories
 
-    def test_compile_safety_preconditions(self, wo_parser: WorkOrderParser):
-        """Work order with safety-critical permits should compile safety preconditions."""
-        wo_data = {
-            "work_order_id": "WO-SAFETY",
-            "work_order_type": "maintenance",
-            "required_skills": [],
-            "required_permits": [
-                {"permit_type": "confined_space", "required": True, "obtained": False},
-                {"permit_type": "hot_works", "required": True, "obtained": False},
-                {"permit_type": "height_works", "required": True, "obtained": True},
-            ],
-        }
-        parsed = wo_parser.parse_work_order(wo_data)
+class TestCompileFullWorkOrder:
+    """test_compile_full_work_order: Compile WO+engineer and verify all objects."""
 
-        assert len(parsed.required_permits) == 3
-        confined = [p for p in parsed.required_permits if p.permit_type == PermitType.confined_space]
-        hot = [p for p in parsed.required_permits if p.permit_type == PermitType.hot_works]
-        height = [p for p in parsed.required_permits if p.permit_type == PermitType.height_works]
-        assert len(confined) == 1 and not confined[0].obtained
-        assert len(hot) == 1 and not hot[0].obtained
-        assert len(height) == 1 and height[0].obtained
-
-    def test_compile_readiness_checks(
-        self,
-        wo_parser: WorkOrderParser,
-        eng_parser: EngineerProfileParser,
-        sample_wo_data: dict,
-        sample_engineer_data: dict,
+    def test_compile_returns_result(
+        self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder, full_engineer: EngineerProfile
     ):
-        """Compiled work order and engineer profile should support readiness evaluation."""
-        parsed_wo = wo_parser.parse_work_order(sample_wo_data)
-        parsed_eng = eng_parser.parse_profile(sample_engineer_data)
+        result = compiler.compile(full_work_order, full_engineer)
+        assert isinstance(result, FieldCompileResult)
 
-        assert isinstance(parsed_wo, ParsedWorkOrder)
-        assert isinstance(parsed_eng, EngineerProfile)
+    def test_work_order_object_generated(
+        self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder, full_engineer: EngineerProfile
+    ):
+        result = compiler.compile(full_work_order, full_engineer)
 
-        # Engineer should have matching skills
-        required_names = {s.skill_name for s in parsed_wo.required_skills}
-        engineer_names = {s.skill_name for s in parsed_eng.skills}
-        assert required_names.issubset(engineer_names), (
-            f"Engineer missing skills: {required_names - engineer_names}"
+        assert result.work_order["work_order_id"] == "WO-100"
+        assert result.work_order["work_order_type"] == "repair"
+        assert result.work_order["is_high_risk"] is True  # repair + urgent
+        assert result.work_order["has_dependencies"] is True
+        assert result.work_order["has_special_instructions"] is True
+
+    def test_engineer_object_generated(
+        self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder, full_engineer: EngineerProfile
+    ):
+        result = compiler.compile(full_work_order, full_engineer)
+
+        assert result.engineer["engineer_id"] == "ENG-200"
+        assert result.engineer["name"] == "Jane Doe"
+        assert result.engineer["total_skill_count"] == 2
+        assert result.engineer["valid_accreditation_count"] == 2
+
+    def test_all_control_objects_aggregated(
+        self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder, full_engineer: EngineerProfile
+    ):
+        result = compiler.compile(full_work_order, full_engineer)
+
+        # Should have: work_order, engineer, skill_reqs, permit_reqs,
+        # safety_preconditions, materials, schedule
+        assert len(result.control_object_payloads) >= 7  # 1+1+2+2+n_safety+2+1
+
+        types_present = {o["type"] for o in result.control_object_payloads}
+        assert "work_order" in types_present
+        assert "engineer" in types_present
+        assert "skill_requirement" in types_present
+        assert "permit_requirement" in types_present
+        assert "safety_precondition" in types_present
+        assert "material" in types_present
+        assert "schedule" in types_present
+
+    def test_control_object_payloads_have_type_and_payload(
+        self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder, full_engineer: EngineerProfile
+    ):
+        result = compiler.compile(full_work_order, full_engineer)
+
+        for obj in result.control_object_payloads:
+            assert "type" in obj
+            assert "payload" in obj
+
+
+class TestCompileSafetyPreconditions:
+    """test_compile_safety_preconditions: Verify safety preconditions are inferred
+    for high-risk work."""
+
+    def test_repair_gets_risk_assessment(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        preconditions = compiler.compile_safety_preconditions(full_work_order)
+        types = {p["precondition_type"] for p in preconditions}
+
+        assert "risk_assessment" in types
+        assert "method_statement" in types  # repair type requires it
+
+    def test_all_work_orders_get_ppe(self, compiler: FieldCompiler, minimal_work_order: ParsedWorkOrder):
+        preconditions = compiler.compile_safety_preconditions(minimal_work_order)
+        types = {p["precondition_type"] for p in preconditions}
+
+        assert "ppe" in types
+
+    def test_confined_space_permit_adds_preconditions(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        preconditions = compiler.compile_safety_preconditions(full_work_order)
+        types = {p["precondition_type"] for p in preconditions}
+
+        # Confined space permit should add: risk_assessment, method_statement, ppe, toolbox_talk
+        assert "toolbox_talk" in types
+
+    def test_emergency_work_gets_toolbox_talk(self, compiler: FieldCompiler):
+        wo = ParsedWorkOrder(
+            work_order_id="WO-EMG",
+            work_order_type=WorkOrderType.emergency,
+            description="Emergency gas leak repair",
         )
+        preconditions = compiler.compile_safety_preconditions(wo)
+        types = {p["precondition_type"] for p in preconditions}
 
-        # Engineer should have accreditations
-        assert len(parsed_eng.accreditations) >= 1
-        accred_names = {a.name for a in parsed_eng.accreditations}
-        assert "confined_space_certification" in accred_names
+        assert "toolbox_talk" in types
+        assert "risk_assessment" in types
 
-    def test_parse_work_order_type(self, wo_parser: WorkOrderParser):
-        """Different work order types should parse correctly."""
-        for wo_type in ["installation", "maintenance", "repair", "inspection", "emergency"]:
-            parsed = wo_parser.parse_work_order({
-                "work_order_id": f"WO-{wo_type}",
-                "work_order_type": wo_type,
-            })
-            assert parsed.work_order_type == WorkOrderType(wo_type)
+    def test_gas_skill_adds_certification(self, compiler: FieldCompiler):
+        wo = ParsedWorkOrder(
+            work_order_id="WO-GAS",
+            work_order_type=WorkOrderType.maintenance,
+            description="Gas meter replacement",
+            required_skills=[
+                SkillRecord(skill_name="gas_fitting", category=SkillCategory.gas, level="qualified"),
+            ],
+        )
+        preconditions = compiler.compile_safety_preconditions(wo)
+        types = {p["precondition_type"] for p in preconditions}
 
-    def test_parse_work_order_from_text(self, wo_parser: WorkOrderParser):
-        """Parser should handle raw text input."""
-        parsed = wo_parser.parse_work_order("WO-12345 Fiber maintenance at central office")
-        assert parsed.work_order_id == "WO-12345"
-        assert "Fiber maintenance" in parsed.description
+        assert "certification" in types
 
-    def test_parse_engineer_profile(self, eng_parser: EngineerProfileParser, sample_engineer_data: dict):
-        """Engineer profile should parse all fields."""
-        parsed = eng_parser.parse_profile(sample_engineer_data)
+    def test_precondition_fields_are_populated(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        preconditions = compiler.compile_safety_preconditions(full_work_order)
 
-        assert parsed.engineer_id == "ENG-001"
-        assert parsed.name == "John Smith"
-        assert len(parsed.skills) == 2
-        assert len(parsed.accreditations) == 2
-        assert parsed.availability == "available"
-        assert parsed.location == "Depot A"
+        for p in preconditions:
+            assert "work_order_id" in p
+            assert p["work_order_id"] == "WO-100"
+            assert "precondition_type" in p
+            assert "description" in p
+            assert p["description"]  # not empty
+            assert p["required"] is True
+            assert p["verified"] is False
+
+    def test_description_keywords_add_preconditions(self, compiler: FieldCompiler):
+        wo = ParsedWorkOrder(
+            work_order_id="WO-HAZ",
+            work_order_type=WorkOrderType.maintenance,
+            description="Replace hazardous chemical storage unit with excavation",
+        )
+        preconditions = compiler.compile_safety_preconditions(wo)
+        types = {p["precondition_type"] for p in preconditions}
+
+        assert "risk_assessment" in types  # "hazardous" keyword
+        assert "method_statement" in types  # "excavat" keyword
+
+
+class TestCompileSkillRequirements:
+    """test_compile_skill_requirements: Verify skill requirements compile with
+    category/level."""
+
+    def test_skill_count(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        skills = compiler.compile_skill_requirements(full_work_order)
+        assert len(skills) == 2
+
+    def test_skill_fields(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        skills = compiler.compile_skill_requirements(full_work_order)
+
+        for skill in skills:
+            assert "work_order_id" in skill
+            assert skill["work_order_id"] == "WO-100"
+            assert "skill_name" in skill
+            assert "category" in skill
+            assert "required_level" in skill
+            assert "is_specialist" in skill
+
+    def test_specialist_skills_flagged(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        skills = compiler.compile_skill_requirements(full_work_order)
+
+        electrical = [s for s in skills if s["skill_name"] == "electrical"]
+        assert len(electrical) == 1
+        assert electrical[0]["is_specialist"] is True  # electrical is specialist
+        assert electrical[0]["category"] == "electrical"
+
+    def test_no_skills_returns_empty(self, compiler: FieldCompiler, minimal_work_order: ParsedWorkOrder):
+        skills = compiler.compile_skill_requirements(minimal_work_order)
+        assert len(skills) == 0
+
+
+class TestCompilePermitRequirements:
+    """test_compile_permit_requirements: Verify permits compile correctly."""
+
+    def test_permit_count(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        permits = compiler.compile_permit_requirements(full_work_order)
+        assert len(permits) == 2
+
+    def test_permit_fields(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        permits = compiler.compile_permit_requirements(full_work_order)
+
+        for permit in permits:
+            assert "work_order_id" in permit
+            assert "permit_type" in permit
+            assert "required" in permit
+            assert "obtained" in permit
+            assert "is_blocking" in permit
+
+    def test_unobtained_permit_is_blocking(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        permits = compiler.compile_permit_requirements(full_work_order)
+
+        confined = [p for p in permits if p["permit_type"] == "confined_space"]
+        assert len(confined) == 1
+        assert confined[0]["is_blocking"] is True
+
+    def test_obtained_permit_not_blocking(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        permits = compiler.compile_permit_requirements(full_work_order)
+
+        building = [p for p in permits if p["permit_type"] == "building_access"]
+        assert len(building) == 1
+        assert building[0]["is_blocking"] is False
+
+
+class TestCompileMaterials:
+    """test_compile_materials: Verify materials compile with availability."""
+
+    def test_material_count(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        materials = compiler.compile_materials(full_work_order)
+        assert len(materials) == 2
+
+    def test_material_fields(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        materials = compiler.compile_materials(full_work_order)
+
+        for mat in materials:
+            assert "work_order_id" in mat
+            assert mat["work_order_id"] == "WO-100"
+            assert "material_id" in mat
+            assert "description" in mat
+            assert "quantity" in mat
+            assert "unit" in mat
+            assert "available" in mat
+
+    def test_available_material(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        materials = compiler.compile_materials(full_work_order)
+
+        splice_tray = [m for m in materials if m["material_id"] == "MAT-001"]
+        assert len(splice_tray) == 1
+        assert splice_tray[0]["available"] is True
+        assert splice_tray[0]["quantity"] == 2
+
+    def test_unavailable_material_with_alternative(self, compiler: FieldCompiler, full_work_order: ParsedWorkOrder):
+        materials = compiler.compile_materials(full_work_order)
+
+        splice_kit = [m for m in materials if m["material_id"] == "MAT-002"]
+        assert len(splice_kit) == 1
+        assert splice_kit[0]["available"] is False
+        assert splice_kit[0]["alternative"] == "MAT-003"
+
+    def test_no_materials_returns_empty(self, compiler: FieldCompiler, minimal_work_order: ParsedWorkOrder):
+        materials = compiler.compile_materials(minimal_work_order)
+        assert len(materials) == 0
+
+
+class TestCompileMinimalData:
+    """test_compile_minimal_data: Handle minimal data gracefully."""
+
+    def test_minimal_compile_succeeds(
+        self, compiler: FieldCompiler, minimal_work_order: ParsedWorkOrder, minimal_engineer: EngineerProfile
+    ):
+        result = compiler.compile(minimal_work_order, minimal_engineer)
+
+        assert isinstance(result, FieldCompileResult)
+        assert result.work_order["work_order_id"] == "WO-MIN"
+        assert result.engineer["engineer_id"] == "ENG-MIN"
+
+    def test_minimal_has_no_skills_or_permits(
+        self, compiler: FieldCompiler, minimal_work_order: ParsedWorkOrder, minimal_engineer: EngineerProfile
+    ):
+        result = compiler.compile(minimal_work_order, minimal_engineer)
+
+        assert len(result.skill_requirements) == 0
+        assert len(result.permit_requirements) == 0
+        assert len(result.materials) == 0
+
+    def test_minimal_still_gets_ppe_precondition(
+        self, compiler: FieldCompiler, minimal_work_order: ParsedWorkOrder, minimal_engineer: EngineerProfile
+    ):
+        result = compiler.compile(minimal_work_order, minimal_engineer)
+
+        # All work orders get PPE precondition at minimum
+        assert len(result.safety_preconditions) >= 1
+        types = {p["precondition_type"] for p in result.safety_preconditions}
+        assert "ppe" in types
+
+    def test_minimal_work_order_not_high_risk(
+        self, compiler: FieldCompiler, minimal_work_order: ParsedWorkOrder, minimal_engineer: EngineerProfile
+    ):
+        result = compiler.compile(minimal_work_order, minimal_engineer)
+
+        assert result.work_order["is_high_risk"] is False
+
+    def test_minimal_engineer_has_zero_counts(
+        self, compiler: FieldCompiler, minimal_work_order: ParsedWorkOrder, minimal_engineer: EngineerProfile
+    ):
+        result = compiler.compile(minimal_work_order, minimal_engineer)
+
+        assert result.engineer["total_skill_count"] == 0
+        assert result.engineer["valid_accreditation_count"] == 0
+
+    def test_schedule_compiled_for_minimal(
+        self, compiler: FieldCompiler, minimal_work_order: ParsedWorkOrder, minimal_engineer: EngineerProfile
+    ):
+        result = compiler.compile(minimal_work_order, minimal_engineer)
+
+        assert result.schedule["work_order_id"] == "WO-MIN"
+        assert result.schedule["has_defined_window"] is False

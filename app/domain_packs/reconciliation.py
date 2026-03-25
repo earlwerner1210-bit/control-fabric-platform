@@ -1,88 +1,128 @@
-"""Cross-pack reconciliation -- links and validates across commercial, field, and ops domains."""
+"""Cross-pack reconciliation module.
+
+Links control objects across the commercial (contract_margin), field
+(utilities_field), and operations (telco_ops) domains. Provides linkers for
+detecting relationships and conflicts between domain objects and assemblers
+for building evidence bundles used in downstream diagnosis and decision-making.
+"""
 
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from difflib import SequenceMatcher
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 
 # ---------------------------------------------------------------------------
-# Data classes
+# Domain constants
+# ---------------------------------------------------------------------------
+
+DOMAIN_CONTRACT_MARGIN = "contract_margin"
+DOMAIN_UTILITIES_FIELD = "utilities_field"
+DOMAIN_TELCO_OPS = "telco_ops"
+
+# Matching thresholds
+_TEXT_SIMILARITY_THRESHOLD = 0.55
+_HIGH_CONFIDENCE = 0.90
+_MEDIUM_CONFIDENCE = 0.70
+_LOW_CONFIDENCE = 0.50
+_RATE_TOLERANCE_FRACTION = 0.01  # 1 % tolerance for rate comparison
+_TIME_WINDOW_HOURS = 48  # default window for temporal matching
+
+
+# ---------------------------------------------------------------------------
+# Pydantic models
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class CrossPlaneLink:
-    """A link between control objects in different domain planes."""
+class CrossPlaneLink(BaseModel):
+    """A directed link between two control objects in different domains."""
 
     source_domain: str
+    source_id: str
     target_domain: str
-    source_object_id: uuid.UUID
-    target_object_id: uuid.UUID
-    link_type: str  # maps_to, requires, conflicts_with, triggers
-    confidence: float = 0.0
-    metadata: dict = field(default_factory=dict)
+    target_id: str
+    link_type: str
+    confidence: float
+    metadata: dict = Field(default_factory=dict)
 
 
-@dataclass
-class CrossPlaneConflict:
-    """A conflict detected between two domain planes."""
+class CrossPlaneConflict(BaseModel):
+    """A detected conflict between two domain planes."""
 
-    conflict_type: str
-    severity: str  # info, warning, error, critical
-    description: str
+    field: str
     domain_a: str
+    value_a: str
     domain_b: str
-    object_a_id: uuid.UUID | None = None
-    object_b_id: uuid.UUID | None = None
-    resolution_suggestion: str = ""
+    value_b: str
+    severity: str  # info, warning, error, critical
+    resolution: str
 
 
-@dataclass
-class EvidenceBundle:
-    """A bundle of evidence gathered across domain planes."""
+class EvidenceBundle(BaseModel):
+    """An assembled bundle of cross-domain evidence items."""
 
-    bundle_type: str  # margin_evidence, readiness_evidence, ops_evidence
-    contract_objects: list[dict] = field(default_factory=list)
-    field_objects: list[dict] = field(default_factory=list)
-    ops_objects: list[dict] = field(default_factory=list)
-    cross_links: list[CrossPlaneLink] = field(default_factory=list)
-    conflicts: list[CrossPlaneConflict] = field(default_factory=list)
+    bundle_id: str
+    domains: list[str]
+    evidence_items: list[dict]
+    total_items: int
+    confidence: float
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _safe_uuid(value: Any) -> uuid.UUID:
-    """Convert a value to UUID, generating one if the value is missing."""
-    if isinstance(value, uuid.UUID):
-        return value
-    if isinstance(value, str):
-        try:
-            return uuid.UUID(value)
-        except ValueError:
-            return uuid.uuid5(uuid.NAMESPACE_DNS, value)
-    return uuid.uuid4()
 
-
-def _normalize(text: str) -> str:
-    """Lowercase and strip a string for fuzzy matching."""
-    return text.lower().strip().replace("-", "_").replace(" ", "_")
-
-
-def _text_overlap(a: str, b: str) -> float:
-    """Return a 0..1 token-overlap score between two strings."""
-    tokens_a = set(_normalize(a).split("_"))
-    tokens_b = set(_normalize(b).split("_"))
-    tokens_a.discard("")
-    tokens_b.discard("")
-    if not tokens_a or not tokens_b:
+def _text_similarity(a: str, b: str) -> float:
+    """Return a 0-1 similarity ratio between two strings (case-insensitive)."""
+    if not a or not b:
         return 0.0
-    intersection = tokens_a & tokens_b
-    union = tokens_a | tokens_b
-    return len(intersection) / len(union)
+    return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
+
+
+def _safe_str(value: Any) -> str:
+    """Coerce *value* to a stripped string."""
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    """Coerce *value* to float, returning *default* on failure."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_datetime(value: Any) -> datetime | None:
+    """Best-effort ISO datetime parse."""
+    if isinstance(value, datetime):
+        return value
+    if not value:
+        return None
+    raw = str(value).strip()
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f",
+                "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(raw, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _extract_activities(description: str) -> set[str]:
+    """Extract a rough set of normalised 'activity tokens' from free text."""
+    tokens: set[str] = set()
+    for word in description.lower().replace(",", " ").replace(".", " ").split():
+        cleaned = word.strip()
+        if len(cleaned) > 2:
+            tokens.add(cleaned)
+    return tokens
 
 
 # ---------------------------------------------------------------------------
@@ -91,248 +131,219 @@ def _text_overlap(a: str, b: str) -> float:
 
 
 class ContractWorkOrderLinker:
-    """Link contract control objects to work order control objects."""
+    """Links contract control objects to work orders.
 
-    def link_contract_to_work_order(
+    Matching strategies:
+    1. Rate card entries  -> WO activities  (text similarity on activity name)
+    2. Obligations        -> WO type        (obligation description vs WO type/desc)
+    3. Scope boundaries   -> WO description (activity overlap)
+    """
+
+    def link(
         self,
         contract_objects: list[dict],
-        work_order_objects: list[dict],
+        work_order: dict,
     ) -> list[CrossPlaneLink]:
-        """Match contract objects to work order objects by activity, scope, and billing references.
-
-        Matching strategies:
-        - billable_events <-> work activities by activity name
-        - obligations <-> dispatch_preconditions by scope
-        - penalty_conditions <-> readiness_checks
-        - rate_card entries <-> work order billing references
-        """
         links: list[CrossPlaneLink] = []
 
-        billable_events = [
-            o for o in contract_objects
-            if o.get("control_type") in ("billable_event", "rate_card")
-        ]
-        obligations = [
-            o for o in contract_objects
-            if o.get("control_type") == "obligation"
-        ]
-        penalties = [
-            o for o in contract_objects
-            if o.get("control_type") == "penalty_condition"
-        ]
-        rate_cards = [
-            o for o in contract_objects
-            if o.get("control_type") == "rate_card"
-        ]
+        wo_id = _safe_str(work_order.get("work_order_id", ""))
+        wo_type = _safe_str(work_order.get("work_order_type", ""))
+        wo_desc = _safe_str(work_order.get("description", ""))
+        wo_activities = _extract_activities(wo_desc)
 
-        for wo in work_order_objects:
-            wo_id = _safe_uuid(wo.get("id", wo.get("work_order_id", "")))
-            wo_activity = wo.get("activity", wo.get("description", ""))
-            wo_scope = wo.get("scope", wo.get("description", ""))
+        for obj in contract_objects:
+            obj_type = _safe_str(obj.get("type", obj.get("object_type", "")))
+            obj_id = _safe_str(
+                obj.get("id", obj.get("clause_id", obj.get("activity", "")))
+            )
 
-            # 1) Match billable_events to work activities by activity name
-            for be in billable_events:
-                be_id = _safe_uuid(be.get("id", be.get("clause_id", "")))
-                be_activity = be.get("activity", be.get("label", ""))
-                overlap = _text_overlap(be_activity, wo_activity)
-                if overlap > 0.2:
-                    links.append(CrossPlaneLink(
-                        source_domain="contract_margin",
-                        target_domain="utilities_field",
-                        source_object_id=be_id,
-                        target_object_id=wo_id,
-                        link_type="maps_to",
-                        confidence=min(overlap * 1.5, 1.0),
-                        metadata={
-                            "contract_activity": be_activity,
-                            "work_order_activity": wo_activity,
-                        },
-                    ))
+            # --- Rate card matching ---
+            if obj_type in ("rate_card", "rate") or "activity" in obj:
+                activity_name = _safe_str(obj.get("activity", ""))
+                if activity_name:
+                    sim = _text_similarity(activity_name, wo_desc)
+                    # Also check token overlap
+                    activity_tokens = _extract_activities(activity_name)
+                    overlap = activity_tokens & wo_activities
+                    token_score = (
+                        len(overlap) / max(len(activity_tokens), 1)
+                        if activity_tokens
+                        else 0.0
+                    )
+                    combined = max(sim, token_score)
+                    if combined >= _TEXT_SIMILARITY_THRESHOLD:
+                        links.append(
+                            CrossPlaneLink(
+                                source_domain=DOMAIN_CONTRACT_MARGIN,
+                                source_id=obj_id or activity_name,
+                                target_domain=DOMAIN_UTILITIES_FIELD,
+                                target_id=wo_id,
+                                link_type="rate_card_to_activity",
+                                confidence=round(min(combined, 1.0), 3),
+                                metadata={
+                                    "activity": activity_name,
+                                    "rate": obj.get("rate"),
+                                    "unit": obj.get("unit"),
+                                    "similarity": round(combined, 3),
+                                },
+                            )
+                        )
 
-            # 2) Match obligations to work order scope
-            for ob in obligations:
-                ob_id = _safe_uuid(ob.get("id", ob.get("clause_id", "")))
-                ob_desc = ob.get("description", ob.get("text", ""))
-                overlap = _text_overlap(ob_desc, wo_scope)
-                if overlap > 0.15:
-                    links.append(CrossPlaneLink(
-                        source_domain="contract_margin",
-                        target_domain="utilities_field",
-                        source_object_id=ob_id,
-                        target_object_id=wo_id,
-                        link_type="requires",
-                        confidence=min(overlap * 1.3, 1.0),
-                        metadata={
-                            "obligation": ob_desc[:100],
-                            "work_order_scope": wo_scope[:100],
-                        },
-                    ))
+            # --- Obligation matching ---
+            if obj_type in ("obligation",) or "description" in obj and "due_type" in obj:
+                obligation_desc = _safe_str(obj.get("description", ""))
+                sim_type = _text_similarity(obligation_desc, wo_type)
+                sim_desc = _text_similarity(obligation_desc, wo_desc)
+                best = max(sim_type, sim_desc)
+                if best >= _TEXT_SIMILARITY_THRESHOLD:
+                    links.append(
+                        CrossPlaneLink(
+                            source_domain=DOMAIN_CONTRACT_MARGIN,
+                            source_id=obj_id or obligation_desc[:60],
+                            target_domain=DOMAIN_UTILITIES_FIELD,
+                            target_id=wo_id,
+                            link_type="obligation_to_work_order",
+                            confidence=round(min(best, 1.0), 3),
+                            metadata={
+                                "obligation_description": obligation_desc,
+                                "wo_type": wo_type,
+                                "similarity": round(best, 3),
+                            },
+                        )
+                    )
 
-            # 3) Match penalty_conditions to readiness_checks
-            for pc in penalties:
-                pc_id = _safe_uuid(pc.get("id", pc.get("clause_id", "")))
-                pc_trigger = pc.get("trigger", pc.get("description", ""))
-                # Penalty conditions link to work orders that touch the same scope
-                overlap = _text_overlap(pc_trigger, wo_scope)
-                if overlap > 0.1:
-                    links.append(CrossPlaneLink(
-                        source_domain="contract_margin",
-                        target_domain="utilities_field",
-                        source_object_id=pc_id,
-                        target_object_id=wo_id,
-                        link_type="conflicts_with",
-                        confidence=min(overlap * 1.2, 1.0),
-                        metadata={
-                            "penalty_trigger": pc_trigger[:100],
-                        },
-                    ))
-
-            # 4) Match rate_card entries to work order billing references
-            wo_billing_ref = wo.get("billing_reference", wo.get("rate", ""))
-            for rc in rate_cards:
-                rc_id = _safe_uuid(rc.get("id", rc.get("clause_id", "")))
-                rc_activity = rc.get("activity", rc.get("label", ""))
-                if _normalize(rc_activity) == _normalize(wo_activity) or _text_overlap(rc_activity, wo_activity) > 0.3:
-                    links.append(CrossPlaneLink(
-                        source_domain="contract_margin",
-                        target_domain="utilities_field",
-                        source_object_id=rc_id,
-                        target_object_id=wo_id,
-                        link_type="maps_to",
-                        confidence=0.9,
-                        metadata={
-                            "rate_card_activity": rc_activity,
-                            "work_order_activity": wo_activity,
-                            "billing_reference": str(wo_billing_ref),
-                        },
-                    ))
+            # --- Scope boundary matching ---
+            if obj_type in ("scope", "scope_boundary") or "scope_type" in obj:
+                scope_desc = _safe_str(obj.get("description", ""))
+                scope_activities = set(
+                    a.lower().strip() for a in obj.get("activities", [])
+                )
+                overlap = scope_activities & wo_activities
+                desc_sim = _text_similarity(scope_desc, wo_desc)
+                token_score = (
+                    len(overlap) / max(len(scope_activities), 1)
+                    if scope_activities
+                    else 0.0
+                )
+                combined = max(desc_sim, token_score)
+                if combined >= _TEXT_SIMILARITY_THRESHOLD:
+                    scope_type = _safe_str(obj.get("scope_type", ""))
+                    links.append(
+                        CrossPlaneLink(
+                            source_domain=DOMAIN_CONTRACT_MARGIN,
+                            source_id=obj_id or scope_desc[:60],
+                            target_domain=DOMAIN_UTILITIES_FIELD,
+                            target_id=wo_id,
+                            link_type="scope_boundary_to_work_order",
+                            confidence=round(min(combined, 1.0), 3),
+                            metadata={
+                                "scope_type": scope_type,
+                                "overlapping_activities": sorted(overlap),
+                                "similarity": round(combined, 3),
+                            },
+                        )
+                    )
 
         return links
 
-    def detect_commercial_field_conflicts(
-        self,
-        contract_objects: list[dict],
-        work_order_objects: list[dict],
-    ) -> list[CrossPlaneConflict]:
-        """Detect conflicts between contract and field planes.
+    # ---- Conflict detection ----
 
-        Checks for:
-        - Work performed but no matching billable event
-        - Rate mismatch between contract and work order
-        - Scope conflict: work order activity not in contract scope
-        - Timeline conflict: work performed outside contract period
-        """
+    def detect_conflicts(
+        self,
+        links: list[CrossPlaneLink],
+        contract_data: dict,
+        wo_data: dict,
+    ) -> list[CrossPlaneConflict]:
         conflicts: list[CrossPlaneConflict] = []
 
-        billable_activities = set()
-        for co in contract_objects:
-            if co.get("control_type") in ("billable_event", "rate_card"):
-                activity = co.get("activity", co.get("label", ""))
-                billable_activities.add(_normalize(activity))
+        rate_card = contract_data.get("rate_card", [])
+        obligations = contract_data.get("obligations", [])
+        scope_boundaries = contract_data.get("scope_boundaries", [])
 
-        scope_descriptions = []
-        for co in contract_objects:
-            if co.get("control_type") in ("scope_boundary", "obligation"):
-                scope_descriptions.append(
-                    co.get("description", co.get("text", "")).lower()
-                )
+        wo_desc = _safe_str(wo_data.get("description", ""))
+        wo_type = _safe_str(wo_data.get("work_order_type", ""))
+        wo_rate = _safe_float(wo_data.get("rate"))
+        wo_activities = _extract_activities(wo_desc)
 
-        contract_rates: dict[str, float] = {}
-        for co in contract_objects:
-            if co.get("control_type") == "rate_card":
-                activity = _normalize(co.get("activity", co.get("label", "")))
-                rate = co.get("rate", co.get("payload", {}).get("rate", 0))
-                if isinstance(rate, (int, float)):
-                    contract_rates[activity] = float(rate)
-
-        contract_start = None
-        contract_end = None
-        for co in contract_objects:
-            if co.get("control_type") == "contract_metadata":
-                contract_start = co.get("effective_date", co.get("start_date"))
-                contract_end = co.get("expiry_date", co.get("end_date"))
-
-        for wo in work_order_objects:
-            wo_id = _safe_uuid(wo.get("id", wo.get("work_order_id", "")))
-            wo_activity = _normalize(wo.get("activity", wo.get("description", "")))
-            wo_status = wo.get("status", "")
-
-            # 1) Work performed but no matching billable event
-            if wo_status in ("completed", "done", "finished"):
-                matched = any(
-                    act == wo_activity or _text_overlap(act, wo_activity) > 0.3
-                    for act in billable_activities
-                )
-                if not matched and wo_activity:
-                    conflicts.append(CrossPlaneConflict(
-                        conflict_type="unbilled_work",
-                        severity="error",
-                        description=(
-                            f"Work order activity '{wo_activity}' completed "
-                            f"but no matching billable event in contract"
-                        ),
-                        domain_a="contract_margin",
-                        domain_b="utilities_field",
-                        object_b_id=wo_id,
-                        resolution_suggestion="Review contract scope and add change order if needed",
-                    ))
-
-            # 2) Rate mismatch
-            wo_rate = wo.get("rate", wo.get("billed_rate"))
-            if isinstance(wo_rate, (int, float)) and wo_rate > 0:
-                for act, contract_rate in contract_rates.items():
-                    if act == wo_activity or _text_overlap(act, wo_activity) > 0.3:
-                        if abs(wo_rate - contract_rate) > 0.01:
-                            conflicts.append(CrossPlaneConflict(
-                                conflict_type="rate_mismatch",
-                                severity="warning",
-                                description=(
-                                    f"Work order rate ${wo_rate} differs from "
-                                    f"contract rate ${contract_rate} for '{wo_activity}'"
+        # --- Rate mismatches ---
+        for link in links:
+            if link.link_type == "rate_card_to_activity":
+                contract_rate = _safe_float(link.metadata.get("rate"))
+                if contract_rate > 0 and wo_rate > 0:
+                    diff = abs(contract_rate - wo_rate)
+                    tolerance = contract_rate * _RATE_TOLERANCE_FRACTION
+                    if diff > tolerance:
+                        severity = "critical" if diff / contract_rate > 0.10 else "warning"
+                        conflicts.append(
+                            CrossPlaneConflict(
+                                field="rate",
+                                domain_a=DOMAIN_CONTRACT_MARGIN,
+                                value_a=str(contract_rate),
+                                domain_b=DOMAIN_UTILITIES_FIELD,
+                                value_b=str(wo_rate),
+                                severity=severity,
+                                resolution=(
+                                    "Review rate card against work order pricing. "
+                                    f"Difference of {diff:.2f} detected."
                                 ),
-                                domain_a="contract_margin",
-                                domain_b="utilities_field",
-                                object_b_id=wo_id,
-                                resolution_suggestion="Verify correct rate is applied",
-                            ))
-                        break
+                            )
+                        )
 
-            # 3) Scope conflict
-            if wo_activity and scope_descriptions:
-                in_scope = any(
-                    wo_activity in desc or _text_overlap(wo_activity, desc) > 0.15
-                    for desc in scope_descriptions
+        # --- Scope conflicts ---
+        for boundary in scope_boundaries:
+            scope_type = _safe_str(boundary.get("scope_type", ""))
+            if scope_type == "out_of_scope":
+                out_activities = set(
+                    a.lower().strip() for a in boundary.get("activities", [])
                 )
-                if not in_scope:
-                    conflicts.append(CrossPlaneConflict(
-                        conflict_type="scope_conflict",
-                        severity="warning",
-                        description=(
-                            f"Work order activity '{wo_activity}' not found "
-                            f"in contract scope"
-                        ),
-                        domain_a="contract_margin",
-                        domain_b="utilities_field",
-                        object_b_id=wo_id,
-                        resolution_suggestion="Raise change order for out-of-scope work",
-                    ))
+                overlap = out_activities & wo_activities
+                if overlap:
+                    conflicts.append(
+                        CrossPlaneConflict(
+                            field="scope",
+                            domain_a=DOMAIN_CONTRACT_MARGIN,
+                            value_a=f"out_of_scope: {', '.join(sorted(overlap))}",
+                            domain_b=DOMAIN_UTILITIES_FIELD,
+                            value_b=wo_desc[:120],
+                            severity="error",
+                            resolution=(
+                                "Work order references activities marked out-of-scope "
+                                "in the contract. Raise a scope clarification or "
+                                "change order before proceeding."
+                            ),
+                        )
+                    )
 
-            # 4) Timeline conflict
-            wo_date = wo.get("completed_date", wo.get("scheduled_date"))
-            if wo_date and contract_end:
-                if str(wo_date) > str(contract_end):
-                    conflicts.append(CrossPlaneConflict(
-                        conflict_type="timeline_conflict",
-                        severity="error",
-                        description=(
-                            f"Work order completed on {wo_date} after contract "
-                            f"expiry {contract_end}"
-                        ),
-                        domain_a="contract_margin",
-                        domain_b="utilities_field",
-                        object_b_id=wo_id,
-                        resolution_suggestion="Verify contract renewal or extension",
-                    ))
+        # --- Missing obligation coverage ---
+        linked_obligation_ids = {
+            link.source_id
+            for link in links
+            if link.link_type == "obligation_to_work_order"
+        }
+        for obligation in obligations:
+            ob_id = _safe_str(
+                obligation.get("clause_id", obligation.get("id", ""))
+            )
+            ob_status = _safe_str(obligation.get("status", "active"))
+            if ob_status == "active" and ob_id not in linked_obligation_ids:
+                ob_desc = _safe_str(obligation.get("description", ""))
+                # Only flag if the obligation is plausibly relevant
+                sim = _text_similarity(ob_desc, wo_desc)
+                if sim >= 0.30:
+                    conflicts.append(
+                        CrossPlaneConflict(
+                            field="obligation_coverage",
+                            domain_a=DOMAIN_CONTRACT_MARGIN,
+                            value_a=ob_desc[:120],
+                            domain_b=DOMAIN_UTILITIES_FIELD,
+                            value_b=f"work_order:{wo_data.get('work_order_id', '')}",
+                            severity="warning",
+                            resolution=(
+                                "Active obligation may not be addressed by the "
+                                "current work order. Verify compliance."
+                            ),
+                        )
+                    )
 
         return conflicts
 
@@ -343,459 +354,636 @@ class ContractWorkOrderLinker:
 
 
 class WorkOrderIncidentLinker:
-    """Link work order objects to incident objects."""
+    """Links work orders to incidents by service, location, and time window."""
 
-    def link_work_order_to_incident(
+    def link(
         self,
-        work_order_objects: list[dict],
-        incident_objects: list[dict],
+        work_order: dict,
+        incidents: list[dict],
     ) -> list[CrossPlaneLink]:
-        """Match work orders to incidents by service, location, and ownership.
-
-        Matching strategies:
-        - Match dispatch to incident by service/location
-        - Match work order status to incident state
-        - Link engineer assignment to incident ownership
-        """
         links: list[CrossPlaneLink] = []
 
-        for wo in work_order_objects:
-            wo_id = _safe_uuid(wo.get("id", wo.get("work_order_id", "")))
-            wo_location = _normalize(wo.get("location", wo.get("site_id", "")))
-            wo_services = [_normalize(s) for s in wo.get("affected_services", wo.get("services", []))]
-            wo_description = wo.get("description", "")
-            wo_incident_ref = wo.get("incident_id", wo.get("linked_incident_id", ""))
+        wo_id = _safe_str(work_order.get("work_order_id", ""))
+        wo_location = _safe_str(work_order.get("location", ""))
+        wo_site = _safe_str(work_order.get("site_id", ""))
+        wo_desc = _safe_str(work_order.get("description", ""))
+        wo_customer = _safe_str(work_order.get("customer", ""))
+        wo_start = _parse_datetime(
+            work_order.get("scheduled_date") or work_order.get("scheduled_start")
+        )
+        wo_end = _parse_datetime(work_order.get("scheduled_end"))
 
-            for inc in incident_objects:
-                inc_id = _safe_uuid(inc.get("id", inc.get("incident_id", "")))
-                inc_services = [_normalize(s) for s in inc.get("affected_services", [])]
-                inc_location = _normalize(inc.get("location", ""))
-                inc_description = inc.get("description", inc.get("title", ""))
+        for incident in incidents:
+            inc_id = _safe_str(incident.get("incident_id", ""))
+            inc_services = [
+                s.lower().strip()
+                for s in incident.get("affected_services", [])
+            ]
+            inc_desc = _safe_str(incident.get("description", ""))
+            inc_title = _safe_str(incident.get("title", ""))
+            inc_created = _parse_datetime(incident.get("created_at"))
+            inc_location = _safe_str(incident.get("location", ""))
+            inc_site = _safe_str(incident.get("site_id", ""))
 
-                # Direct incident reference match
-                inc_ref = inc.get("incident_id", inc.get("id", ""))
-                if wo_incident_ref and str(wo_incident_ref) == str(inc_ref):
-                    links.append(CrossPlaneLink(
-                        source_domain="utilities_field",
-                        target_domain="telco_ops",
-                        source_object_id=wo_id,
-                        target_object_id=inc_id,
-                        link_type="maps_to",
-                        confidence=1.0,
-                        metadata={"match_type": "direct_reference"},
-                    ))
-                    continue
+            confidence_signals: list[float] = []
 
-                # 1) Match by service overlap
-                service_overlap = set(wo_services) & set(inc_services) if wo_services and inc_services else set()
-                if service_overlap:
-                    links.append(CrossPlaneLink(
-                        source_domain="utilities_field",
-                        target_domain="telco_ops",
-                        source_object_id=wo_id,
-                        target_object_id=inc_id,
-                        link_type="maps_to",
-                        confidence=0.8,
+            # --- Service match ---
+            wo_desc_lower = wo_desc.lower()
+            service_matched = False
+            for svc in inc_services:
+                if svc and (svc in wo_desc_lower or svc in wo_location.lower()):
+                    service_matched = True
+                    break
+            if service_matched:
+                confidence_signals.append(0.35)
+
+            # --- Location / site match ---
+            location_matched = False
+            if wo_site and inc_site and wo_site.lower() == inc_site.lower():
+                location_matched = True
+                confidence_signals.append(0.30)
+            elif wo_location and inc_location:
+                loc_sim = _text_similarity(wo_location, inc_location)
+                if loc_sim >= _TEXT_SIMILARITY_THRESHOLD:
+                    location_matched = True
+                    confidence_signals.append(0.30 * loc_sim)
+
+            # --- Time window match ---
+            time_matched = False
+            if wo_start and inc_created:
+                window = timedelta(hours=_TIME_WINDOW_HOURS)
+                if wo_end:
+                    effective_end = max(wo_end, wo_start + window)
+                else:
+                    effective_end = wo_start + window
+                effective_start = wo_start - window
+                if effective_start <= inc_created <= effective_end:
+                    time_matched = True
+                    confidence_signals.append(0.25)
+
+            # --- Text similarity boost ---
+            desc_sim = max(
+                _text_similarity(wo_desc, inc_desc),
+                _text_similarity(wo_desc, inc_title),
+            )
+            if desc_sim >= _TEXT_SIMILARITY_THRESHOLD:
+                confidence_signals.append(0.10 * desc_sim)
+
+            # Require at least two positive signals to create a link
+            if len(confidence_signals) >= 2:
+                total_confidence = min(sum(confidence_signals), 1.0)
+                links.append(
+                    CrossPlaneLink(
+                        source_domain=DOMAIN_UTILITIES_FIELD,
+                        source_id=wo_id,
+                        target_domain=DOMAIN_TELCO_OPS,
+                        target_id=inc_id,
+                        link_type="work_order_to_incident",
+                        confidence=round(total_confidence, 3),
                         metadata={
-                            "match_type": "service_overlap",
-                            "overlapping_services": list(service_overlap),
+                            "service_match": service_matched,
+                            "location_match": location_matched,
+                            "time_match": time_matched,
+                            "description_similarity": round(desc_sim, 3),
                         },
-                    ))
-                    continue
-
-                # 2) Match by location
-                if wo_location and inc_location and wo_location == inc_location:
-                    links.append(CrossPlaneLink(
-                        source_domain="utilities_field",
-                        target_domain="telco_ops",
-                        source_object_id=wo_id,
-                        target_object_id=inc_id,
-                        link_type="maps_to",
-                        confidence=0.7,
-                        metadata={"match_type": "location_match", "location": wo_location},
-                    ))
-                    continue
-
-                # 3) Match by description overlap
-                overlap = _text_overlap(wo_description, inc_description)
-                if overlap > 0.25:
-                    links.append(CrossPlaneLink(
-                        source_domain="utilities_field",
-                        target_domain="telco_ops",
-                        source_object_id=wo_id,
-                        target_object_id=inc_id,
-                        link_type="maps_to",
-                        confidence=min(overlap * 1.2, 0.9),
-                        metadata={"match_type": "description_overlap"},
-                    ))
-
-        # Link engineer assignment to incident ownership
-        for wo in work_order_objects:
-            wo_id = _safe_uuid(wo.get("id", wo.get("work_order_id", "")))
-            engineer = wo.get("assigned_engineer", wo.get("engineer_id", ""))
-            if not engineer:
-                continue
-            for inc in incident_objects:
-                inc_id = _safe_uuid(inc.get("id", inc.get("incident_id", "")))
-                assigned_to = inc.get("assigned_to", "")
-                if assigned_to and _normalize(str(engineer)) == _normalize(str(assigned_to)):
-                    links.append(CrossPlaneLink(
-                        source_domain="utilities_field",
-                        target_domain="telco_ops",
-                        source_object_id=wo_id,
-                        target_object_id=inc_id,
-                        link_type="triggers",
-                        confidence=0.85,
-                        metadata={
-                            "match_type": "ownership_match",
-                            "engineer": str(engineer),
-                        },
-                    ))
+                    )
+                )
 
         return links
 
-    def detect_field_ops_conflicts(
+    def detect_conflicts(
         self,
-        work_order_objects: list[dict],
-        incident_objects: list[dict],
+        links: list[CrossPlaneLink],
+        wo_data: dict,
+        incident_data: dict,
     ) -> list[CrossPlaneConflict]:
-        """Detect conflicts between field and ops planes.
-
-        Checks for:
-        - Incident resolved but work order still open
-        - Work order completed but incident still active
-        - Multiple work orders for same incident
-        - Ownership mismatch
-        """
         conflicts: list[CrossPlaneConflict] = []
-        resolved_states = {"resolved", "closed"}
-        active_states = {"new", "acknowledged", "investigating"}
-        completed_wo_states = {"completed", "done", "finished", "closed"}
-        open_wo_states = {"pending", "open", "in_progress", "assigned", "dispatched"}
 
-        # Build incident lookup by id
-        incident_by_id: dict[str, dict] = {}
-        for inc in incident_objects:
-            iid = str(inc.get("incident_id", inc.get("id", "")))
-            incident_by_id[iid] = inc
+        wo_start = _parse_datetime(
+            wo_data.get("scheduled_date") or wo_data.get("scheduled_start")
+        )
+        wo_end = _parse_datetime(wo_data.get("scheduled_end"))
+        wo_assigned = _safe_str(wo_data.get("assigned_to", wo_data.get("engineer", "")))
 
-        # Track work orders per incident for duplicate detection
-        wo_per_incident: dict[str, list[dict]] = {}
+        incidents = incident_data.get("incidents", [incident_data])
+        if not isinstance(incidents, list):
+            incidents = [incidents]
 
-        for wo in work_order_objects:
-            wo_id = _safe_uuid(wo.get("id", wo.get("work_order_id", "")))
-            wo_status = _normalize(wo.get("status", ""))
-            wo_incident_ref = str(wo.get("incident_id", wo.get("linked_incident_id", "")))
-            wo_engineer = wo.get("assigned_engineer", wo.get("engineer_id", ""))
+        incident_map: dict[str, dict] = {}
+        for inc in incidents:
+            iid = _safe_str(inc.get("incident_id", ""))
+            if iid:
+                incident_map[iid] = inc
 
-            if wo_incident_ref and wo_incident_ref in incident_by_id:
-                # Track for duplicate detection
-                wo_per_incident.setdefault(wo_incident_ref, []).append(wo)
-                inc = incident_by_id[wo_incident_ref]
-                inc_id = _safe_uuid(inc.get("id", inc.get("incident_id", "")))
-                inc_state = _normalize(inc.get("state", inc.get("status", "")))
-                inc_owner = inc.get("assigned_to", "")
+        for link in links:
+            if link.link_type != "work_order_to_incident":
+                continue
 
-                # 1) Incident resolved but work order still open
-                if inc_state in resolved_states and wo_status in open_wo_states:
-                    conflicts.append(CrossPlaneConflict(
-                        conflict_type="incident_resolved_wo_open",
-                        severity="warning",
-                        description=(
-                            f"Incident '{wo_incident_ref}' is resolved but "
-                            f"work order is still '{wo_status}'"
-                        ),
-                        domain_a="utilities_field",
-                        domain_b="telco_ops",
-                        object_a_id=wo_id,
-                        object_b_id=inc_id,
-                        resolution_suggestion="Close or cancel the work order",
-                    ))
+            inc = incident_map.get(link.target_id)
+            if not inc:
+                continue
 
-                # 2) Work order completed but incident still active
-                if wo_status in completed_wo_states and inc_state in active_states:
-                    conflicts.append(CrossPlaneConflict(
-                        conflict_type="wo_completed_incident_active",
-                        severity="warning",
-                        description=(
-                            f"Work order completed but incident "
-                            f"'{wo_incident_ref}' is still '{inc_state}'"
-                        ),
-                        domain_a="utilities_field",
-                        domain_b="telco_ops",
-                        object_a_id=wo_id,
-                        object_b_id=inc_id,
-                        resolution_suggestion="Update incident state to resolved",
-                    ))
+            inc_created = _parse_datetime(inc.get("created_at"))
+            inc_assigned = _safe_str(inc.get("assigned_to", ""))
 
-                # 4) Ownership mismatch
-                if wo_engineer and inc_owner:
-                    if _normalize(str(wo_engineer)) != _normalize(str(inc_owner)):
-                        conflicts.append(CrossPlaneConflict(
-                            conflict_type="ownership_mismatch",
-                            severity="info",
-                            description=(
-                                f"Work order assigned to '{wo_engineer}' but "
-                                f"incident assigned to '{inc_owner}'"
+            # --- Timing conflict ---
+            if wo_start and inc_created:
+                if inc_created > wo_start:
+                    gap_hours = (inc_created - wo_start).total_seconds() / 3600
+                    if gap_hours > _TIME_WINDOW_HOURS:
+                        conflicts.append(
+                            CrossPlaneConflict(
+                                field="timing",
+                                domain_a=DOMAIN_UTILITIES_FIELD,
+                                value_a=wo_start.isoformat(),
+                                domain_b=DOMAIN_TELCO_OPS,
+                                value_b=inc_created.isoformat(),
+                                severity="warning",
+                                resolution=(
+                                    f"Incident was created {gap_hours:.1f}h after work "
+                                    "order start. Verify causal relationship."
+                                ),
+                            )
+                        )
+                elif wo_end and inc_created < wo_end:
+                    # Incident created before WO ended -- usually fine
+                    pass
+                elif wo_end and inc_created > wo_end:
+                    post_hours = (inc_created - wo_end).total_seconds() / 3600
+                    conflicts.append(
+                        CrossPlaneConflict(
+                            field="timing",
+                            domain_a=DOMAIN_UTILITIES_FIELD,
+                            value_a=wo_end.isoformat(),
+                            domain_b=DOMAIN_TELCO_OPS,
+                            value_b=inc_created.isoformat(),
+                            severity="error",
+                            resolution=(
+                                "Incident was created after the work order "
+                                f"ended ({post_hours:.1f}h later). "
+                                "May indicate a post-completion fault."
                             ),
-                            domain_a="utilities_field",
-                            domain_b="telco_ops",
-                            object_a_id=wo_id,
-                            object_b_id=inc_id,
-                            resolution_suggestion="Align work order and incident ownership",
-                        ))
+                        )
+                    )
 
-        # 3) Multiple work orders for same incident
-        for inc_ref, wos in wo_per_incident.items():
-            if len(wos) > 1:
-                conflicts.append(CrossPlaneConflict(
-                    conflict_type="multiple_work_orders",
-                    severity="warning",
-                    description=(
-                        f"Incident '{inc_ref}' has {len(wos)} work orders linked"
-                    ),
-                    domain_a="utilities_field",
-                    domain_b="telco_ops",
-                    resolution_suggestion="Review and consolidate duplicate work orders",
-                ))
+            # --- Ownership mismatch ---
+            if wo_assigned and inc_assigned:
+                if wo_assigned.lower() != inc_assigned.lower():
+                    conflicts.append(
+                        CrossPlaneConflict(
+                            field="ownership",
+                            domain_a=DOMAIN_UTILITIES_FIELD,
+                            value_a=wo_assigned,
+                            domain_b=DOMAIN_TELCO_OPS,
+                            value_b=inc_assigned,
+                            severity="warning",
+                            resolution=(
+                                "Work order and incident are assigned to different "
+                                "owners. Align ownership to avoid coordination gaps."
+                            ),
+                        )
+                    )
+
+            # --- Severity vs priority mismatch ---
+            inc_severity = _safe_str(inc.get("severity", ""))
+            wo_priority = _safe_str(wo_data.get("priority", ""))
+            severity_priority_map = {
+                "p1": {"emergency", "critical", "high"},
+                "p2": {"high", "urgent"},
+                "p3": {"normal", "medium"},
+                "p4": {"low"},
+            }
+            expected_priorities = severity_priority_map.get(inc_severity, set())
+            if expected_priorities and wo_priority.lower() not in expected_priorities:
+                conflicts.append(
+                    CrossPlaneConflict(
+                        field="severity_priority_alignment",
+                        domain_a=DOMAIN_TELCO_OPS,
+                        value_a=f"severity={inc_severity}",
+                        domain_b=DOMAIN_UTILITIES_FIELD,
+                        value_b=f"priority={wo_priority}",
+                        severity="warning",
+                        resolution=(
+                            f"Incident severity '{inc_severity}' does not align with "
+                            f"work order priority '{wo_priority}'. Review escalation."
+                        ),
+                    )
+                )
 
         return conflicts
 
 
 # ---------------------------------------------------------------------------
-# MarginEvidenceAssembler
+# Evidence assemblers
 # ---------------------------------------------------------------------------
 
 
 class MarginEvidenceAssembler:
-    """Assemble evidence bundles for margin diagnosis."""
+    """Assembles evidence bundles for margin leakage diagnosis."""
 
-    def assemble_margin_evidence(
+    def assemble(
         self,
         contract_objects: list[dict],
-        work_objects: list[dict],
-        incident_objects: list[dict],
+        work_history: list[dict],
+        leakage_triggers: list[dict],
     ) -> EvidenceBundle:
-        """Build complete evidence bundle for margin analysis.
+        items: list[dict] = []
 
-        Steps:
-        1. Collect all billable events from contract
-        2. Match to work history
-        3. Identify unbilled work
-        4. Calculate rate variances
-        5. Detect penalty exposure
-        6. Build cross-links
-        7. Detect conflicts
-        """
-        linker = ContractWorkOrderLinker()
-        cross_links = linker.link_contract_to_work_order(contract_objects, work_objects)
-        conflicts = linker.detect_commercial_field_conflicts(contract_objects, work_objects)
+        for obj in contract_objects:
+            items.append({
+                "domain": DOMAIN_CONTRACT_MARGIN,
+                "type": _safe_str(
+                    obj.get("type", obj.get("object_type", "contract_object"))
+                ),
+                "id": _safe_str(
+                    obj.get("id", obj.get("clause_id", obj.get("activity", "")))
+                ),
+                "summary": _safe_str(obj.get("description", obj.get("activity", "")))[:200],
+                "data": obj,
+            })
 
-        # Also link work orders to incidents for full picture
-        wo_inc_linker = WorkOrderIncidentLinker()
-        wi_links = wo_inc_linker.link_work_order_to_incident(work_objects, incident_objects)
-        wi_conflicts = wo_inc_linker.detect_field_ops_conflicts(work_objects, incident_objects)
+        for wo in work_history:
+            items.append({
+                "domain": DOMAIN_UTILITIES_FIELD,
+                "type": "work_order",
+                "id": _safe_str(wo.get("work_order_id", "")),
+                "summary": _safe_str(wo.get("description", ""))[:200],
+                "data": wo,
+            })
+
+        for trigger in leakage_triggers:
+            items.append({
+                "domain": DOMAIN_CONTRACT_MARGIN,
+                "type": "leakage_trigger",
+                "id": _safe_str(trigger.get("trigger_type", "")),
+                "summary": _safe_str(trigger.get("description", ""))[:200],
+                "severity": _safe_str(trigger.get("severity", "medium")),
+                "data": trigger,
+            })
+
+        domains = sorted(
+            {item["domain"] for item in items}
+        )
+        confidence = self._compute_confidence(items, leakage_triggers)
 
         return EvidenceBundle(
-            bundle_type="margin_evidence",
-            contract_objects=contract_objects,
-            field_objects=work_objects,
-            ops_objects=incident_objects,
-            cross_links=cross_links + wi_links,
-            conflicts=conflicts + wi_conflicts,
+            bundle_id=str(uuid.uuid4()),
+            domains=domains,
+            evidence_items=items,
+            total_items=len(items),
+            confidence=round(confidence, 3),
         )
 
-    def calculate_margin_impact(self, bundle: EvidenceBundle) -> dict:
-        """Calculate financial impact from evidence bundle.
+    @staticmethod
+    def _compute_confidence(
+        items: list[dict], leakage_triggers: list[dict]
+    ) -> float:
+        if not items:
+            return 0.0
+        domain_count = len({item["domain"] for item in items})
+        has_contract = any(
+            item["domain"] == DOMAIN_CONTRACT_MARGIN
+            and item["type"] != "leakage_trigger"
+            for item in items
+        )
+        has_work = any(
+            item["domain"] == DOMAIN_UTILITIES_FIELD for item in items
+        )
+        has_triggers = len(leakage_triggers) > 0
 
-        Returns:
-            dict with total_billed, total_billable, leakage_amount,
-            penalty_exposure, and recovery_potential.
-        """
-        total_billed = 0.0
-        total_billable = 0.0
-        penalty_exposure = 0.0
-
-        # Collect billing data from work objects
-        for wo in bundle.field_objects:
-            rate = wo.get("rate", wo.get("billed_rate", 0))
-            hours = wo.get("hours", wo.get("actual_duration_hours", 0))
-            if not isinstance(rate, (int, float)):
-                rate = 0
-            if not isinstance(hours, (int, float)):
-                hours = 0
-            amount = rate * hours
-
-            if wo.get("billed", False):
-                total_billed += amount
-            status = wo.get("status", "")
-            if status in ("completed", "done", "finished") or wo.get("billed", False):
-                total_billable += amount
-
-        # Collect penalty exposure from contract objects
-        for co in bundle.contract_objects:
-            if co.get("control_type") == "penalty_condition":
-                payload = co.get("payload", {})
-                if payload.get("breach_detected", False):
-                    cap = payload.get("cap")
-                    if isinstance(cap, (int, float)):
-                        penalty_exposure += cap
-                    else:
-                        # Estimate from penalty amount string
-                        amt_str = payload.get("penalty_amount", co.get("penalty_amount", ""))
-                        try:
-                            penalty_exposure += float(str(amt_str).replace("$", "").replace(",", "").replace("%", ""))
-                        except (ValueError, TypeError):
-                            penalty_exposure += 1000.0  # default estimate
-
-        leakage_amount = max(total_billable - total_billed, 0.0)
-
-        # Recovery potential: leakage + unbilled conflicts
-        unbilled_conflicts = [
-            c for c in bundle.conflicts if c.conflict_type == "unbilled_work"
-        ]
-        recovery_potential = leakage_amount + len(unbilled_conflicts) * 500.0
-
-        return {
-            "total_billed": total_billed,
-            "total_billable": total_billable,
-            "leakage_amount": leakage_amount,
-            "penalty_exposure": penalty_exposure,
-            "recovery_potential": recovery_potential,
-        }
-
-
-# ---------------------------------------------------------------------------
-# ReadinessEvidenceAssembler
-# ---------------------------------------------------------------------------
+        score = 0.3 * min(domain_count / 2, 1.0)
+        if has_contract:
+            score += 0.25
+        if has_work:
+            score += 0.25
+        if has_triggers:
+            score += 0.20
+        return min(score, 1.0)
 
 
 class ReadinessEvidenceAssembler:
-    """Assemble evidence for readiness assessment."""
+    """Assembles evidence bundles for field readiness decisions."""
 
-    def assemble_readiness_evidence(
+    def assemble(
         self,
-        work_order_objects: list[dict],
-        engineer_objects: list[dict],
-        contract_objects: list[dict],
+        work_order: dict,
+        engineer: dict,
+        blockers: list[dict],
+        skill_fit: dict,
     ) -> EvidenceBundle:
-        """Build evidence bundle for field readiness assessment.
+        items: list[dict] = []
 
-        Collects work order details, engineer profiles, and relevant contract
-        obligations to determine dispatch readiness.
-        """
-        linker = ContractWorkOrderLinker()
-        cross_links = linker.link_contract_to_work_order(contract_objects, work_order_objects)
-        conflicts = linker.detect_commercial_field_conflicts(contract_objects, work_order_objects)
+        items.append({
+            "domain": DOMAIN_UTILITIES_FIELD,
+            "type": "work_order",
+            "id": _safe_str(work_order.get("work_order_id", "")),
+            "summary": _safe_str(work_order.get("description", ""))[:200],
+            "data": work_order,
+        })
 
-        return EvidenceBundle(
-            bundle_type="readiness_evidence",
-            contract_objects=contract_objects,
-            field_objects=work_order_objects + engineer_objects,
-            ops_objects=[],
-            cross_links=cross_links,
-            conflicts=conflicts,
+        items.append({
+            "domain": DOMAIN_UTILITIES_FIELD,
+            "type": "engineer_profile",
+            "id": _safe_str(engineer.get("engineer_id", "")),
+            "summary": _safe_str(engineer.get("name", "")),
+            "data": engineer,
+        })
+
+        for blocker in blockers:
+            items.append({
+                "domain": DOMAIN_UTILITIES_FIELD,
+                "type": "blocker",
+                "id": _safe_str(blocker.get("blocker_type", "")),
+                "summary": _safe_str(blocker.get("description", ""))[:200],
+                "severity": _safe_str(blocker.get("severity", "error")),
+                "data": blocker,
+            })
+
+        items.append({
+            "domain": DOMAIN_UTILITIES_FIELD,
+            "type": "skill_fit",
+            "id": "skill_fit_analysis",
+            "summary": "fit" if skill_fit.get("fit") else "no_fit",
+            "data": skill_fit,
+        })
+
+        confidence = self._compute_confidence(
+            work_order, engineer, blockers, skill_fit
         )
 
+        return EvidenceBundle(
+            bundle_id=str(uuid.uuid4()),
+            domains=[DOMAIN_UTILITIES_FIELD],
+            evidence_items=items,
+            total_items=len(items),
+            confidence=round(confidence, 3),
+        )
 
-# ---------------------------------------------------------------------------
-# OpsEvidenceAssembler
-# ---------------------------------------------------------------------------
+    @staticmethod
+    def _compute_confidence(
+        work_order: dict,
+        engineer: dict,
+        blockers: list[dict],
+        skill_fit: dict,
+    ) -> float:
+        score = 0.5  # baseline for having WO + engineer
+        if skill_fit.get("fit"):
+            score += 0.25
+        else:
+            score -= 0.15
+        if not blockers:
+            score += 0.25
+        else:
+            critical_blockers = sum(
+                1
+                for b in blockers
+                if _safe_str(b.get("severity", "")).lower() in ("error", "critical")
+            )
+            score -= 0.10 * min(critical_blockers, 3)
+        return max(min(score, 1.0), 0.0)
 
 
 class OpsEvidenceAssembler:
-    """Assemble evidence for ops decisions."""
+    """Assembles evidence bundles for operational decisions."""
 
-    def assemble_ops_evidence(
+    def assemble(
         self,
-        incident_objects: list[dict],
-        work_order_objects: list[dict],
-        service_state_objects: list[dict],
+        incident: dict,
+        service_states: list[dict],
+        escalation: dict,
+        next_action: dict,
     ) -> EvidenceBundle:
-        """Build evidence bundle for operational decisions.
+        items: list[dict] = []
 
-        Links incidents to work orders and enriches with service state context.
-        """
-        linker = WorkOrderIncidentLinker()
-        cross_links = linker.link_work_order_to_incident(work_order_objects, incident_objects)
-        conflicts = linker.detect_field_ops_conflicts(work_order_objects, incident_objects)
+        items.append({
+            "domain": DOMAIN_TELCO_OPS,
+            "type": "incident",
+            "id": _safe_str(incident.get("incident_id", "")),
+            "summary": _safe_str(
+                incident.get("title", incident.get("description", ""))
+            )[:200],
+            "severity": _safe_str(incident.get("severity", "")),
+            "data": incident,
+        })
+
+        for svc in service_states:
+            items.append({
+                "domain": DOMAIN_TELCO_OPS,
+                "type": "service_state",
+                "id": _safe_str(svc.get("service_id", "")),
+                "summary": (
+                    f"{_safe_str(svc.get('service_name', ''))} "
+                    f"[{_safe_str(svc.get('state', ''))}]"
+                ),
+                "impact_level": _safe_str(svc.get("impact_level", "")),
+                "data": svc,
+            })
+
+        if escalation:
+            items.append({
+                "domain": DOMAIN_TELCO_OPS,
+                "type": "escalation_decision",
+                "id": _safe_str(escalation.get("level", "none")),
+                "summary": _safe_str(escalation.get("reason", "")),
+                "data": escalation,
+            })
+
+        if next_action:
+            items.append({
+                "domain": DOMAIN_TELCO_OPS,
+                "type": "next_action",
+                "id": _safe_str(next_action.get("action", "")),
+                "summary": _safe_str(next_action.get("reason", "")),
+                "data": next_action,
+            })
+
+        confidence = self._compute_confidence(
+            incident, service_states, escalation, next_action
+        )
 
         return EvidenceBundle(
-            bundle_type="ops_evidence",
-            contract_objects=[],
-            field_objects=work_order_objects,
-            ops_objects=incident_objects + service_state_objects,
-            cross_links=cross_links,
-            conflicts=conflicts,
+            bundle_id=str(uuid.uuid4()),
+            domains=[DOMAIN_TELCO_OPS],
+            evidence_items=items,
+            total_items=len(items),
+            confidence=round(confidence, 3),
         )
+
+    @staticmethod
+    def _compute_confidence(
+        incident: dict,
+        service_states: list[dict],
+        escalation: dict,
+        next_action: dict,
+    ) -> float:
+        score = 0.3  # baseline for having an incident
+        if service_states:
+            score += 0.25
+        if escalation and escalation.get("reason"):
+            score += 0.20
+        if next_action and next_action.get("action"):
+            score += 0.25
+        return min(score, 1.0)
 
 
 # ---------------------------------------------------------------------------
-# CrossPlaneReconciler
+# CrossPlaneReconciler — main entry point
 # ---------------------------------------------------------------------------
 
 
 class CrossPlaneReconciler:
-    """Main reconciliation entry point."""
+    """Orchestrates cross-domain reconciliation across all three planes."""
 
-    def reconcile_all(
+    def __init__(self) -> None:
+        self._contract_wo_linker = ContractWorkOrderLinker()
+        self._wo_incident_linker = WorkOrderIncidentLinker()
+        self._margin_assembler = MarginEvidenceAssembler()
+        self._readiness_assembler = ReadinessEvidenceAssembler()
+        self._ops_assembler = OpsEvidenceAssembler()
+
+    # -- Contract <-> Work Order --
+
+    def reconcile_contract_to_work_order(
         self,
-        contract_objects: list[dict],
-        work_order_objects: list[dict],
-        incident_objects: list[dict],
+        contract_data: dict,
+        wo_data: dict,
     ) -> dict:
-        """Run all cross-plane reconciliation checks.
+        contract_objects = self._collect_contract_objects(contract_data)
 
-        Performs:
-        1. Contract <-> Work Order linking and conflict detection
-        2. Work Order <-> Incident linking and conflict detection
-        3. Aggregated summary
-        """
-        linker_cw = ContractWorkOrderLinker()
-        linker_wi = WorkOrderIncidentLinker()
-
-        cw_links = linker_cw.link_contract_to_work_order(contract_objects, work_order_objects)
-        wi_links = linker_wi.link_work_order_to_incident(work_order_objects, incident_objects)
-
-        cw_conflicts = linker_cw.detect_commercial_field_conflicts(
-            contract_objects, work_order_objects
+        links = self._contract_wo_linker.link(contract_objects, wo_data)
+        conflicts = self._contract_wo_linker.detect_conflicts(
+            links, contract_data, wo_data
         )
-        wi_conflicts = linker_wi.detect_field_ops_conflicts(
-            work_order_objects, incident_objects
+
+        leakage_triggers = contract_data.get("leakage_triggers", [])
+        evidence = self._margin_assembler.assemble(
+            contract_objects,
+            [wo_data],
+            leakage_triggers,
         )
 
         return {
-            "links": cw_links + wi_links,
-            "conflicts": cw_conflicts + wi_conflicts,
-            "has_conflicts": len(cw_conflicts) + len(wi_conflicts) > 0,
-            "summary": self._build_summary(cw_links, wi_links, cw_conflicts, wi_conflicts),
+            "links": [link.model_dump() for link in links],
+            "conflicts": [conflict.model_dump() for conflict in conflicts],
+            "evidence": evidence.model_dump(),
         }
 
-    def _build_summary(
+    # -- Work Order <-> Incident --
+
+    def reconcile_work_order_to_incident(
         self,
-        cw_links: list[CrossPlaneLink],
-        wi_links: list[CrossPlaneLink],
-        cw_conflicts: list[CrossPlaneConflict],
-        wi_conflicts: list[CrossPlaneConflict],
+        wo_data: dict,
+        incident_data: dict,
     ) -> dict:
-        """Build a summary of reconciliation results."""
-        all_conflicts = cw_conflicts + wi_conflicts
+        incidents = incident_data.get("incidents", [incident_data])
+        if not isinstance(incidents, list):
+            incidents = [incidents]
 
-        conflict_types: dict[str, int] = {}
-        for c in all_conflicts:
-            conflict_types[c.conflict_type] = conflict_types.get(c.conflict_type, 0) + 1
+        links = self._wo_incident_linker.link(wo_data, incidents)
+        conflicts = self._wo_incident_linker.detect_conflicts(
+            links, wo_data, incident_data
+        )
 
-        severity_counts: dict[str, int] = {}
-        for c in all_conflicts:
-            severity_counts[c.severity] = severity_counts.get(c.severity, 0) + 1
+        primary_incident = incidents[0] if incidents else {}
+        service_states = incident_data.get("service_states", [])
+        escalation = incident_data.get("escalation", {})
+        next_action = incident_data.get("next_action", {})
+
+        evidence = self._ops_assembler.assemble(
+            primary_incident,
+            service_states,
+            escalation,
+            next_action,
+        )
 
         return {
-            "total_links": len(cw_links) + len(wi_links),
-            "contract_work_order_links": len(cw_links),
-            "work_order_incident_links": len(wi_links),
-            "total_conflicts": len(all_conflicts),
-            "contract_field_conflicts": len(cw_conflicts),
-            "field_ops_conflicts": len(wi_conflicts),
-            "conflict_types": conflict_types,
-            "severity_counts": severity_counts,
+            "links": [link.model_dump() for link in links],
+            "conflicts": [conflict.model_dump() for conflict in conflicts],
+            "evidence": evidence.model_dump(),
         }
+
+    # -- Full three-plane reconciliation --
+
+    def full_reconciliation(
+        self,
+        contract_data: dict,
+        wo_data: dict,
+        incident_data: dict,
+    ) -> dict:
+        contract_to_wo = self.reconcile_contract_to_work_order(
+            contract_data, wo_data
+        )
+        wo_to_incident = self.reconcile_work_order_to_incident(
+            wo_data, incident_data
+        )
+
+        all_links = contract_to_wo["links"] + wo_to_incident["links"]
+        all_conflicts = contract_to_wo["conflicts"] + wo_to_incident["conflicts"]
+
+        # Build aggregate evidence combining both bundles
+        contract_evidence = contract_to_wo["evidence"]
+        ops_evidence = wo_to_incident["evidence"]
+
+        combined_items = (
+            contract_evidence.get("evidence_items", [])
+            + ops_evidence.get("evidence_items", [])
+        )
+        combined_domains = sorted(
+            {item.get("domain", "") for item in combined_items}
+        )
+        avg_confidence = 0.0
+        confidences = [
+            contract_evidence.get("confidence", 0),
+            ops_evidence.get("confidence", 0),
+        ]
+        valid_confidences = [c for c in confidences if c > 0]
+        if valid_confidences:
+            avg_confidence = sum(valid_confidences) / len(valid_confidences)
+
+        aggregate_evidence = EvidenceBundle(
+            bundle_id=str(uuid.uuid4()),
+            domains=combined_domains,
+            evidence_items=combined_items,
+            total_items=len(combined_items),
+            confidence=round(avg_confidence, 3),
+        )
+
+        return {
+            "all_links": all_links,
+            "all_conflicts": all_conflicts,
+            "aggregate_evidence": aggregate_evidence.model_dump(),
+            "contract_to_wo": contract_to_wo,
+            "wo_to_incident": wo_to_incident,
+        }
+
+    # -- Helpers --
+
+    @staticmethod
+    def _collect_contract_objects(contract_data: dict) -> list[dict]:
+        """Flatten the various contract sub-objects into a uniform list."""
+        objects: list[dict] = []
+
+        for entry in contract_data.get("rate_card", []):
+            obj = dict(entry) if isinstance(entry, dict) else entry
+            if isinstance(obj, dict):
+                obj.setdefault("type", "rate_card")
+                objects.append(obj)
+
+        for obligation in contract_data.get("obligations", []):
+            obj = dict(obligation) if isinstance(obligation, dict) else obligation
+            if isinstance(obj, dict):
+                obj.setdefault("type", "obligation")
+                objects.append(obj)
+
+        for boundary in contract_data.get("scope_boundaries", []):
+            obj = dict(boundary) if isinstance(boundary, dict) else boundary
+            if isinstance(obj, dict):
+                obj.setdefault("type", "scope_boundary")
+                objects.append(obj)
+
+        # Include any explicitly provided control objects
+        for co in contract_data.get("control_objects", []):
+            if isinstance(co, dict):
+                objects.append(co)
+
+        return objects

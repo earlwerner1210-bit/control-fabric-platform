@@ -1,0 +1,15 @@
+name: Deploy — Dev
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy-dev:
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to dev environment
+        run: echo "Add your dev deployment steps here (e.g. kubectl apply, terraform apply)"

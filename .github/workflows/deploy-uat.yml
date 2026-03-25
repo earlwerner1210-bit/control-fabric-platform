@@ -1,0 +1,15 @@
+name: Deploy — UAT
+
+on:
+  push:
+    branches: [release/*]
+
+jobs:
+  deploy-uat:
+    name: Deploy to UAT
+    runs-on: ubuntu-latest
+    environment: uat
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to UAT environment
+        run: echo "Add your UAT deployment steps here"

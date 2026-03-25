@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from app.domain_packs.telco_ops.schemas import (
+    EscalationDecision,
     EscalationLevel,
     ImpactLevel,
+    IncidentState,
+    NextAction,
+    ParsedIncident,
+    ReconciliationResult,
     ReconciliationStatus,
+    RunbookReferenceObject,
     ServiceState,
 )
 from app.schemas.validation import RuleResult
@@ -32,17 +40,31 @@ _IMPACT_CUSTOMER_THRESHOLDS: dict[str, int] = {
     "negligible": 0,
 }
 
+# Known owners for escalation validation
+_KNOWN_OWNERS: set[str] = {
+    "service_desk", "engineering_team", "senior_engineering",
+    "service_delivery_manager", "on_call_engineer", "noc",
+}
+
+# Minimum escalation levels per severity
+_SEVERITY_MIN_LEVELS: dict[str, str] = {"p1": "l3", "p2": "l2"}
+_LEVEL_ORDER: dict[str, int] = {"l1": 1, "l2": 2, "l3": 3, "management": 4}
+
 
 class TelcoOpsValidator:
     """Deterministic validator for telco-ops domain outputs.
 
-    Every ``validate_*`` method accepts a plain dict (the LLM / workflow
-    output payload) and returns a list of :class:`RuleResult` items
-    describing which checks passed and which failed.
+    Every ``validate_*`` method accepts either typed domain objects or plain
+    dicts (for LLM / workflow output payloads) and returns a list of
+    :class:`RuleResult` items describing which checks passed and which failed.
     """
 
+    # ==================================================================
+    # Dict-based validators (for raw LLM / workflow payloads)
+    # ==================================================================
+
     # ------------------------------------------------------------------
-    # Escalation decision
+    # Escalation decision (dict)
     # ------------------------------------------------------------------
 
     def validate_escalation_decision(
@@ -78,7 +100,6 @@ class TelcoOpsValidator:
                 )
             )
         else:
-            # When not escalating, level should be absent or None.
             results.append(
                 RuleResult(
                     rule_name="escalation_level_valid",
@@ -131,20 +152,36 @@ class TelcoOpsValidator:
         return results
 
     # ------------------------------------------------------------------
-    # Next action
+    # Next action (dict)
     # ------------------------------------------------------------------
 
     def validate_next_action(
-        self, output_payload: dict
+        self,
+        action_or_payload: NextAction | dict,
+        incident: ParsedIncident | None = None,
     ) -> list[RuleResult]:
-        """Validate a next-action payload.
+        """Validate a next-action payload or typed object.
+
+        Accepts either a :class:`NextAction` + :class:`ParsedIncident` pair
+        or a plain dict payload (backward-compatible).
 
         Checks:
-        1. ``action`` is a valid state transition for the current
-           ``incident_state`` (if provided).
-        2. ``owner`` is assigned when action is ``dispatch``.
-        3. ``evidence_ids`` or ``reason`` provides supporting evidence.
+        1. ``action`` is a valid state transition for the current incident state.
+        2. Owner is present when action requires one.
+        3. Supporting evidence or reason is provided.
+        4. SLA breach tag requires escalation action.
         """
+        # Normalise input
+        if isinstance(action_or_payload, dict) and incident is None:
+            return self._validate_next_action_dict(action_or_payload)
+        if isinstance(action_or_payload, NextAction) and incident is not None:
+            return self._validate_next_action_typed(action_or_payload, incident)
+        # Fallback for dict + incident
+        if isinstance(action_or_payload, dict):
+            return self._validate_next_action_dict(action_or_payload)
+        raise TypeError("Expected NextAction with incident, or dict payload")
+
+    def _validate_next_action_dict(self, output_payload: dict) -> list[RuleResult]:
         results: list[RuleResult] = []
         action = output_payload.get("action", "")
         incident_state = output_payload.get("incident_state", "")
@@ -170,8 +207,6 @@ class TelcoOpsValidator:
                 )
             )
         else:
-            # Without incident_state we cannot validate transitions;
-            # still flag as a warning.
             results.append(
                 RuleResult(
                     rule_name="action_valid_transition",
@@ -225,14 +260,205 @@ class TelcoOpsValidator:
 
         return results
 
+    def _validate_next_action_typed(
+        self,
+        action: NextAction,
+        incident: ParsedIncident,
+    ) -> list[RuleResult]:
+        results: list[RuleResult] = []
+
+        # 1. Invalid action for current state
+        valid = set(_VALID_TRANSITIONS.get(incident.state.value, []))
+        action_valid = action.action in valid
+        results.append(RuleResult(
+            rule_name="invalid_action_for_state",
+            passed=action_valid,
+            message=(
+                f"Action '{action.action}' is valid for state '{incident.state.value}'"
+                if action_valid
+                else f"Action '{action.action}' is not valid for state '{incident.state.value}'. Valid: {valid}"
+            ),
+            severity="error" if not action_valid else "info",
+        ))
+
+        # 2. Missing owner on action
+        needs_owner = action.action in {"dispatch", "assign_engineer", "escalate", "resolve"}
+        has_owner = bool(action.owner)
+        results.append(RuleResult(
+            rule_name="missing_owner_on_action",
+            passed=not needs_owner or has_owner,
+            message=(
+                "Owner assigned" if has_owner else f"Action '{action.action}' requires an owner but none is set"
+            ),
+            severity="warning" if needs_owner and not has_owner else "info",
+        ))
+
+        # 3. Action without evidence
+        has_evidence = bool(action.evidence_ids)
+        results.append(RuleResult(
+            rule_name="action_without_evidence",
+            passed=has_evidence,
+            message="Evidence IDs provided" if has_evidence else "No evidence IDs attached to action",
+            severity="warning" if not has_evidence else "info",
+        ))
+
+        # 4. SLA breach without escalation
+        sla_tags = {"sla_breach", "sla-breach", "sla_warning"}
+        has_sla_breach = bool(set(incident.tags) & sla_tags)
+        is_escalation = action.action == "escalate"
+        sla_ok = not has_sla_breach or is_escalation
+        results.append(RuleResult(
+            rule_name="sla_breach_without_escalation",
+            passed=sla_ok,
+            message=(
+                "No SLA breach or escalation is the proposed action"
+                if sla_ok
+                else "SLA breach detected but action is not escalation"
+            ),
+            severity="error" if not sla_ok else "info",
+        ))
+
+        return results
+
     # ------------------------------------------------------------------
-    # Incident reconciliation
+    # Escalation validation (typed)
+    # ------------------------------------------------------------------
+
+    def validate_escalation(
+        self,
+        decision: EscalationDecision,
+        incident: ParsedIncident,
+    ) -> list[RuleResult]:
+        """Validate a typed escalation decision against an incident."""
+        results: list[RuleResult] = []
+
+        # 1. Unsupported escalation owner
+        owner_known = decision.owner in _KNOWN_OWNERS or not decision.escalate
+        results.append(RuleResult(
+            rule_name="unsupported_escalation_owner",
+            passed=owner_known,
+            message=(
+                f"Owner '{decision.owner}' is recognised"
+                if owner_known
+                else f"Owner '{decision.owner}' is not in the known owner list"
+            ),
+            severity="warning" if not owner_known else "info",
+        ))
+
+        # 2. Escalation without reason
+        has_reason = bool(decision.reason.strip()) if decision.escalate else True
+        results.append(RuleResult(
+            rule_name="escalation_without_reason",
+            passed=has_reason,
+            message="Escalation reason provided" if has_reason else "Escalation requested but no reason given",
+            severity="error" if not has_reason else "info",
+        ))
+
+        # 3. Wrong level for severity
+        level_ok = True
+        if decision.escalate and decision.level:
+            min_level = _SEVERITY_MIN_LEVELS.get(incident.severity.value)
+            if min_level:
+                if _LEVEL_ORDER.get(decision.level.value, 0) < _LEVEL_ORDER.get(min_level, 0):
+                    level_ok = False
+        results.append(RuleResult(
+            rule_name="wrong_level_for_severity",
+            passed=level_ok,
+            message=(
+                "Escalation level is appropriate for severity"
+                if level_ok
+                else (
+                    f"Severity {incident.severity.value} requires at least "
+                    f"{_SEVERITY_MIN_LEVELS.get(incident.severity.value)} but got "
+                    f"{decision.level.value if decision.level else 'none'}"
+                )
+            ),
+            severity="error" if not level_ok else "info",
+        ))
+
+        # 4. Escalation on closed incident
+        on_closed = decision.escalate and incident.state == IncidentState.closed
+        results.append(RuleResult(
+            rule_name="escalation_on_closed_incident",
+            passed=not on_closed,
+            message=(
+                "Incident is not closed"
+                if not on_closed
+                else "Cannot escalate a closed incident — reopen first"
+            ),
+            severity="error" if on_closed else "info",
+        ))
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Reconciliation validation (typed)
+    # ------------------------------------------------------------------
+
+    def validate_reconciliation(
+        self,
+        result: ReconciliationResult,
+    ) -> list[RuleResult]:
+        """Validate a typed reconciliation result."""
+        results: list[RuleResult] = []
+
+        # 1. Mismatches without recommendations
+        has_mismatches = bool(result.mismatches)
+        has_recs = bool(result.recommendations)
+        mm_rec_ok = not has_mismatches or has_recs
+        results.append(RuleResult(
+            rule_name="mismatches_without_recommendations",
+            passed=mm_rec_ok,
+            message=(
+                "Recommendations provided for mismatches"
+                if mm_rec_ok
+                else "Mismatches detected but no recommendations given"
+            ),
+            severity="warning" if not mm_rec_ok else "info",
+        ))
+
+        # 2. Aligned but contradictions present
+        aligned_with_mismatches = (
+            result.status == ReconciliationStatus.aligned and has_mismatches
+        )
+        results.append(RuleResult(
+            rule_name="aligned_but_contradictions_present",
+            passed=not aligned_with_mismatches,
+            message=(
+                "Status consistent with mismatch list"
+                if not aligned_with_mismatches
+                else "Status is 'aligned' but mismatches are present"
+            ),
+            severity="error" if aligned_with_mismatches else "info",
+        ))
+
+        # 3. Missing evidence for mismatch
+        evidence_ok = True
+        for mm in result.mismatches:
+            if not mm.incident_value and not mm.work_order_value:
+                evidence_ok = False
+                break
+        results.append(RuleResult(
+            rule_name="missing_evidence_for_mismatch",
+            passed=evidence_ok,
+            message=(
+                "All mismatches have at least one evidence value"
+                if evidence_ok
+                else "One or more mismatches have no incident or work-order value"
+            ),
+            severity="warning" if not evidence_ok else "info",
+        ))
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Incident reconciliation (dict — legacy)
     # ------------------------------------------------------------------
 
     def validate_incident_reconciliation(
         self, output_payload: dict
     ) -> list[RuleResult]:
-        """Validate an incident reconciliation payload.
+        """Validate an incident reconciliation payload (dict).
 
         Checks:
         1. ``status`` is a recognised reconciliation status.
@@ -321,7 +547,7 @@ class TelcoOpsValidator:
         return results
 
     # ------------------------------------------------------------------
-    # Service state
+    # Service state (dict)
     # ------------------------------------------------------------------
 
     def validate_service_state(
@@ -359,9 +585,6 @@ class TelcoOpsValidator:
         # Rule 2 -- impact level consistent with customer count
         if impact_level and impact_level in _VALID_IMPACT_LEVELS:
             threshold = _IMPACT_CUSTOMER_THRESHOLDS.get(impact_level, 0)
-            # For critical/major, the customer count should meet the threshold.
-            # For negligible/minor, the customer count should NOT exceed the
-            # next tier's threshold.
             if impact_level == "critical":
                 consistent = affected_customers >= _IMPACT_CUSTOMER_THRESHOLDS["critical"]
             elif impact_level == "major":
@@ -439,7 +662,140 @@ class TelcoOpsValidator:
         return results
 
     # ------------------------------------------------------------------
-    # Main entry point
+    # Runbook recommendation validation (typed)
+    # ------------------------------------------------------------------
+
+    def validate_runbook_recommendation(
+        self,
+        runbook: RunbookReferenceObject,
+        incident: ParsedIncident,
+    ) -> list[RuleResult]:
+        """Validate whether a runbook recommendation is appropriate."""
+        results: list[RuleResult] = []
+
+        # 1. Runbook not applicable to service
+        if runbook.applicable_services and incident.affected_services:
+            overlap = set(runbook.applicable_services) & set(incident.affected_services)
+            svc_ok = bool(overlap)
+        else:
+            svc_ok = True
+        results.append(RuleResult(
+            rule_name="runbook_not_applicable_to_service",
+            passed=svc_ok,
+            message=(
+                "Runbook services match incident"
+                if svc_ok
+                else (
+                    f"Runbook services {runbook.applicable_services} "
+                    f"do not overlap with incident services {incident.affected_services}"
+                )
+            ),
+            severity="error" if not svc_ok else "info",
+        ))
+
+        # 2. Runbook severity mismatch
+        if runbook.applicable_severity:
+            sev_ok = incident.severity.value in runbook.applicable_severity
+        else:
+            sev_ok = True
+        results.append(RuleResult(
+            rule_name="runbook_severity_mismatch",
+            passed=sev_ok,
+            message=(
+                "Severity matches runbook applicability"
+                if sev_ok
+                else (
+                    f"Incident severity {incident.severity.value} "
+                    f"not in runbook's applicable severity {runbook.applicable_severity}"
+                )
+            ),
+            severity="warning" if not sev_ok else "info",
+        ))
+
+        # 3. Outdated runbook (> 1 year)
+        outdated = False
+        if runbook.last_updated:
+            try:
+                updated_dt = datetime.fromisoformat(
+                    runbook.last_updated.replace("Z", "+00:00")
+                )
+                age_days = (datetime.now(timezone.utc) - updated_dt).days
+                outdated = age_days > 365
+            except (ValueError, TypeError):
+                pass
+        results.append(RuleResult(
+            rule_name="outdated_runbook",
+            passed=not outdated,
+            message=(
+                "Runbook is up to date"
+                if not outdated
+                else f"Runbook last updated on {runbook.last_updated} — over 1 year old"
+            ),
+            severity="warning" if outdated else "info",
+        ))
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Dispatch recommendation validation (typed)
+    # ------------------------------------------------------------------
+
+    def validate_dispatch_recommendation(
+        self,
+        dispatch_needed: bool,
+        incident: ParsedIncident,
+        context: dict,
+    ) -> list[RuleResult]:
+        """Validate whether a dispatch recommendation is sound."""
+        results: list[RuleResult] = []
+
+        # 1. Dispatch without work order
+        has_work_order = context.get("has_work_order", False)
+        wo_ok = not dispatch_needed or has_work_order
+        results.append(RuleResult(
+            rule_name="dispatch_without_work_order",
+            passed=wo_ok,
+            message=(
+                "Work order exists or dispatch not needed"
+                if wo_ok
+                else "Dispatch recommended but no work order has been created"
+            ),
+            severity="error" if not wo_ok else "info",
+        ))
+
+        # 2. Remote not attempted first
+        remote_attempted = context.get("remote_attempted", False)
+        remote_ok = not dispatch_needed or remote_attempted
+        results.append(RuleResult(
+            rule_name="remote_not_attempted_first",
+            passed=remote_ok,
+            message=(
+                "Remote resolution was attempted or dispatch not needed"
+                if remote_ok
+                else "Dispatch recommended but remote resolution has not been attempted"
+            ),
+            severity="warning" if not remote_ok else "info",
+        ))
+
+        # 3. Dispatch on resolved incident
+        on_resolved = dispatch_needed and incident.state in (
+            IncidentState.resolved, IncidentState.closed,
+        )
+        results.append(RuleResult(
+            rule_name="dispatch_on_resolved_incident",
+            passed=not on_resolved,
+            message=(
+                "Incident is not resolved/closed"
+                if not on_resolved
+                else "Dispatch recommended on a resolved/closed incident"
+            ),
+            severity="error" if on_resolved else "info",
+        ))
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Main entry point (dict router)
     # ------------------------------------------------------------------
 
     _DOMAIN_ROUTER: dict[str, str] = {

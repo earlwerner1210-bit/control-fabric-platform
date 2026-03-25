@@ -28,8 +28,60 @@ from app.domain_packs.utilities_field.schemas import (
 
 
 # ---------------------------------------------------------------------------
-# Work Order Parser
+# Work order type -> required safety preconditions mapping
 # ---------------------------------------------------------------------------
+
+_SAFETY_MAP: dict[str, list[dict]] = {
+    "confined_space": [
+        {"type": PreconditionType.certification, "desc": "Confined space entry certification required"},
+        {"type": PreconditionType.risk_assessment, "desc": "Confined space risk assessment required"},
+        {"type": PreconditionType.ppe, "desc": "Gas monitor and harness required"},
+        {"type": PreconditionType.toolbox_talk, "desc": "Confined space toolbox talk required"},
+    ],
+    "hot_works": [
+        {"type": PreconditionType.certification, "desc": "Hot works certification required"},
+        {"type": PreconditionType.risk_assessment, "desc": "Fire risk assessment required"},
+        {"type": PreconditionType.ppe, "desc": "Fire-resistant PPE required"},
+    ],
+    "height_works": [
+        {"type": PreconditionType.certification, "desc": "Working at height certification required"},
+        {"type": PreconditionType.risk_assessment, "desc": "Height risk assessment required"},
+        {"type": PreconditionType.ppe, "desc": "Harness and lanyard required"},
+        {"type": PreconditionType.method_statement, "desc": "Working at height method statement required"},
+    ],
+    "street_works": [
+        {"type": PreconditionType.ppe, "desc": "High-visibility clothing required"},
+        {"type": PreconditionType.risk_assessment, "desc": "Street works traffic management risk assessment required"},
+    ],
+}
+
+_EXCEPTION_KEYWORD_MAP: dict[str, ExceptionType] = {
+    "rework": ExceptionType.rework,
+    "redo": ExceptionType.rework,
+    "failed inspection": ExceptionType.rework,
+    "revisit": ExceptionType.revisit,
+    "return visit": ExceptionType.revisit,
+    "follow-up": ExceptionType.revisit,
+    "no access": ExceptionType.no_access,
+    "not in": ExceptionType.no_access,
+    "locked": ExceptionType.no_access,
+    "safety stop": ExceptionType.safety_stop,
+    "unsafe": ExceptionType.safety_stop,
+    "hazard": ExceptionType.safety_stop,
+    "wrong part": ExceptionType.wrong_materials,
+    "wrong material": ExceptionType.wrong_materials,
+    "incorrect materials": ExceptionType.wrong_materials,
+    "not qualified": ExceptionType.skill_gap,
+    "skill gap": ExceptionType.skill_gap,
+    "unable to complete": ExceptionType.skill_gap,
+    "weather": ExceptionType.weather,
+    "rain": ExceptionType.weather,
+    "wind": ExceptionType.weather,
+    "storm": ExceptionType.weather,
+    "customer refused": ExceptionType.customer_refusal,
+    "customer declined": ExceptionType.customer_refusal,
+    "refused entry": ExceptionType.customer_refusal,
+}
 
 
 class WorkOrderParser:
@@ -40,13 +92,13 @@ class WorkOrderParser:
             return self._from_json(text_or_payload)
         return self._from_text(text_or_payload)
 
+    # ----- structured payload --------------------------------------------------
+
     def _from_json(self, data: dict) -> ParsedWorkOrder:
         skills = [
             SkillRecord(
                 skill_name=s if isinstance(s, str) else s.get("skill_name", s.get("skill", "")),
                 category=SkillCategory(s.get("category", "general")) if isinstance(s, dict) else SkillCategory.general,
-                level=s.get("level", "qualified") if isinstance(s, dict) else "qualified",
-                expiry_date=s.get("expiry_date") if isinstance(s, dict) else None,
             )
             for s in data.get("required_skills", [])
         ]
@@ -56,7 +108,6 @@ class WorkOrderParser:
                 description=p.get("description", ""),
                 required=p.get("required", True),
                 obtained=p.get("obtained", False),
-                reference=p.get("reference", ""),
             )
             for p in data.get("required_permits", [])
         ]
@@ -83,170 +134,183 @@ class WorkOrderParser:
             weather_conditions=data.get("weather_conditions"),
         )
 
+    # ----- free-text payload ---------------------------------------------------
+
     def _from_text(self, text: str) -> ParsedWorkOrder:
         wo_id_match = re.search(r"WO[-_]?(\w+)", text)
         priority = "normal"
         if re.search(r"\b(urgent|emergency|critical)\b", text, re.IGNORECASE):
             priority = "emergency"
-        elif re.search(r"\b(high)\b", text, re.IGNORECASE):
+        elif re.search(r"\bhigh\b", text, re.IGNORECASE):
             priority = "high"
 
         location_match = re.search(r"(?:location|site|address)[:\s]+(.+?)(?:\n|$)", text, re.IGNORECASE)
-        customer_match = re.search(r"(?:customer|client)[:\s]+(.+?)(?:\n|$)", text, re.IGNORECASE)
 
         return ParsedWorkOrder(
             work_order_id=wo_id_match.group(0) if wo_id_match else "unknown",
             description=text[:500],
             priority=priority,
             location=location_match.group(1).strip() if location_match else "",
-            customer=customer_match.group(1).strip() if customer_match else "",
         )
 
-    # -----------------------------------------------------------------------
-    # Extended extraction methods
-    # -----------------------------------------------------------------------
+    # ----- dependency extraction -----------------------------------------------
 
     def extract_dependencies(self, payload: dict) -> list[dict]:
         """Parse prerequisite work orders, permits, and approvals from payload."""
         dependencies: list[dict] = []
-        for dep in payload.get("dependencies", []):
-            if isinstance(dep, str):
-                dependencies.append({
-                    "dependency_id": dep,
-                    "type": "work_order",
-                    "status": "unknown",
-                    "blocking": True,
-                })
-            elif isinstance(dep, dict):
-                dependencies.append({
-                    "dependency_id": dep.get("id", dep.get("dependency_id", "")),
-                    "type": dep.get("type", "work_order"),
-                    "status": dep.get("status", "unknown"),
-                    "blocking": dep.get("blocking", True),
-                    "description": dep.get("description", ""),
-                })
 
-        # Also check prerequisites list
+        for dep in payload.get("dependencies", []):
+            dep_entry: dict[str, Any] = {
+                "dependency_id": dep.get("id", dep.get("work_order_id", "")),
+                "type": dep.get("type", "work_order"),
+                "description": dep.get("description", ""),
+                "status": dep.get("status", "pending"),
+                "blocking": dep.get("blocking", True),
+                "resolved": dep.get("status", "pending") in ("completed", "resolved", "approved"),
+            }
+            dependencies.append(dep_entry)
+
         for prereq in payload.get("prerequisites", []):
-            if isinstance(prereq, dict) and prereq.get("type") in ("approval", "permit", "inspection"):
+            dep_entry = {
+                "dependency_id": prereq.get("id", ""),
+                "type": prereq.get("type", "prerequisite"),
+                "description": prereq.get("description", str(prereq)),
+                "status": prereq.get("status", "pending"),
+                "blocking": prereq.get("blocking", True),
+                "resolved": prereq.get("status", "pending") in ("completed", "resolved"),
+            }
+            dependencies.append(dep_entry)
+
+        for permit_data in payload.get("required_permits", []):
+            if not permit_data.get("obtained", False):
                 dependencies.append({
-                    "dependency_id": prereq.get("id", ""),
-                    "type": prereq.get("type", "approval"),
-                    "status": prereq.get("status", "pending"),
-                    "blocking": prereq.get("blocking", True),
-                    "description": prereq.get("description", ""),
+                    "dependency_id": permit_data.get("reference", ""),
+                    "type": "permit",
+                    "description": f"Permit required: {permit_data.get('permit_type', 'unknown')}",
+                    "status": "pending",
+                    "blocking": permit_data.get("required", True),
+                    "resolved": False,
                 })
 
         return dependencies
 
+    # ----- material extraction -------------------------------------------------
+
     def extract_materials(self, payload: dict) -> list[MaterialRequirement]:
-        """Parse material requirements with availability status."""
+        """Parse material requirements with availability information."""
         materials: list[MaterialRequirement] = []
-        for mat in payload.get("materials_required", payload.get("materials", [])):
-            if isinstance(mat, str):
-                materials.append(MaterialRequirement(description=mat))
-            elif isinstance(mat, dict):
-                materials.append(MaterialRequirement(
-                    material_id=mat.get("material_id", mat.get("id", "")),
-                    description=mat.get("description", mat.get("name", "")),
-                    quantity=float(mat.get("quantity", 1)),
-                    unit=mat.get("unit", "each"),
-                    available=mat.get("available", True),
-                    alternative=mat.get("alternative", ""),
-                ))
+        for mat in payload.get("materials_required", []):
+            materials.append(MaterialRequirement(
+                material_id=mat.get("material_id", mat.get("id", "")),
+                description=mat.get("description", mat.get("name", "")),
+                quantity=float(mat.get("quantity", 1)),
+                unit=mat.get("unit", "each"),
+                available=mat.get("available", True),
+                alternative=mat.get("alternative", ""),
+            ))
         return materials
+
+    # ----- safety requirement extraction ---------------------------------------
 
     def extract_safety_requirements(self, payload: dict) -> list[SafetyPreconditionObject]:
         """Parse safety preconditions from work order payload."""
         safety_items: list[SafetyPreconditionObject] = []
 
-        for item in payload.get("safety_requirements", payload.get("safety", [])):
-            if isinstance(item, dict):
-                ptype_raw = item.get("precondition_type", item.get("type", "ppe"))
-                try:
-                    ptype = PreconditionType(ptype_raw)
-                except ValueError:
-                    ptype = PreconditionType.ppe
-                safety_items.append(SafetyPreconditionObject(
-                    precondition_type=ptype,
-                    description=item.get("description", ""),
-                    required=item.get("required", True),
-                    verified=item.get("verified", False),
-                    verified_by=item.get("verified_by", ""),
-                    verified_at=item.get("verified_at", ""),
-                ))
+        # Explicit safety items from payload
+        for item in payload.get("safety_requirements", []):
+            ptype = item.get("precondition_type", item.get("type", "ppe"))
+            try:
+                precondition_type = PreconditionType(ptype)
+            except ValueError:
+                precondition_type = PreconditionType.ppe
+            safety_items.append(SafetyPreconditionObject(
+                precondition_type=precondition_type,
+                description=item.get("description", ""),
+                required=item.get("required", True),
+                verified=item.get("verified", False),
+                verified_by=item.get("verified_by", ""),
+                verified_at=item.get("verified_at", ""),
+            ))
 
-        # Auto-infer safety requirements from work order type
-        wo_type = payload.get("work_order_type", "maintenance")
-        description = payload.get("description", "").lower()
+        # Derive safety items from permit types
+        for permit_data in payload.get("required_permits", []):
+            pt = permit_data.get("permit_type", "")
+            if pt in _SAFETY_MAP:
+                for entry in _SAFETY_MAP[pt]:
+                    safety_items.append(SafetyPreconditionObject(
+                        precondition_type=entry["type"],
+                        description=entry["desc"],
+                        required=True,
+                        verified=False,
+                    ))
 
-        if wo_type in ("installation", "repair", "emergency"):
-            if not any(s.precondition_type == PreconditionType.risk_assessment for s in safety_items):
-                safety_items.append(SafetyPreconditionObject(
-                    precondition_type=PreconditionType.risk_assessment,
-                    description=f"Risk assessment required for {wo_type} work",
-                    required=True,
-                ))
-
-        if "confined" in description or any(
-            p.get("permit_type") == "confined_space" for p in payload.get("required_permits", [])
-        ):
-            if not any(s.precondition_type == PreconditionType.method_statement for s in safety_items):
-                safety_items.append(SafetyPreconditionObject(
-                    precondition_type=PreconditionType.method_statement,
-                    description="Method statement required for confined space entry",
-                    required=True,
-                ))
-
-        if wo_type == "emergency" or "hot work" in description:
-            if not any(s.precondition_type == PreconditionType.toolbox_talk for s in safety_items):
-                safety_items.append(SafetyPreconditionObject(
-                    precondition_type=PreconditionType.toolbox_talk,
-                    description="Toolbox talk required before high-risk work",
-                    required=True,
-                ))
+        # Always require basic PPE for any work order
+        safety_items.append(SafetyPreconditionObject(
+            precondition_type=PreconditionType.ppe,
+            description="Standard PPE: hard hat, safety boots, hi-vis vest",
+            required=True,
+            verified=False,
+        ))
 
         return safety_items
+
+    # ----- time constraint extraction ------------------------------------------
 
     def extract_time_constraints(self, payload: dict) -> dict:
         """Parse time windows, blackout periods, and customer availability."""
         constraints: dict[str, Any] = {
             "scheduled_start": payload.get("scheduled_date") or payload.get("scheduled_start"),
             "scheduled_end": payload.get("scheduled_end"),
-            "blackout_periods": [],
-            "customer_availability_windows": [],
-            "max_duration_hours": payload.get("estimated_duration_hours", 0),
-            "time_of_day_restriction": None,
+            "blackout_periods": payload.get("blackout_periods", []),
+            "customer_availability": payload.get("customer_availability", {}),
+            "time_window_valid": True,
+            "issues": [],
         }
 
-        for bp in payload.get("blackout_periods", []):
-            if isinstance(bp, dict):
-                constraints["blackout_periods"].append({
-                    "start": bp.get("start", ""),
-                    "end": bp.get("end", ""),
-                    "reason": bp.get("reason", ""),
-                })
+        start = constraints["scheduled_start"]
+        end = constraints["scheduled_end"]
 
-        for window in payload.get("customer_availability", []):
-            if isinstance(window, dict):
-                constraints["customer_availability_windows"].append({
-                    "day": window.get("day", ""),
-                    "start_time": window.get("start_time", "08:00"),
-                    "end_time": window.get("end_time", "18:00"),
-                })
-            elif isinstance(window, str):
-                constraints["customer_availability_windows"].append({"raw": window})
+        if start and end:
+            try:
+                start_dt = datetime.fromisoformat(start)
+                end_dt = datetime.fromisoformat(end)
+                if end_dt <= start_dt:
+                    constraints["time_window_valid"] = False
+                    constraints["issues"].append("Scheduled end is before or equal to scheduled start")
+                duration_hours = (end_dt - start_dt).total_seconds() / 3600
+                estimated = payload.get("estimated_duration_hours", 0)
+                if estimated and duration_hours < estimated:
+                    constraints["issues"].append(
+                        f"Time window ({duration_hours:.1f}h) shorter than estimated duration ({estimated}h)"
+                    )
+            except (ValueError, TypeError):
+                constraints["issues"].append("Unable to parse scheduled dates")
 
-        restriction = payload.get("time_of_day_restriction")
-        if restriction:
-            constraints["time_of_day_restriction"] = restriction
+        if start:
+            try:
+                start_dt = datetime.fromisoformat(start)
+                if start_dt < datetime.now():
+                    constraints["issues"].append("Scheduled start is in the past")
+            except (ValueError, TypeError):
+                pass
+
+        for bp in constraints["blackout_periods"]:
+            bp_start = bp.get("start")
+            bp_end = bp.get("end")
+            if bp_start and bp_end and start:
+                try:
+                    bp_s = datetime.fromisoformat(bp_start)
+                    bp_e = datetime.fromisoformat(bp_end)
+                    s = datetime.fromisoformat(start)
+                    if bp_s <= s <= bp_e:
+                        constraints["time_window_valid"] = False
+                        constraints["issues"].append(
+                            f"Scheduled start falls within blackout period: {bp.get('reason', 'N/A')}"
+                        )
+                except (ValueError, TypeError):
+                    pass
 
         return constraints
-
-
-# ---------------------------------------------------------------------------
-# Engineer Profile Parser
-# ---------------------------------------------------------------------------
 
 
 class EngineerProfileParser:
@@ -286,12 +350,10 @@ class EngineerProfileParser:
             location=data.get("location", ""),
         )
 
-    # -----------------------------------------------------------------------
-    # Extended analysis methods
-    # -----------------------------------------------------------------------
+    # ----- accreditation validity check ----------------------------------------
 
     def check_accreditation_validity(self, accreditations: list[Accreditation]) -> list[dict]:
-        """Check expiry dates and flag expired or expiring-soon accreditations."""
+        """Check expiry dates on accreditations; flag expired or expiring-soon items."""
         results: list[dict] = []
         now = datetime.now()
 
@@ -301,87 +363,72 @@ class EngineerProfileParser:
                 "issuing_body": accred.issuing_body,
                 "status": "valid",
                 "days_remaining": None,
-                "action_required": None,
+                "expired": False,
+                "expiring_soon": False,
             }
+
             if accred.valid_to:
                 try:
                     exp_date = datetime.fromisoformat(accred.valid_to)
                     days_left = (exp_date - now).days
                     entry["days_remaining"] = days_left
-
                     if days_left < 0:
                         entry["status"] = "expired"
-                        entry["action_required"] = f"Renew {accred.name} immediately -- expired {abs(days_left)} days ago"
-                    elif days_left < 14:
-                        entry["status"] = "expiring_critical"
-                        entry["action_required"] = f"Renew {accred.name} urgently -- expires in {days_left} days"
+                        entry["expired"] = True
                     elif days_left < 30:
                         entry["status"] = "expiring_soon"
-                        entry["action_required"] = f"Schedule renewal for {accred.name} -- expires in {days_left} days"
+                        entry["expiring_soon"] = True
                     else:
                         entry["status"] = "valid"
-                except ValueError:
-                    entry["status"] = "unknown"
-                    entry["action_required"] = f"Cannot parse expiry date for {accred.name}"
+                except (ValueError, TypeError):
+                    entry["status"] = "unparseable_date"
 
             if not accred.is_valid:
                 entry["status"] = "revoked"
-                entry["action_required"] = f"{accred.name} has been marked as invalid/revoked"
+                entry["expired"] = True
 
             results.append(entry)
 
         return results
 
+    # ----- skill-to-requirement matching ---------------------------------------
+
     def match_skills_to_requirements(
         self, engineer: EngineerProfile, requirements: list[SkillRecord]
     ) -> SkillFitAnalysis:
-        """Detailed skill matching with gap analysis including level comparison."""
-        level_rank = {"trainee": 1, "qualified": 2, "expert": 3}
+        """Detailed skill matching with gap analysis."""
+        required_names = {s.skill_name.lower() for s in requirements}
+        available_map = {s.skill_name.lower(): s for s in engineer.skills}
 
         matching: list[str] = []
         missing: list[str] = []
-        expiring: list[str] = []
-
-        engineer_skills = {s.skill_name.lower(): s for s in engineer.skills}
 
         for req in requirements:
-            req_key = req.skill_name.lower()
-            eng_skill = engineer_skills.get(req_key)
-
+            key = req.skill_name.lower()
+            eng_skill = available_map.get(key)
             if eng_skill is None:
                 missing.append(req.skill_name)
-                continue
-
-            req_level = level_rank.get(req.level, 2)
-            eng_level = level_rank.get(eng_skill.level, 2)
-
-            if eng_level < req_level:
-                missing.append(
-                    f"{req.skill_name} (has {eng_skill.level}, needs {req.level})"
-                )
             else:
-                matching.append(req.skill_name)
+                # Level check: trainee cannot fulfil expert requirements
+                level_order = {"trainee": 0, "qualified": 1, "expert": 2}
+                req_level = level_order.get(req.level, 1)
+                eng_level = level_order.get(eng_skill.level, 1)
+                if eng_level < req_level:
+                    missing.append(f"{req.skill_name} (requires {req.level}, has {eng_skill.level})")
+                else:
+                    matching.append(req.skill_name)
 
-            if eng_skill.expiry_date:
-                try:
-                    exp_date = datetime.fromisoformat(eng_skill.expiry_date)
-                    days_left = (exp_date - datetime.now()).days
-                    if 0 < days_left < 30:
-                        expiring.append(f"{eng_skill.skill_name} (expires in {days_left} days)")
-                    elif days_left <= 0:
-                        missing.append(f"{eng_skill.skill_name} (skill certification expired)")
-                except ValueError:
-                    pass
-
-        # Also check accreditation expiry
+        # Expiring accreditations
+        expiring: list[str] = []
+        now = datetime.now()
         for accred in engineer.accreditations:
             if accred.valid_to:
                 try:
                     exp_date = datetime.fromisoformat(accred.valid_to)
-                    days_left = (exp_date - datetime.now()).days
+                    days_left = (exp_date - now).days
                     if 0 < days_left < 30:
                         expiring.append(f"{accred.name} (expires in {days_left} days)")
-                except ValueError:
+                except (ValueError, TypeError):
                     pass
 
         return SkillFitAnalysis(
@@ -392,27 +439,8 @@ class EngineerProfileParser:
         )
 
 
-# ---------------------------------------------------------------------------
-# Permit Parser
-# ---------------------------------------------------------------------------
-
-
 class PermitParser:
-    """Parse and validate permit data."""
-
-    _PERMIT_KEYWORDS: dict[str, PermitType] = {
-        "street": PermitType.street_works,
-        "road": PermitType.street_works,
-        "highway": PermitType.street_works,
-        "building": PermitType.building_access,
-        "access": PermitType.building_access,
-        "confined": PermitType.confined_space,
-        "hot work": PermitType.hot_works,
-        "welding": PermitType.hot_works,
-        "height": PermitType.height_works,
-        "scaffold": PermitType.height_works,
-        "roof": PermitType.height_works,
-    }
+    """Parse and validate permits for field operations."""
 
     def parse_permits(self, text_or_data: str | list | dict) -> list[PermitRequirement]:
         """Parse permit information from text or structured data."""
@@ -420,16 +448,17 @@ class PermitParser:
             return [self._parse_single_permit(p) for p in text_or_data]
         if isinstance(text_or_data, dict):
             return [self._parse_single_permit(text_or_data)]
+        # Free text
         return self._parse_permits_from_text(text_or_data)
 
     def _parse_single_permit(self, data: dict) -> PermitRequirement:
-        ptype_raw = data.get("permit_type", data.get("type", "building_access"))
+        pt = data.get("permit_type", "building_access")
         try:
-            ptype = PermitType(ptype_raw)
+            permit_type = PermitType(pt)
         except ValueError:
-            ptype = PermitType.building_access
+            permit_type = PermitType.building_access
         return PermitRequirement(
-            permit_type=ptype,
+            permit_type=permit_type,
             description=data.get("description", ""),
             required=data.get("required", True),
             obtained=data.get("obtained", False),
@@ -438,42 +467,39 @@ class PermitParser:
 
     def _parse_permits_from_text(self, text: str) -> list[PermitRequirement]:
         permits: list[PermitRequirement] = []
-        text_lower = text.lower()
-        seen_types: set[PermitType] = set()
-        for keyword, ptype in self._PERMIT_KEYWORDS.items():
-            if keyword in text_lower and ptype not in seen_types:
-                seen_types.add(ptype)
+        permit_patterns: dict[str, PermitType] = {
+            r"street\s*works?\s*permit": PermitType.street_works,
+            r"building\s*access\s*permit": PermitType.building_access,
+            r"confined\s*space\s*permit": PermitType.confined_space,
+            r"hot\s*works?\s*permit": PermitType.hot_works,
+            r"(?:height|working at height)\s*permit": PermitType.height_works,
+        }
+        for pattern, pt in permit_patterns.items():
+            if re.search(pattern, text, re.IGNORECASE):
                 permits.append(PermitRequirement(
-                    permit_type=ptype,
-                    description=f"Permit inferred from text keyword: '{keyword}'",
+                    permit_type=pt,
+                    description=f"Detected from text: {pt.value}",
                     required=True,
                     obtained=False,
                 ))
         return permits
 
     def check_permit_validity(self, permits: list[PermitRequirement]) -> list[dict]:
-        """Check validity status of each permit."""
+        """Check each permit's validity status."""
         results: list[dict] = []
         for permit in permits:
-            status = "valid" if permit.obtained else "missing"
             results.append({
                 "permit_type": permit.permit_type.value,
-                "description": permit.description,
                 "required": permit.required,
                 "obtained": permit.obtained,
+                "valid": permit.obtained or not permit.required,
                 "reference": permit.reference,
-                "status": status,
-                "action_required": (
-                    None if permit.obtained or not permit.required
-                    else f"Obtain {permit.permit_type.value} permit before dispatch"
-                ),
+                "issue": "" if (permit.obtained or not permit.required) else f"Required permit {permit.permit_type.value} not obtained",
             })
         return results
 
     def detect_missing_permits(
-        self,
-        work_order: ParsedWorkOrder,
-        available_permits: list[PermitRequirement],
+        self, work_order: ParsedWorkOrder, available_permits: list[PermitRequirement]
     ) -> list[MissingPrerequisite]:
         """Detect permits required by the work order but not available."""
         available_types = {p.permit_type for p in available_permits if p.obtained}
@@ -481,153 +507,198 @@ class PermitParser:
 
         for req in work_order.required_permits:
             if req.required and req.permit_type not in available_types:
-                hours = self._estimate_permit_lead_time(req.permit_type)
+                resolution_hours = {
+                    PermitType.street_works: 48.0,
+                    PermitType.building_access: 24.0,
+                    PermitType.confined_space: 72.0,
+                    PermitType.hot_works: 24.0,
+                    PermitType.height_works: 24.0,
+                }.get(req.permit_type, 24.0)
+
                 missing.append(MissingPrerequisite(
                     prerequisite_type="permit",
                     description=f"Missing required permit: {req.permit_type.value}",
                     severity="error",
-                    resolution_action=f"Apply for {req.permit_type.value} permit",
-                    estimated_resolution_time_hours=hours,
+                    resolution_action=f"Obtain {req.permit_type.value} permit from issuing authority",
+                    estimated_resolution_time_hours=resolution_hours,
                     blocking=True,
                 ))
 
         return missing
 
-    @staticmethod
-    def _estimate_permit_lead_time(permit_type: PermitType) -> float:
-        lead_times: dict[PermitType, float] = {
-            PermitType.street_works: 120.0,
-            PermitType.building_access: 24.0,
-            PermitType.confined_space: 48.0,
-            PermitType.hot_works: 24.0,
-            PermitType.height_works: 48.0,
-        }
-        return lead_times.get(permit_type, 24.0)
-
-
-# ---------------------------------------------------------------------------
-# Field Log Parser
-# ---------------------------------------------------------------------------
-
 
 class FieldLogParser:
-    """Parse and classify field engineer notes and logs."""
-
-    _EXCEPTION_PATTERNS: dict[str, ExceptionType] = {
-        r"\bno\s*access\b": ExceptionType.no_access,
-        r"\bcustomer\s*(refused|not\s*available|absent)\b": ExceptionType.customer_refusal,
-        r"\brework\b": ExceptionType.rework,
-        r"\bre[-\s]?visit\b": ExceptionType.revisit,
-        r"\bsafety\s*(stop|concern|issue)\b": ExceptionType.safety_stop,
-        r"\bwrong\s*material": ExceptionType.wrong_materials,
-        r"\bweather\b": ExceptionType.weather,
-        r"\b(skill|competency)\s*(gap|lack|missing)\b": ExceptionType.skill_gap,
-    }
+    """Parse field engineer logs and notes."""
 
     def parse_field_notes(self, text: str) -> dict:
-        """Extract structured outcomes, exceptions, and issues from free-text field notes."""
-        text_lower = text.lower()
-
-        completed = bool(re.search(r"\b(completed|finished|done|resolved)\b", text_lower))
-        partial = bool(re.search(r"\b(partial|incomplete|outstanding)\b", text_lower))
-        failed = bool(re.search(r"\b(failed|aborted|cancelled|abandoned)\b", text_lower))
-
-        if completed and not failed:
-            outcome = "completed"
-        elif partial:
-            outcome = "partial"
-        elif failed:
-            outcome = "failed"
-        else:
-            outcome = "unknown"
-
-        exceptions_found: list[str] = []
-        for pattern, exc_type in self._EXCEPTION_PATTERNS.items():
-            if re.search(pattern, text_lower):
-                exceptions_found.append(exc_type.value)
-
-        follow_up_match = re.search(
-            r"(?:follow[- ]?up|next\s*step|action\s*required)[:\s]+(.+?)(?:\n|$)",
-            text,
-            re.IGNORECASE,
-        )
-
-        return {
-            "outcome": outcome,
-            "exceptions": exceptions_found,
-            "follow_up": follow_up_match.group(1).strip() if follow_up_match else None,
-            "raw_text": text[:1000],
+        """Extract structured outcomes, exceptions, and issues from field notes."""
+        result: dict[str, Any] = {
+            "raw_text": text,
+            "outcome": "unknown",
+            "exceptions": [],
+            "issues": [],
+            "materials_used": [],
+            "time_on_site_hours": None,
+            "follow_up_required": False,
         }
 
-    def classify_field_exception(self, notes: str) -> FieldExceptionClassification:
-        """Classify a field note string into a structured exception."""
-        text_lower = notes.lower()
+        # Determine outcome
+        text_lower = text.lower()
+        if re.search(r"\b(completed?|finished|done|resolved)\b", text_lower):
+            result["outcome"] = "completed"
+        elif re.search(r"\b(partial|partly|incomplete)\b", text_lower):
+            result["outcome"] = "partial"
+            result["follow_up_required"] = True
+        elif re.search(r"\b(failed|unable|could not|couldn't|aborted)\b", text_lower):
+            result["outcome"] = "failed"
+            result["follow_up_required"] = True
+        elif re.search(r"\b(no access|locked out|nobody home)\b", text_lower):
+            result["outcome"] = "no_access"
+            result["follow_up_required"] = True
 
-        detected_type = ExceptionType.rework  # default
-        for pattern, exc_type in self._EXCEPTION_PATTERNS.items():
-            if re.search(pattern, text_lower):
-                detected_type = exc_type
+        # Detect exceptions
+        for keyword, exc_type in _EXCEPTION_KEYWORD_MAP.items():
+            if keyword in text_lower:
+                result["exceptions"].append({
+                    "type": exc_type.value,
+                    "keyword_match": keyword,
+                })
+
+        # Extract time on site
+        time_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)\s*(?:on\s*site)?", text_lower)
+        if time_match:
+            result["time_on_site_hours"] = float(time_match.group(1))
+
+        # Extract issues (lines starting with - or * that contain problem language)
+        for line in text.split("\n"):
+            stripped = line.strip().lstrip("-*").strip()
+            if stripped and re.search(r"\b(issue|problem|fault|defect|broken|damaged|leak)\b", stripped, re.IGNORECASE):
+                result["issues"].append(stripped)
+
+        # Follow-up detection
+        if re.search(r"\b(follow[\s-]?up|return|revisit|come back|reschedule)\b", text_lower):
+            result["follow_up_required"] = True
+
+        return result
+
+    def classify_field_exception(self, notes: str) -> FieldExceptionClassification:
+        """Classify a field exception from engineer notes."""
+        notes_lower = notes.lower()
+
+        # Find the best-matching exception type
+        matched_type = ExceptionType.rework  # default
+        for keyword, exc_type in _EXCEPTION_KEYWORD_MAP.items():
+            if keyword in notes_lower:
+                matched_type = exc_type
                 break
 
-        root_cause = self._infer_root_cause(detected_type, text_lower)
-        preventable = detected_type in (
-            ExceptionType.wrong_materials,
-            ExceptionType.skill_gap,
-            ExceptionType.rework,
-        )
-        cost_impact = self._estimate_cost_impact(detected_type)
+        # Determine root cause heuristics
+        root_cause = "unknown"
+        preventable = False
+        cost_impact = 0.0
+        recommended_action = ""
+
+        if matched_type == ExceptionType.rework:
+            root_cause = "Initial work did not meet quality standards"
+            preventable = True
+            cost_impact = 150.0
+            recommended_action = "Review quality checklist before sign-off"
+        elif matched_type == ExceptionType.revisit:
+            root_cause = "Work could not be completed in a single visit"
+            preventable = True
+            cost_impact = 120.0
+            recommended_action = "Improve pre-visit scoping and material preparation"
+        elif matched_type == ExceptionType.no_access:
+            root_cause = "Customer not available or site inaccessible"
+            preventable = True
+            cost_impact = 80.0
+            recommended_action = "Confirm customer availability 24h before dispatch"
+        elif matched_type == ExceptionType.safety_stop:
+            root_cause = "Safety hazard identified on site"
+            preventable = False
+            cost_impact = 200.0
+            recommended_action = "Escalate to safety officer for assessment"
+        elif matched_type == ExceptionType.wrong_materials:
+            root_cause = "Incorrect or insufficient materials provisioned"
+            preventable = True
+            cost_impact = 100.0
+            recommended_action = "Validate material requirements against work order spec"
+        elif matched_type == ExceptionType.skill_gap:
+            root_cause = "Engineer lacked required skill or qualification"
+            preventable = True
+            cost_impact = 150.0
+            recommended_action = "Verify engineer skill fit before dispatch"
+        elif matched_type == ExceptionType.weather:
+            root_cause = "Adverse weather conditions prevented safe work"
+            preventable = False
+            cost_impact = 60.0
+            recommended_action = "Check weather forecast before scheduling outdoor work"
+        elif matched_type == ExceptionType.customer_refusal:
+            root_cause = "Customer refused to allow work to proceed"
+            preventable = False
+            cost_impact = 80.0
+            recommended_action = "Re-engage customer through account management"
 
         return FieldExceptionClassification(
-            exception_type=detected_type,
-            description=notes[:300],
+            exception_type=matched_type,
+            description=notes[:200],
             root_cause=root_cause,
             preventable=preventable,
             cost_impact=cost_impact,
-            recommended_action=self._recommend_action(detected_type),
+            recommended_action=recommended_action,
         )
 
-    def detect_repeat_visit_risk(
-        self, history: list[dict], current_work_order: ParsedWorkOrder | None = None
-    ) -> RepeatVisitRisk:
-        """Analyse visit history and determine repeat-visit risk."""
+    def detect_repeat_visit_risk(self, history: list[dict]) -> RepeatVisitRisk:
+        """Assess repeat-visit risk based on visit history."""
         if not history:
-            return RepeatVisitRisk(risk_level=RiskLevel.low, previous_visit_count=0)
+            return RepeatVisitRisk(
+                risk_level=RiskLevel.low,
+                contributing_factors=[],
+                previous_visit_count=0,
+                recommended_mitigations=[],
+            )
 
         visit_count = len(history)
         factors: list[str] = []
         mitigations: list[str] = []
 
-        # Count incomplete / failed visits
+        # Count unsuccessful visits
         failed_count = sum(
             1 for h in history
-            if h.get("outcome") in ("failed", "partial", "no_access")
+            if h.get("outcome", "") in ("failed", "partial", "no_access", "aborted")
         )
-        rework_count = sum(1 for h in history if h.get("outcome") == "rework")
 
         if failed_count > 0:
-            factors.append(f"{failed_count} previous failed/partial visits")
-        if rework_count > 0:
-            factors.append(f"{rework_count} rework instances")
+            factors.append(f"{failed_count} of {visit_count} previous visits were unsuccessful")
+            mitigations.append("Review previous visit notes for root cause")
 
-        # Same site, same issue?
-        if current_work_order:
-            same_site = sum(
-                1 for h in history
-                if h.get("site_id") == current_work_order.site_id and current_work_order.site_id
-            )
-            if same_site >= 2:
-                factors.append(f"Site visited {same_site} times previously")
+        # Check for recurring issues
+        exception_types = [h.get("exception_type") for h in history if h.get("exception_type")]
+        if len(exception_types) != len(set(exception_types)):
+            factors.append("Same exception type recurring across visits")
+            mitigations.append("Escalate to supervisor for root cause analysis")
+
+        # Check for no-access pattern
+        no_access_count = sum(1 for h in history if h.get("outcome") == "no_access")
+        if no_access_count >= 2:
+            factors.append(f"{no_access_count} no-access events")
+            mitigations.append("Arrange confirmed appointment with customer")
+
+        # Check for material issues
+        material_issues = sum(
+            1 for h in history
+            if h.get("exception_type") in ("wrong_materials", "missing_materials")
+        )
+        if material_issues > 0:
+            factors.append("Material supply issues on previous visits")
+            mitigations.append("Pre-validate all material requirements with warehouse")
 
         # Determine risk level
         if visit_count >= 3 or failed_count >= 2:
             risk_level = RiskLevel.high
             mitigations.append("Assign senior engineer for next visit")
-            mitigations.append("Conduct root cause analysis before re-dispatch")
-            mitigations.append("Review materials and access arrangements")
         elif visit_count >= 2 or failed_count >= 1:
             risk_level = RiskLevel.medium
-            mitigations.append("Review previous visit notes before dispatch")
-            mitigations.append("Confirm customer access and availability")
         else:
             risk_level = RiskLevel.low
 
@@ -637,49 +708,3 @@ class FieldLogParser:
             previous_visit_count=visit_count,
             recommended_mitigations=mitigations,
         )
-
-    # -----------------------------------------------------------------------
-    # Private helpers
-    # -----------------------------------------------------------------------
-
-    @staticmethod
-    def _infer_root_cause(exc_type: ExceptionType, text: str) -> str:
-        causes: dict[ExceptionType, str] = {
-            ExceptionType.no_access: "Customer not present or access denied at site",
-            ExceptionType.customer_refusal: "Customer refused work or was not available",
-            ExceptionType.rework: "Previous work did not meet quality standards or specification",
-            ExceptionType.revisit: "Original issue not fully resolved on prior visit",
-            ExceptionType.safety_stop: "Safety hazard identified requiring work stoppage",
-            ExceptionType.wrong_materials: "Incorrect or insufficient materials provided for the job",
-            ExceptionType.weather: "Adverse weather conditions prevented safe working",
-            ExceptionType.skill_gap: "Engineer lacked required competency for the task",
-        }
-        return causes.get(exc_type, "Root cause undetermined -- manual review required")
-
-    @staticmethod
-    def _estimate_cost_impact(exc_type: ExceptionType) -> float:
-        costs: dict[ExceptionType, float] = {
-            ExceptionType.no_access: 150.0,
-            ExceptionType.customer_refusal: 150.0,
-            ExceptionType.rework: 400.0,
-            ExceptionType.revisit: 300.0,
-            ExceptionType.safety_stop: 500.0,
-            ExceptionType.wrong_materials: 350.0,
-            ExceptionType.weather: 200.0,
-            ExceptionType.skill_gap: 450.0,
-        }
-        return costs.get(exc_type, 200.0)
-
-    @staticmethod
-    def _recommend_action(exc_type: ExceptionType) -> str:
-        actions: dict[ExceptionType, str] = {
-            ExceptionType.no_access: "Confirm customer availability and access before next dispatch",
-            ExceptionType.customer_refusal: "Contact customer to understand refusal and reschedule",
-            ExceptionType.rework: "Assign senior engineer and review original work specification",
-            ExceptionType.revisit: "Conduct root-cause analysis and ensure full resolution plan",
-            ExceptionType.safety_stop: "Complete updated risk assessment before resuming work",
-            ExceptionType.wrong_materials: "Verify bill of materials against work order before dispatch",
-            ExceptionType.weather: "Monitor weather forecast and reschedule when conditions improve",
-            ExceptionType.skill_gap: "Reassign to engineer with appropriate skill level",
-        }
-        return actions.get(exc_type, "Review field log and determine corrective action")

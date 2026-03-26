@@ -12,9 +12,9 @@ import pytest
 from pydantic import ValidationError
 
 from app.domain_packs.contract_margin.schemas.contract import (
+    BillabilityDecision,
     BillableCategory,
     BillableEvent,
-    BillabilityDecision,
     ClauseSegment,
     ClauseType,
     CommercialEvidenceBundle,
@@ -34,7 +34,6 @@ from app.domain_packs.contract_margin.schemas.contract import (
     ScopeType,
     SLAEntry,
 )
-
 
 # ---------------------------------------------------------------------------
 # Enum tests
@@ -106,9 +105,7 @@ class TestClauseSegment:
         assert seg.start_offset == seg.end_offset
 
     def test_default_confidence(self):
-        seg = ClauseSegment(
-            clause_id="CL-001", text="text", start_offset=0, end_offset=4
-        )
+        seg = ClauseSegment(clause_id="CL-001", text="text", start_offset=0, end_offset=4)
         assert seg.confidence == 1.0
 
     def test_confidence_bounds(self):
@@ -242,21 +239,15 @@ class TestRateCardEntry:
 
 class TestParsedContractIsActive:
     def test_active_within_dates(self):
-        pc = ParsedContract(
-            effective_date=date(2024, 1, 1), expiry_date=date(2026, 12, 31)
-        )
+        pc = ParsedContract(effective_date=date(2024, 1, 1), expiry_date=date(2026, 12, 31))
         assert pc.is_active(date(2025, 6, 1)) is True
 
     def test_inactive_before_effective(self):
-        pc = ParsedContract(
-            effective_date=date(2024, 1, 1), expiry_date=date(2026, 12, 31)
-        )
+        pc = ParsedContract(effective_date=date(2024, 1, 1), expiry_date=date(2026, 12, 31))
         assert pc.is_active(date(2023, 6, 1)) is False
 
     def test_inactive_after_expiry(self):
-        pc = ParsedContract(
-            effective_date=date(2024, 1, 1), expiry_date=date(2026, 12, 31)
-        )
+        pc = ParsedContract(effective_date=date(2024, 1, 1), expiry_date=date(2026, 12, 31))
         assert pc.is_active(date(2027, 6, 1)) is False
 
     def test_active_no_dates(self):
@@ -288,9 +279,7 @@ class TestContractCompileSummary:
                 Obligation(clause_id="CL-1", description="do something"),
             ],
             penalties=[
-                PenaltyCondition(
-                    clause_id="CL-2", description="penalty", trigger="breach"
-                ),
+                PenaltyCondition(clause_id="CL-2", description="penalty", trigger="breach"),
             ],
             billable_events=[
                 BillableEvent(activity="X", rate=100.0),
@@ -374,19 +363,13 @@ class TestMarginDiagnosisResult:
 
     def test_valid_verdicts(self):
         for v in ("billable", "non_billable", "partial", "review"):
-            result = MarginDiagnosisResult(
-                verdict=v, billability=self._make_billability()
-            )
+            result = MarginDiagnosisResult(verdict=v, billability=self._make_billability())
             assert result.verdict == v
 
     def test_invalid_verdict(self):
         with pytest.raises(ValidationError, match="verdict must be one of"):
-            MarginDiagnosisResult(
-                verdict="unknown", billability=self._make_billability()
-            )
+            MarginDiagnosisResult(verdict="unknown", billability=self._make_billability())
 
     def test_default_confidence(self):
-        result = MarginDiagnosisResult(
-            verdict="billable", billability=self._make_billability()
-        )
+        result = MarginDiagnosisResult(verdict="billable", billability=self._make_billability())
         assert result.confidence == 0.85

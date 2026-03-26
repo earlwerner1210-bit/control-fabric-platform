@@ -20,7 +20,6 @@ from app.domain_packs.contract_margin.schemas.contract import (
     ScopeType,
 )
 
-
 # ── Billability evaluator (same as test_billability_rules) ───────────────────
 
 
@@ -38,8 +37,7 @@ def _evaluate_billability_for_eval(
 
     # Rate match
     matches = [
-        r for r in rate_card
-        if r.activity.lower() == activity.lower() and r.is_active(check_date)
+        r for r in rate_card if r.activity.lower() == activity.lower() and r.is_active(check_date)
     ]
     rate_entry = max(matches, key=lambda r: r.rate) if matches else None
     rule_results["rate_match"] = rate_entry is not None
@@ -86,20 +84,56 @@ def _evaluate_billability_for_eval(
 
 
 RATE_CARD = [
-    RateCardEntry(activity="HV Switching", rate=450.0, effective_from=date(2024, 1, 1), effective_to=date(2025, 12, 31)),
-    RateCardEntry(activity="Cable Jointing HV", rate=1200.0, effective_from=date(2024, 1, 1), effective_to=date(2025, 12, 31)),
-    RateCardEntry(activity="Overhead Line Inspection", rate=3.50, effective_from=date(2024, 1, 1), effective_to=date(2025, 12, 31)),
-    RateCardEntry(activity="Emergency Fault Response", rate=800.0, effective_from=date(2024, 1, 1), effective_to=date(2025, 12, 31)),
+    RateCardEntry(
+        activity="HV Switching",
+        rate=450.0,
+        effective_from=date(2024, 1, 1),
+        effective_to=date(2025, 12, 31),
+    ),
+    RateCardEntry(
+        activity="Cable Jointing HV",
+        rate=1200.0,
+        effective_from=date(2024, 1, 1),
+        effective_to=date(2025, 12, 31),
+    ),
+    RateCardEntry(
+        activity="Overhead Line Inspection",
+        rate=3.50,
+        effective_from=date(2024, 1, 1),
+        effective_to=date(2025, 12, 31),
+    ),
+    RateCardEntry(
+        activity="Emergency Fault Response",
+        rate=800.0,
+        effective_from=date(2024, 1, 1),
+        effective_to=date(2025, 12, 31),
+    ),
 ]
 
 SCOPE_BOUNDARIES = [
-    ScopeBoundary(scope_type=ScopeType.in_scope, activities=["HV Switching", "Cable Jointing HV", "Overhead Line Inspection", "Emergency Fault Response"]),
+    ScopeBoundary(
+        scope_type=ScopeType.in_scope,
+        activities=[
+            "HV Switching",
+            "Cable Jointing HV",
+            "Overhead Line Inspection",
+            "Emergency Fault Response",
+        ],
+    ),
     ScopeBoundary(scope_type=ScopeType.out_of_scope, activities=["Metering", "New Connection"]),
-    ScopeBoundary(scope_type=ScopeType.conditional, activities=["Reinstatement"], conditions=["Caused by HV works"]),
+    ScopeBoundary(
+        scope_type=ScopeType.conditional,
+        activities=["Reinstatement"],
+        conditions=["Caused by HV works"],
+    ),
 ]
 
 OBLIGATIONS = [
-    Obligation(clause_id="CL-001", description="Crew qualification", evidence_required=["ecs_card", "confined_space_cert"]),
+    Obligation(
+        clause_id="CL-001",
+        description="Crew qualification",
+        evidence_required=["ecs_card", "confined_space_cert"],
+    ),
 ]
 
 CHECK_DATE = date(2024, 6, 15)

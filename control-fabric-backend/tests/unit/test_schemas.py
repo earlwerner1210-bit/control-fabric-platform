@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
 
 from app.schemas.common import BaseSchema, ErrorResponse, HealthResponse, PaginatedResponse
+from app.schemas.control_objects import ControlObjectCreate, ControlObjectTypeEnum
 from app.schemas.documents import DocumentUploadResponse, ParseResponse
+from app.schemas.validation import ValidationResultResponse
 from app.schemas.workflows import (
     ContractCompileInput,
     ContractCompileOutput,
@@ -17,8 +19,6 @@ from app.schemas.workflows import (
     WorkflowCaseCreate,
     WorkflowStatusEnum,
 )
-from app.schemas.validation import ValidationResultResponse
-from app.schemas.control_objects import ControlObjectCreate, ControlObjectTypeEnum
 
 
 class TestBaseSchema:
@@ -58,7 +58,7 @@ class TestPaginatedResponse:
 
 class TestDocumentSchemas:
     def test_document_upload_response(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         resp = DocumentUploadResponse(
             id=uuid4(),
             filename="contract.pdf",
@@ -103,7 +103,7 @@ class TestWorkflowSchemas:
 
 class TestValidationSchema:
     def test_validation_result_response(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         resp = ValidationResultResponse(
             id=uuid4(),
             target_type="contract_compile",

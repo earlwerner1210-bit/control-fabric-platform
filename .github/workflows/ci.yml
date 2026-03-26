@@ -14,6 +14,13 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write
+  packages: write
+  checks: read
+  actions: read
+
 env:
   PYTHON_VERSION: "3.11"
   REGISTRY: ghcr.io
@@ -63,7 +70,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          pip install -r requirements-dev.txt 2>&1 | tail -30 | tee /tmp/pip-install.log
 
       - name: Run unit tests
         env:
@@ -87,13 +94,14 @@ jobs:
           script: |
             const fs = require('fs');
             let body = '## CI Unit Test Failure\n\n';
-            try {
-              const content = fs.readFileSync('/tmp/pytest.log', 'utf8');
-              const lines = content.split('\n');
-              const tail = lines.slice(-100).join('\n');
-              body += '```\n' + tail + '\n```\n';
-            } catch (e) {
-              body += '_No output captured_\n';
+            for (const [label, path] of [['pip install (tail)', '/tmp/pip-install.log'], ['pytest', '/tmp/pytest.log']]) {
+              try {
+                const content = fs.readFileSync(path, 'utf8');
+                const lines = content.split('\n').slice(-100).join('\n');
+                body += `### ${label}\n\`\`\`\n${lines}\n\`\`\`\n\n`;
+              } catch (e) {
+                body += `### ${label}\n_Step did not produce output_\n\n`;
+              }
             }
             await github.rest.issues.createComment({
               owner: context.repo.owner,

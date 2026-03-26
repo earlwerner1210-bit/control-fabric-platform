@@ -36,10 +36,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install --no-interaction --no-ansi 2>/dev/null || pip install -e .
-          pip install ruff mypy
+          pip install -r requirements-dev.txt
+          pip install -e .
 
       - name: Ruff lint
         run: ruff check . --output-format=github
@@ -66,10 +64,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install --no-interaction --no-ansi 2>/dev/null || pip install -e .
-          pip install pytest pytest-cov pytest-asyncio
+          pip install -r requirements-dev.txt
+          pip install -e .
 
       - name: Run unit tests
         run: |
@@ -120,10 +116,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install --no-interaction --no-ansi 2>/dev/null || pip install -e .
-          pip install pytest pytest-cov pytest-asyncio
+          pip install -r requirements-dev.txt
+          pip install -e .
 
       - name: Run integration tests
         env:
@@ -158,10 +152,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install --no-interaction --no-ansi 2>/dev/null || pip install -e .
-          pip install pytest pytest-cov pytest-asyncio
+          pip install -r requirements-dev.txt
+          pip install -e .
 
       - name: Run e2e tests
         run: |
@@ -193,10 +185,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install --no-interaction --no-ansi 2>/dev/null || pip install -e .
-          pip install pytest pytest-cov pytest-asyncio
+          pip install -r requirements-dev.txt
+          pip install -e .
 
       - name: Run regression tests
         run: |

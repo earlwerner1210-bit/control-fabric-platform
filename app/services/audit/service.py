@@ -237,3 +237,198 @@ class AuditService:
         )
         result = await self.db.execute(stmt)
         return list(result.scalars().all()), total
+
+    # ── Pilot hardening audit methods ──────────────────────────────────
+
+    async def log_pilot_case_event(
+        self,
+        tenant_id: uuid.UUID,
+        pilot_case_id: uuid.UUID,
+        event_type: str,
+        actor_id: uuid.UUID | None = None,
+        detail: str = "",
+        metadata: dict[str, Any] | None = None,
+    ) -> AuditEvent:
+        """Log a pilot case lifecycle event."""
+        payload: dict[str, Any] = {"pilot_case_id": str(pilot_case_id)}
+        if metadata:
+            payload["metadata"] = metadata
+
+        return await self.log_event(
+            tenant_id=tenant_id,
+            event_type=event_type,
+            workflow_case_id=None,
+            actor_id=actor_id,
+            actor_type="operator" if actor_id else "system",
+            resource_type="pilot_case",
+            resource_id=pilot_case_id,
+            detail=detail,
+            payload=payload,
+        )
+
+    async def log_review_event(
+        self,
+        tenant_id: uuid.UUID,
+        pilot_case_id: uuid.UUID,
+        event_type: str,
+        reviewer_id: uuid.UUID,
+        outcome: str | None = None,
+        reasoning: str | None = None,
+        confidence: float | None = None,
+    ) -> AuditEvent:
+        """Log a review decision event."""
+        payload: dict[str, Any] = {
+            "pilot_case_id": str(pilot_case_id),
+            "reviewer_id": str(reviewer_id),
+        }
+        if outcome:
+            payload["outcome"] = outcome
+        if reasoning:
+            payload["reasoning"] = reasoning
+        if confidence is not None:
+            payload["confidence"] = confidence
+
+        return await self.log_event(
+            tenant_id=tenant_id,
+            event_type=event_type,
+            actor_id=reviewer_id,
+            actor_type="reviewer",
+            resource_type="pilot_case",
+            resource_id=pilot_case_id,
+            detail=f"Review {event_type}: {outcome or 'pending'}",
+            payload=payload,
+        )
+
+    async def log_approval_event(
+        self,
+        tenant_id: uuid.UUID,
+        pilot_case_id: uuid.UUID,
+        event_type: str,
+        approver_id: uuid.UUID,
+        approval_type: str,
+        override_reason: str | None = None,
+        escalation_route: str | None = None,
+    ) -> AuditEvent:
+        """Log an approval, override, or escalation event."""
+        payload: dict[str, Any] = {
+            "pilot_case_id": str(pilot_case_id),
+            "approval_type": approval_type,
+        }
+        if override_reason:
+            payload["override_reason"] = override_reason
+        if escalation_route:
+            payload["escalation_route"] = escalation_route
+
+        return await self.log_event(
+            tenant_id=tenant_id,
+            event_type=event_type,
+            actor_id=approver_id,
+            actor_type="approver",
+            resource_type="pilot_case",
+            resource_id=pilot_case_id,
+            detail=f"{approval_type} by {approver_id}",
+            payload=payload,
+        )
+
+    async def log_state_transition(
+        self,
+        tenant_id: uuid.UUID,
+        pilot_case_id: uuid.UUID,
+        from_state: str,
+        to_state: str,
+        actor_id: uuid.UUID | None = None,
+    ) -> AuditEvent:
+        """Log a pilot case state transition."""
+        return await self.log_event(
+            tenant_id=tenant_id,
+            event_type="pilot_case.state_transition",
+            actor_id=actor_id,
+            actor_type="operator" if actor_id else "system",
+            resource_type="pilot_case",
+            resource_id=pilot_case_id,
+            detail=f"State transition: {from_state} -> {to_state}",
+            payload={
+                "pilot_case_id": str(pilot_case_id),
+                "from_state": from_state,
+                "to_state": to_state,
+            },
+        )
+
+
+# ── Pilot hardening audit event types ──────────────────────────────────
+
+PILOT_AUDIT_EVENTS = {
+    "pilot_case.created",
+    "pilot_case.updated",
+    "pilot_case.artifacts_linked",
+    "pilot_case.reviewer_assigned",
+    "pilot_case.state_transition",
+    "pilot_case.closed",
+    "pilot_case.workflow_triggered",
+    "pilot_case.workflow_completed",
+    "pilot_case.validation_completed",
+    "review.task_created",
+    "review.decision_captured",
+    "review.note_added",
+    "review.completed",
+    "review.approval",
+    "review.override",
+    "review.escalation",
+    "evidence.bundle_created",
+    "evidence.trace_stored",
+    "evidence.validation_trace_stored",
+    "evidence.model_lineage_stored",
+    "baseline.expectation_stored",
+    "baseline.comparison_executed",
+    "feedback.submitted",
+    "feedback.acknowledged",
+    "pilot_case.exported",
+    "pilot_case.report_generated",
+    "kpi.measurement_recorded",
+}
+
+
+class InMemoryAuditService:
+    """Lightweight in-memory audit service for testing and workflow activities."""
+
+    def __init__(self) -> None:
+        self._events: list[dict[str, Any]] = []
+
+    def record(
+        self,
+        event_type: str,
+        resource_id: str | None = None,
+        tenant_id: str | None = None,
+        actor_id: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        from datetime import UTC, datetime
+
+        event = {
+            "id": str(uuid.uuid4()),
+            "event_type": event_type,
+            "resource_id": resource_id,
+            "tenant_id": tenant_id,
+            "actor_id": actor_id,
+            "payload": payload or {},
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+        self._events.append(event)
+        return event
+
+    def get_events(
+        self,
+        resource_id: str | None = None,
+        event_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        events = self._events
+        if resource_id:
+            events = [e for e in events if e["resource_id"] == resource_id]
+        if event_type:
+            events = [e for e in events if e["event_type"] == event_type]
+        return events
+
+    def count(self, event_type: str | None = None) -> int:
+        if event_type:
+            return sum(1 for e in self._events if e["event_type"] == event_type)
+        return len(self._events)

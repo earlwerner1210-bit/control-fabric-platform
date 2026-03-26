@@ -14,6 +14,7 @@ from datetime import timedelta
 from typing import Any
 
 from temporalio import activity, workflow
+from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
     import structlog
@@ -49,7 +50,7 @@ class WorkflowOutput:
 # Retry / timeout defaults
 # ---------------------------------------------------------------------------
 
-_DEFAULT_RETRY = workflow.RetryPolicy(
+_DEFAULT_RETRY = RetryPolicy(
     initial_interval=timedelta(seconds=1),
     maximum_attempts=3,
     backoff_coefficient=2.0,

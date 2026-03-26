@@ -299,3 +299,177 @@ class TestReconciliationPipeline:
             },
         )
         assert len(conflicts) >= 1
+
+
+class TestEndToEndMarginDiagnosis:
+    """Full end-to-end: parse -> billability -> leakage -> scope -> penalty -> recovery -> evidence."""
+
+    @pytest.fixture
+    def parsed_contract(self, raw_contract):
+        return ContractParser().parse_contract(raw_contract)
+
+    def test_full_diagnosis_billable_activity(self, parsed_contract):
+        """Full pipeline for a clearly billable activity."""
+        activity = {
+            "name": "hv_switching",
+            "category": "standard",
+            "value": 450.0,
+            "scope": "in_scope",
+            "evidence": ["completion_report"],
+            "hours": 8,
+            "daywork_sheet": True,
+        }
+        bill_engine = BillabilityRuleEngine()
+        decision = bill_engine.evaluate(
+            activity=activity,
+            rate_card=parsed_contract.rate_card,
+            obligations=parsed_contract.obligations,
+        )
+        assert decision.billable is True
+
+        leak_engine = LeakageRuleEngine()
+        triggers = leak_engine.detect(
+            activity=activity,
+            rate_card=parsed_contract.rate_card,
+            work_orders=[
+                {
+                    "activity": "hv_switching",
+                    "status": "completed",
+                    "billed": True,
+                    "value": 450.0,
+                }
+            ],
+            obligations=parsed_contract.obligations,
+        )
+        unbilled = [t for t in triggers if t.trigger_type == "unbilled_completed_work"]
+        assert len(unbilled) == 0
+
+    def test_full_diagnosis_unbillable_activity(self, parsed_contract):
+        """Full pipeline for an out-of-scope activity."""
+        activity = {
+            "name": "new_construction",
+            "category": "standard",
+            "value": 5000.0,
+            "scope": "out_of_scope",
+            "evidence": [],
+            "hours": 16,
+            "daywork_sheet": False,
+        }
+        bill_engine = BillabilityRuleEngine()
+        decision = bill_engine.evaluate(
+            activity=activity,
+            rate_card=parsed_contract.rate_card,
+            obligations=parsed_contract.obligations,
+        )
+        assert decision.billable is False
+
+    def test_penalty_into_recovery(self, parsed_contract):
+        """Penalty analysis feeds into recovery recommendations."""
+        leak_engine = LeakageRuleEngine()
+        triggers = leak_engine.detect(
+            activity={"name": "hv_switching", "daywork_sheet": True, "hours": 8},
+            rate_card=parsed_contract.rate_card,
+            work_orders=[
+                {
+                    "activity": "hv_switching",
+                    "status": "completed",
+                    "billed": False,
+                    "value": 450.0,
+                }
+            ],
+            obligations=parsed_contract.obligations,
+        )
+        recovery_engine = RecoveryRecommendationEngine()
+        recs = recovery_engine.build_recommendations(triggers, contract_objects=parsed_contract)
+        assert len(recs) >= 1
+
+    def test_evidence_chain_for_complete_scenario(self):
+        """Evidence assembler + validator on a rich scenario."""
+        assembler = EvidenceAssembler()
+        bundle = assembler.assemble_margin_evidence(
+            contract_objects=[
+                {
+                    "id": "C-1",
+                    "description": "HV maintenance",
+                    "rate_card_ref": "RC-1",
+                    "obligation_refs": ["O-1"],
+                },
+            ],
+            work_orders=[
+                {
+                    "work_order_id": "WO-1",
+                    "status": "completed",
+                    "completion_evidence": [{"type": "photo", "ref": "P1"}],
+                    "billing_gates": [{"gate_id": "BG-1", "name": "signoff", "status": "passed"}],
+                },
+            ],
+            incidents=[
+                {
+                    "incident_id": "INC-1",
+                    "title": "Fault",
+                    "severity": "high",
+                    "resolution_summary": "Fixed",
+                },
+            ],
+        )
+        assert bundle.total_items >= 5
+
+        validator = EvidenceChainValidator()
+        results = validator.validate_chain(bundle)
+        present = {r["stage"] for r in results if r["present"]}
+        assert "contract_basis" in present
+        assert "work_authorization" in present
+        assert "execution_evidence" in present
+        assert "billing_evidence" in present
+
+    def test_scope_pipeline_conditional_unmet(self):
+        """Scope detector correctly flags conditional unmet."""
+        boundaries = [
+            ScopeBoundary(
+                scope_type=ScopeType.conditional,
+                description="Emergency works require pre-approval",
+                activities=["Emergency Repair"],
+                conditions=["emergency_auth"],
+            ),
+        ]
+        detector = ScopeConflictDetector()
+        conflicts = detector.detect_conflicts(
+            boundaries,
+            [{"name": "Emergency Repair", "conditions_met": []}],
+        )
+        assert len(conflicts) >= 1
+        assert conflicts[0]["conflict_type"] == "conditional_unmet"
+
+    def test_scope_pipeline_no_conflict_for_in_scope(self):
+        boundaries = [
+            ScopeBoundary(
+                scope_type=ScopeType.in_scope,
+                description="Standard maintenance",
+                activities=["hv_switching"],
+            ),
+        ]
+        detector = ScopeConflictDetector()
+        conflicts = detector.detect_conflicts(boundaries, [{"name": "hv_switching"}])
+        assert len(conflicts) == 0
+
+    def test_cross_domain_linking_pipeline(self):
+        """Contract -> WO -> Incident linking chain."""
+        co_linker = ContractWorkOrderLinker()
+        wo_linker = WorkOrderIncidentLinker()
+
+        contracts = [{"id": "C-1", "description": "HV switching maintenance scheduled"}]
+        wo = {
+            "work_order_id": "WO-1",
+            "description": "HV switching maintenance Glasgow",
+            "status": "completed",
+        }
+        incidents = [
+            {"incident_id": "INC-1", "work_order_refs": ["WO-1"], "description": "HV fault"},
+        ]
+
+        co_links = co_linker.link(contracts, wo)
+        assert len(co_links) >= 1
+
+        wo_links = wo_linker.link(wo, incidents)
+        assert len(wo_links) >= 1
+        assert wo_links[0].link_type == "ref_match"

@@ -244,3 +244,90 @@ class TestEvalCases:
     def test_expected_fail_count(self) -> None:
         expected_fail = sum(1 for c in EVAL_CASES if not c["expected_billable"])
         assert expected_fail == 6
+
+
+# ── Tests using the domain pack eval_cases module directly ────────────────────
+
+
+class TestDomainPackEvalCases:
+    """Load eval cases from app.domain_packs.contract_margin.evals.eval_cases
+    and run structural and consistency checks.
+    """
+
+    def test_get_eval_cases_returns_list(self) -> None:
+        from app.domain_packs.contract_margin.evals.eval_cases import get_eval_cases
+
+        cases = get_eval_cases()
+        assert isinstance(cases, list)
+        assert len(cases) >= 10
+
+    def test_list_eval_case_names(self) -> None:
+        from app.domain_packs.contract_margin.evals.eval_cases import list_eval_case_names
+
+        names = list_eval_case_names()
+        assert len(names) >= 10
+        assert all(isinstance(n, str) for n in names)
+
+    def test_eval_case_names_unique(self) -> None:
+        from app.domain_packs.contract_margin.evals.eval_cases import list_eval_case_names
+
+        names = list_eval_case_names()
+        assert len(names) == len(set(names))
+
+    def test_get_eval_case_by_name_found(self) -> None:
+        from app.domain_packs.contract_margin.evals.eval_cases import get_eval_case_by_name
+
+        case = get_eval_case_by_name("clearly_billable")
+        assert case is not None
+        assert case["name"] == "clearly_billable"
+
+    def test_get_eval_case_by_name_not_found(self) -> None:
+        from app.domain_packs.contract_margin.evals.eval_cases import get_eval_case_by_name
+
+        case = get_eval_case_by_name("nonexistent_case_xyz")
+        assert case is None
+
+    def test_all_cases_have_required_keys(self) -> None:
+        from app.domain_packs.contract_margin.evals.eval_cases import get_eval_cases
+
+        required_keys = {"name", "domain", "description", "input", "expected"}
+        for case in get_eval_cases():
+            assert required_keys.issubset(case.keys()), f"Case {case.get('name')} missing keys"
+
+    def test_all_expected_have_verdict(self) -> None:
+        from app.domain_packs.contract_margin.evals.eval_cases import get_eval_cases
+
+        for case in get_eval_cases():
+            expected = case["expected"]
+            assert "verdict" in expected, f"Case {case['name']} missing expected verdict"
+            assert expected["verdict"] in ("billable", "non_billable", "partial", "review")
+
+    def test_all_inputs_have_contract(self) -> None:
+        from app.domain_packs.contract_margin.evals.eval_cases import get_eval_cases
+
+        for case in get_eval_cases():
+            assert "contract" in case["input"], f"Case {case['name']} missing input.contract"
+
+    def test_clearly_billable_case_contract_is_parseable(self) -> None:
+        from app.domain_packs.contract_margin.evals.eval_cases import get_eval_case_by_name
+        from app.domain_packs.contract_margin.parsers.contract_parser import ContractParser
+
+        case = get_eval_case_by_name("clearly_billable")
+        parser = ContractParser()
+        pc = parser.parse_contract(case["input"]["contract"])
+        assert len(pc.clauses) >= 1
+        assert len(pc.rate_card) >= 1
+
+    def test_rate_card_entries_active_during_contract(self) -> None:
+        """All base rate card entries should be active within the contract period."""
+        from datetime import date as date_cls
+
+        from app.domain_packs.contract_margin.evals.eval_cases import get_eval_case_by_name
+        from app.domain_packs.contract_margin.parsers.contract_parser import ContractParser
+
+        case = get_eval_case_by_name("clearly_billable")
+        parser = ContractParser()
+        pc = parser.parse_contract(case["input"]["contract"])
+        check = date_cls(2025, 6, 15)
+        for entry in pc.rate_card:
+            assert entry.is_active(check), f"Rate card entry {entry.activity} not active on {check}"

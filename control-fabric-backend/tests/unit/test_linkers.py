@@ -106,3 +106,100 @@ class TestWorkOrderIncidentLinker:
             [{"incident_id": "INC-1", "description": "Completely unrelated xyz"}],
         )
         assert len(links) == 0
+
+    def test_timeline_overlap_link(self):
+        from datetime import datetime, timedelta
+
+        now = datetime(2025, 6, 15, 10, 0, 0)
+        linker = WorkOrderIncidentLinker()
+        links = linker.link(
+            {
+                "work_order_id": "WO-T1",
+                "description": "alpha bravo charlie",
+                "scheduled_date": now.isoformat(),
+                "completed_date": (now + timedelta(days=2)).isoformat(),
+            },
+            [
+                {
+                    "incident_id": "INC-T1",
+                    "description": "delta echo foxtrot",
+                    "title": "unrelated title",
+                    "reported_at": (now + timedelta(hours=3)).isoformat(),
+                }
+            ],
+        )
+        timeline_links = [l for l in links if l.link_type == "timeline_overlap"]
+        assert len(timeline_links) >= 1
+
+    def test_best_link_per_incident(self):
+        """When multiple strategies match, only the best scoring link is kept."""
+        from datetime import datetime, timedelta
+
+        now = datetime(2025, 6, 15, 10, 0, 0)
+        linker = WorkOrderIncidentLinker()
+        links = linker.link(
+            {
+                "id": "WO-B1",
+                "description": "Cable repair fault resolution HV",
+                "scheduled_date": now.isoformat(),
+            },
+            [
+                {
+                    "id": "INC-B1",
+                    "description": "Cable repair fault HV",
+                    "title": "Cable fault",
+                    "reported_at": (now + timedelta(hours=1)).isoformat(),
+                }
+            ],
+        )
+        inc_ids = [l.target_id for l in links]
+        assert len(inc_ids) == len(set(inc_ids))
+
+    def test_link_domains_field_telco(self):
+        linker = WorkOrderIncidentLinker()
+        links = linker.link(
+            {"work_order_id": "WO-D1", "description": "x"},
+            [{"incident_id": "INC-D1", "description": "y", "work_order_refs": ["WO-D1"]}],
+        )
+        for link in links:
+            assert link.source_domain == "field"
+            assert link.target_domain == "telco"
+
+
+class TestTokenUtils:
+    def test_tokenize_basic(self):
+        from app.domain_packs.reconciliation.linkers import _tokenize
+
+        tokens = _tokenize("Cable Jointing HV repair")
+        assert "cable" in tokens
+        assert "jointing" in tokens
+
+    def test_tokenize_removes_stop_words(self):
+        from app.domain_packs.reconciliation.linkers import _tokenize
+
+        tokens = _tokenize("the quick brown fox and the lazy dog")
+        assert "the" not in tokens
+        assert "and" not in tokens
+
+    def test_tokenize_empty(self):
+        from app.domain_packs.reconciliation.linkers import _tokenize
+
+        assert _tokenize("") == set()
+
+    def test_token_similarity_identical(self):
+        from app.domain_packs.reconciliation.linkers import _token_similarity
+
+        a = {"cable", "jointing", "hv"}
+        assert _token_similarity(a, a) == 1.0
+
+    def test_token_similarity_disjoint(self):
+        from app.domain_packs.reconciliation.linkers import _token_similarity
+
+        a = {"cable", "jointing"}
+        b = {"pole", "replacement"}
+        assert _token_similarity(a, b) == 0.0
+
+    def test_token_similarity_empty(self):
+        from app.domain_packs.reconciliation.linkers import _token_similarity
+
+        assert _token_similarity(set(), {"a"}) == 0.0

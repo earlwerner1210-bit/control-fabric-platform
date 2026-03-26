@@ -373,3 +373,117 @@ class TestMarginDiagnosisResult:
     def test_default_confidence(self):
         result = MarginDiagnosisResult(verdict="billable", billability=self._make_billability())
         assert result.confidence == 0.85
+
+    def test_leakage_triggers_default_empty(self):
+        result = MarginDiagnosisResult(verdict="billable", billability=self._make_billability())
+        assert result.leakage_triggers == []
+
+    def test_recovery_recommendations_default_empty(self):
+        result = MarginDiagnosisResult(verdict="billable", billability=self._make_billability())
+        assert result.recovery_recommendations == []
+
+    def test_evidence_bundle_default(self):
+        result = MarginDiagnosisResult(verdict="billable", billability=self._make_billability())
+        assert result.evidence_bundle.completeness_score() == 0.0
+
+    def test_penalty_exposure_default(self):
+        result = MarginDiagnosisResult(verdict="billable", billability=self._make_billability())
+        assert result.penalty_exposure == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Additional schema edge-case tests
+# ---------------------------------------------------------------------------
+
+
+class TestExtractedClause:
+    def test_extracted_clause_defaults(self):
+        clause = ExtractedClause(type=ClauseType.sla, text="SLA terms apply")
+        assert clause.confidence == 0.9
+        assert clause.risk_level == PriorityLevel.medium
+        assert clause.segments == []
+        assert clause.metadata == {}
+
+    def test_extracted_clause_custom_risk(self):
+        clause = ExtractedClause(
+            type=ClauseType.penalty,
+            text="Penalty clause",
+            risk_level=PriorityLevel.critical,
+        )
+        assert clause.risk_level == PriorityLevel.critical
+
+
+class TestScopeBoundary:
+    def test_scope_boundary_defaults(self):
+        sb = ScopeBoundary(scope_type=ScopeType.in_scope)
+        assert sb.description == ""
+        assert sb.activities == []
+        assert sb.conditions == []
+
+    def test_scope_boundary_with_conditions(self):
+        sb = ScopeBoundary(
+            scope_type=ScopeType.conditional,
+            activities=["Emergency Work"],
+            conditions=["pre_approval"],
+        )
+        assert len(sb.conditions) == 1
+
+
+class TestObligation:
+    def test_obligation_defaults(self):
+        ob = Obligation(clause_id="CL-1", description="Must do X")
+        assert ob.frequency == "per_event"
+        assert ob.owner == "provider"
+        assert ob.evidence_required == []
+        assert ob.deadline_days == 30
+
+
+class TestPenaltyCondition:
+    def test_penalty_condition_defaults(self):
+        pc = PenaltyCondition(clause_id="CL-1", description="Penalty", trigger="breach")
+        assert pc.penalty_type == "percentage"
+        assert pc.penalty_amount == 0.0
+        assert pc.cap is None
+        assert pc.grace_period_days == 0
+        assert pc.cure_period_days == 0
+
+
+class TestBillableEvent:
+    def test_billable_event_defaults(self):
+        be = BillableEvent(activity="Test", rate=100.0)
+        assert be.category == BillableCategory.standard
+        assert be.unit == "each"
+        assert be.prerequisites == []
+        assert be.evidence_required == []
+
+
+class TestBillabilityDecision:
+    def test_billability_decision_defaults(self):
+        bd = BillabilityDecision(billable=True)
+        assert bd.category == BillableCategory.standard
+        assert bd.rate_applied == 0.0
+        assert bd.reasons == []
+        assert bd.confidence == 0.9
+        assert bd.rule_results == {}
+        assert bd.evidence_refs == []
+
+
+class TestLeakageTrigger:
+    def test_leakage_trigger_defaults(self):
+        lt = LeakageTrigger(trigger_type="test", description="A trigger")
+        assert lt.severity == PriorityLevel.medium
+        assert lt.estimated_impact_value == 0.0
+        assert lt.clause_refs == []
+        assert lt.evidence == []
+
+
+class TestCommercialRecoveryRecommendation:
+    def test_recovery_recommendation_defaults(self):
+        rec = CommercialRecoveryRecommendation(
+            recommendation_type=RecoveryType.backbill,
+            description="Backbill claim",
+        )
+        assert rec.estimated_recovery_value == 0.0
+        assert rec.priority == PriorityLevel.medium
+        assert rec.confidence == 0.8
+        assert rec.evidence_clause_refs == []

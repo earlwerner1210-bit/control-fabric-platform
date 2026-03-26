@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-
-import pytest
 
 from app.core.security import TenantContext
 
@@ -47,14 +44,17 @@ class TestAuthDependencies:
 
     def test_require_role_import(self):
         from app.api.deps.auth import require_role
+
         dep = require_role("admin")
         assert callable(dep)
 
     def test_require_multiple_roles(self):
         from app.api.deps.auth import require_role
+
         dep = require_role("admin", "superuser")
         assert callable(dep)
 
     def test_get_current_user_import(self):
         from app.api.deps.auth import get_current_user
+
         assert callable(get_current_user)

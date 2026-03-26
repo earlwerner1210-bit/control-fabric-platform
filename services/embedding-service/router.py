@@ -9,7 +9,12 @@ from shared.db.base import get_db
 from shared.schemas.common import TenantContext
 from shared.security.auth import get_current_user
 
-from .schemas import EmbeddingBatchRequest, EmbeddingBatchResponse, EmbeddingRequest, EmbeddingResponse
+from .schemas import (
+    EmbeddingBatchRequest,
+    EmbeddingBatchResponse,
+    EmbeddingRequest,
+    EmbeddingResponse,
+)
 from .service import EmbeddingService
 
 router = APIRouter(prefix="/embeddings", tags=["embeddings"])

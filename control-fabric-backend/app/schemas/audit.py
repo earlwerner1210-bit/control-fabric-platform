@@ -26,7 +26,9 @@ class AuditEventResponse(BaseSchema):
             "validation.completed",
         ],
     )
-    actor_id: UUID | None = Field(default=None, description="User or service that triggered the event")
+    actor_id: UUID | None = Field(
+        default=None, description="User or service that triggered the event"
+    )
     resource_type: str = Field(..., examples=["document", "control_object", "workflow_case"])
     resource_id: UUID
     payload: dict[str, Any] = Field(default_factory=dict)

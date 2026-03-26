@@ -13,7 +13,6 @@ from typing import Any
 
 from temporalio import activity, workflow
 
-
 # ── Shared dataclasses for Temporal serialization ──────────────
 
 
@@ -139,26 +138,37 @@ class ContractCompileWorkflow:
 class WorkOrderReadinessWorkflow:
     @workflow.run
     async def run(self, input_data: WorkflowInput) -> WorkflowOutput:
-        retry_policy = workflow.RetryPolicy(initial_interval=timedelta(seconds=1), maximum_attempts=3)
+        retry_policy = workflow.RetryPolicy(
+            initial_interval=timedelta(seconds=1), maximum_attempts=3
+        )
 
         parse_result = await workflow.execute_activity(
-            parse_documents_activity, input_data.payload,
-            start_to_close_timeout=timedelta(minutes=5), retry_policy=retry_policy,
+            parse_documents_activity,
+            input_data.payload,
+            start_to_close_timeout=timedelta(minutes=5),
+            retry_policy=retry_policy,
         )
         compile_result = await workflow.execute_activity(
-            compile_objects_activity, {**parse_result, "workflow_type": "work_order_readiness"},
-            start_to_close_timeout=timedelta(minutes=5), retry_policy=retry_policy,
+            compile_objects_activity,
+            {**parse_result, "workflow_type": "work_order_readiness"},
+            start_to_close_timeout=timedelta(minutes=5),
+            retry_policy=retry_policy,
         )
         inference_result = await workflow.execute_activity(
-            run_inference_activity, compile_result,
-            start_to_close_timeout=timedelta(minutes=5), retry_policy=retry_policy,
+            run_inference_activity,
+            compile_result,
+            start_to_close_timeout=timedelta(minutes=5),
+            retry_policy=retry_policy,
         )
         validation = await workflow.execute_activity(
-            validate_output_activity, inference_result,
-            start_to_close_timeout=timedelta(minutes=2), retry_policy=retry_policy,
+            validate_output_activity,
+            inference_result,
+            start_to_close_timeout=timedelta(minutes=2),
+            retry_policy=retry_policy,
         )
         await workflow.execute_activity(
-            log_audit_activity, {"event": "readiness_complete"},
+            log_audit_activity,
+            {"event": "readiness_complete"},
             start_to_close_timeout=timedelta(seconds=30),
         )
 
@@ -172,26 +182,37 @@ class WorkOrderReadinessWorkflow:
 class IncidentDispatchWorkflow:
     @workflow.run
     async def run(self, input_data: WorkflowInput) -> WorkflowOutput:
-        retry_policy = workflow.RetryPolicy(initial_interval=timedelta(seconds=1), maximum_attempts=3)
+        retry_policy = workflow.RetryPolicy(
+            initial_interval=timedelta(seconds=1), maximum_attempts=3
+        )
 
         parse_result = await workflow.execute_activity(
-            parse_documents_activity, input_data.payload,
-            start_to_close_timeout=timedelta(minutes=5), retry_policy=retry_policy,
+            parse_documents_activity,
+            input_data.payload,
+            start_to_close_timeout=timedelta(minutes=5),
+            retry_policy=retry_policy,
         )
         compile_result = await workflow.execute_activity(
-            compile_objects_activity, {**parse_result, "workflow_type": "incident_dispatch"},
-            start_to_close_timeout=timedelta(minutes=5), retry_policy=retry_policy,
+            compile_objects_activity,
+            {**parse_result, "workflow_type": "incident_dispatch"},
+            start_to_close_timeout=timedelta(minutes=5),
+            retry_policy=retry_policy,
         )
         inference_result = await workflow.execute_activity(
-            run_inference_activity, compile_result,
-            start_to_close_timeout=timedelta(minutes=5), retry_policy=retry_policy,
+            run_inference_activity,
+            compile_result,
+            start_to_close_timeout=timedelta(minutes=5),
+            retry_policy=retry_policy,
         )
         validation = await workflow.execute_activity(
-            validate_output_activity, inference_result,
-            start_to_close_timeout=timedelta(minutes=2), retry_policy=retry_policy,
+            validate_output_activity,
+            inference_result,
+            start_to_close_timeout=timedelta(minutes=2),
+            retry_policy=retry_policy,
         )
         await workflow.execute_activity(
-            log_audit_activity, {"event": "incident_dispatch_complete"},
+            log_audit_activity,
+            {"event": "incident_dispatch_complete"},
             start_to_close_timeout=timedelta(seconds=30),
         )
 
@@ -205,26 +226,37 @@ class IncidentDispatchWorkflow:
 class MarginDiagnosisWorkflow:
     @workflow.run
     async def run(self, input_data: WorkflowInput) -> WorkflowOutput:
-        retry_policy = workflow.RetryPolicy(initial_interval=timedelta(seconds=1), maximum_attempts=3)
+        retry_policy = workflow.RetryPolicy(
+            initial_interval=timedelta(seconds=1), maximum_attempts=3
+        )
 
         parse_result = await workflow.execute_activity(
-            parse_documents_activity, input_data.payload,
-            start_to_close_timeout=timedelta(minutes=5), retry_policy=retry_policy,
+            parse_documents_activity,
+            input_data.payload,
+            start_to_close_timeout=timedelta(minutes=5),
+            retry_policy=retry_policy,
         )
         compile_result = await workflow.execute_activity(
-            compile_objects_activity, {**parse_result, "workflow_type": "margin_diagnosis"},
-            start_to_close_timeout=timedelta(minutes=5), retry_policy=retry_policy,
+            compile_objects_activity,
+            {**parse_result, "workflow_type": "margin_diagnosis"},
+            start_to_close_timeout=timedelta(minutes=5),
+            retry_policy=retry_policy,
         )
         inference_result = await workflow.execute_activity(
-            run_inference_activity, compile_result,
-            start_to_close_timeout=timedelta(minutes=5), retry_policy=retry_policy,
+            run_inference_activity,
+            compile_result,
+            start_to_close_timeout=timedelta(minutes=5),
+            retry_policy=retry_policy,
         )
         validation = await workflow.execute_activity(
-            validate_output_activity, inference_result,
-            start_to_close_timeout=timedelta(minutes=2), retry_policy=retry_policy,
+            validate_output_activity,
+            inference_result,
+            start_to_close_timeout=timedelta(minutes=2),
+            retry_policy=retry_policy,
         )
         await workflow.execute_activity(
-            log_audit_activity, {"event": "margin_diagnosis_complete"},
+            log_audit_activity,
+            {"event": "margin_diagnosis_complete"},
             start_to_close_timeout=timedelta(seconds=30),
         )
 

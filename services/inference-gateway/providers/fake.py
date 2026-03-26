@@ -20,7 +20,11 @@ class FakeProvider(BaseInferenceProvider):
         temperature: float = 0.7,
         response_format: str | None = None,
     ) -> dict[str, Any]:
-        output = '{"result": "fake generated output"}' if response_format == "json" else "Fake generated output."
+        output = (
+            '{"result": "fake generated output"}'
+            if response_format == "json"
+            else "Fake generated output."
+        )
         return {
             "output": output,
             "model": self.MODEL_NAME,

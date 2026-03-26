@@ -203,13 +203,17 @@ class AuditService:
         timeline: list[dict] = []
         for event in events:
             payload = event.payload or {}
-            timeline.append({
-                "timestamp": event.created_at.isoformat() if event.created_at else None,
-                "event_type": event.event_type,
-                "stage": payload.get("stage", ""),
-                "detail": event.detail or "",
-                "actor": f"{event.actor_type}:{event.actor_id}" if event.actor_id else event.actor_type,
-            })
+            timeline.append(
+                {
+                    "timestamp": event.created_at.isoformat() if event.created_at else None,
+                    "event_type": event.event_type,
+                    "stage": payload.get("stage", ""),
+                    "detail": event.detail or "",
+                    "actor": f"{event.actor_type}:{event.actor_id}"
+                    if event.actor_id
+                    else event.actor_type,
+                }
+            )
         return timeline
 
     async def list_events(
@@ -223,11 +227,13 @@ class AuditService:
         if event_type:
             stmt = stmt.where(AuditEvent.event_type == event_type)
 
-        count_result = await self.db.execute(
-            select(func.count()).select_from(stmt.subquery())
-        )
+        count_result = await self.db.execute(select(func.count()).select_from(stmt.subquery()))
         total = count_result.scalar() or 0
 
-        stmt = stmt.offset((page - 1) * page_size).limit(page_size).order_by(AuditEvent.created_at.desc())
+        stmt = (
+            stmt.offset((page - 1) * page_size)
+            .limit(page_size)
+            .order_by(AuditEvent.created_at.desc())
+        )
         result = await self.db.execute(stmt)
         return list(result.scalars().all()), total

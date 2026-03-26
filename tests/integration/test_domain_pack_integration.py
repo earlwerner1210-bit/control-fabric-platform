@@ -6,45 +6,35 @@ reconciliation → diagnosis works as a connected pipeline without mocking.
 
 from __future__ import annotations
 
-import uuid
-from datetime import date
-
 import pytest
 
-from app.domain_packs.contract_margin.parsers import ContractParser
 from app.domain_packs.contract_margin.compiler import ContractCompiler
+from app.domain_packs.contract_margin.parsers import ContractParser
 from app.domain_packs.contract_margin.rules import (
     BillabilityRuleEngine,
-    LeakageRuleEngine,
-    ScopeConflictDetector,
-    RecoveryRecommendationEngine,
     PenaltyExposureAnalyzer,
+    RecoveryRecommendationEngine,
+    ScopeConflictDetector,
 )
 from app.domain_packs.contract_margin.schemas import (
     BillabilityDecision,
-    ContractCompileSummary,
     LeakageTrigger,
-    Obligation,
     ParsedContract,
     PenaltyCondition,
     PenaltyExposureSummary,
     RateCardEntry,
-    SLAEntry,
-    ScopeBoundaryObject,
-    ScopeType,
 )
 from app.domain_packs.reconciliation import (
-    ContractWorkOrderLinker,
-    EvidenceChainValidator,
     EvidenceBundle,
-    MarginDiagnosisReconciler,
+    EvidenceChainValidator,
     MarginDiagnosisBundle,
+    MarginDiagnosisReconciler,
 )
-
 
 # ---------------------------------------------------------------------------
 # Full pipeline: parse → compile → evaluate → reconcile
 # ---------------------------------------------------------------------------
+
 
 class TestFullPipelineIntegration:
     """Test the complete domain pack pipeline."""
@@ -61,15 +51,50 @@ class TestFullPipelineIntegration:
             "governing_law": "Scotland",
             "payment_terms": "Net 30",
             "clauses": [
-                {"id": "CL-001", "type": "obligation", "text": "Monthly SLA reporting required", "section": "5.1"},
-                {"id": "CL-002", "type": "sla", "text": "P1 response 2h, P2 response 4h", "section": "6.1"},
-                {"id": "CL-003", "type": "penalty", "text": "5% penalty per SLA breach, capped at 30%", "section": "7.1"},
-                {"id": "CL-004", "type": "rate", "text": "HV switching £450/day, cable jointing £180/each", "section": "8.1"},
-                {"id": "CL-005", "type": "scope", "text": "All HV and LV maintenance in-scope", "section": "3.1"},
+                {
+                    "id": "CL-001",
+                    "type": "obligation",
+                    "text": "Monthly SLA reporting required",
+                    "section": "5.1",
+                },
+                {
+                    "id": "CL-002",
+                    "type": "sla",
+                    "text": "P1 response 2h, P2 response 4h",
+                    "section": "6.1",
+                },
+                {
+                    "id": "CL-003",
+                    "type": "penalty",
+                    "text": "5% penalty per SLA breach, capped at 30%",
+                    "section": "7.1",
+                },
+                {
+                    "id": "CL-004",
+                    "type": "rate",
+                    "text": "HV switching £450/day, cable jointing £180/each",
+                    "section": "8.1",
+                },
+                {
+                    "id": "CL-005",
+                    "type": "scope",
+                    "text": "All HV and LV maintenance in-scope",
+                    "section": "3.1",
+                },
             ],
             "sla_table": [
-                {"priority": "P1", "response_time_hours": 2.0, "resolution_time_hours": 8.0, "penalty_percentage": 5.0},
-                {"priority": "P2", "response_time_hours": 4.0, "resolution_time_hours": 24.0, "penalty_percentage": 3.0},
+                {
+                    "priority": "P1",
+                    "response_time_hours": 2.0,
+                    "resolution_time_hours": 8.0,
+                    "penalty_percentage": 5.0,
+                },
+                {
+                    "priority": "P2",
+                    "response_time_hours": 4.0,
+                    "resolution_time_hours": 24.0,
+                    "penalty_percentage": 3.0,
+                },
             ],
             "rate_card": [
                 {"activity": "hv_switching", "unit": "day", "rate": 450.0, "currency": "GBP"},
@@ -133,8 +158,20 @@ class TestFullPipelineIntegration:
 
         # Build contract objects for the linker
         contract_objects = [
-            {"id": "CL-004", "type": "rate_card", "activity": "hv_switching", "rate": 450.0, "unit": "day"},
-            {"id": "CL-004b", "type": "rate_card", "activity": "cable_jointing", "rate": 180.0, "unit": "each"},
+            {
+                "id": "CL-004",
+                "type": "rate_card",
+                "activity": "hv_switching",
+                "rate": 450.0,
+                "unit": "day",
+            },
+            {
+                "id": "CL-004b",
+                "type": "rate_card",
+                "activity": "cable_jointing",
+                "rate": 180.0,
+                "unit": "each",
+            },
             {"id": "CL-001", "type": "obligation", "description": "Monthly SLA reporting"},
         ]
         work_orders = [

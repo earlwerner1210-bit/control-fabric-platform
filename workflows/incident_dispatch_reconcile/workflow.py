@@ -9,6 +9,7 @@ from typing import Any
 @dataclass
 class IncidentDispatchResult:
     """Result of an incident dispatch workflow run."""
+
     case_id: str
     incident_id: str
     assigned_team: str | None = None
@@ -67,9 +68,7 @@ class IncidentDispatchWorkflow:
             assigned_team = self._determine_team(priority, category)
 
         # Calculate SLA
-        sla_targets = {
-            "P1": 240, "P2": 480, "P3": 1440, "P4": 4320
-        }
+        sla_targets = {"P1": 240, "P2": 480, "P3": 1440, "P4": 4320}
         sla_target_minutes = sla_targets.get(priority, 1440)
 
         # Add standard actions

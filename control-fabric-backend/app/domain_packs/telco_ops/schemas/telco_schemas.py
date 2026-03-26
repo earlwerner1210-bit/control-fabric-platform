@@ -7,14 +7,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
+
 
 class IncidentSeverity(str, Enum):
     """Severity classification aligned with ITIL priority model."""
@@ -59,6 +58,7 @@ class ServiceImpact(str, Enum):
 # Core domain objects
 # ---------------------------------------------------------------------------
 
+
 class IncidentObject(BaseModel):
     """Full incident record."""
 
@@ -67,21 +67,23 @@ class IncidentObject(BaseModel):
     description: str = Field("", description="Detailed description of the incident")
     severity: IncidentSeverity = Field(..., description="Severity / priority classification")
     status: IncidentStatus = Field(IncidentStatus.open, description="Current lifecycle status")
-    reported_at: Optional[datetime] = Field(None, description="When the incident was first reported")
-    acknowledged_at: Optional[datetime] = Field(None, description="When the incident was acknowledged")
-    resolved_at: Optional[datetime] = Field(None, description="When the incident was resolved")
+    reported_at: datetime | None = Field(None, description="When the incident was first reported")
+    acknowledged_at: datetime | None = Field(None, description="When the incident was acknowledged")
+    resolved_at: datetime | None = Field(None, description="When the incident was resolved")
     service_impact: ServiceImpact = Field(
         ServiceImpact.no_impact,
         description="Assessed impact on services",
     )
     affected_services: list[str] = Field(default_factory=list, description="Service IDs affected")
-    affected_customers_count: int = Field(0, ge=0, description="Estimated number of affected customers")
+    affected_customers_count: int = Field(
+        0, ge=0, description="Estimated number of affected customers"
+    )
     work_order_refs: list[str] = Field(
         default_factory=list,
         description="References to related field work orders",
     )
-    root_cause: Optional[str] = Field(None, description="Root cause once identified")
-    resolution_summary: Optional[str] = Field(None, description="Summary of resolution actions")
+    root_cause: str | None = Field(None, description="Root cause once identified")
+    resolution_summary: str | None = Field(None, description="Summary of resolution actions")
 
     class Config:
         use_enum_values = True
@@ -92,10 +94,12 @@ class IncidentStateObject(BaseModel):
 
     incident_id: str = Field(..., description="Incident this transition belongs to")
     current_state: IncidentStatus = Field(..., description="State after transition")
-    previous_state: Optional[IncidentStatus] = Field(None, description="State before transition")
+    previous_state: IncidentStatus | None = Field(None, description="State before transition")
     transition_reason: str = Field("", description="Why the transition occurred")
-    transitioned_by: Optional[str] = Field(None, description="User or system that triggered the transition")
-    transitioned_at: Optional[datetime] = Field(None, description="Timestamp of transition")
+    transitioned_by: str | None = Field(
+        None, description="User or system that triggered the transition"
+    )
+    transitioned_at: datetime | None = Field(None, description="Timestamp of transition")
 
     class Config:
         use_enum_values = True
@@ -106,8 +110,10 @@ class ServiceStateObject(BaseModel):
 
     service_id: str = Field(..., description="Unique service identifier")
     service_name: str = Field(..., description="Human-readable service name")
-    current_status: str = Field("operational", description="Current status (operational, degraded, outage)")
-    last_change: Optional[datetime] = Field(None, description="When the status last changed")
+    current_status: str = Field(
+        "operational", description="Current status (operational, degraded, outage)"
+    )
+    last_change: datetime | None = Field(None, description="When the status last changed")
     impact_level: ServiceImpact = Field(
         ServiceImpact.no_impact,
         description="Current impact level",

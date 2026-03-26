@@ -53,9 +53,7 @@ class ChunkingService:
         logger.info("document_chunked", document_id=str(document.id), chunk_count=len(db_chunks))
         return db_chunks
 
-    def _split_text(
-        self, text: str, chunk_size: int, overlap: int
-    ) -> list[tuple[str, int, int]]:
+    def _split_text(self, text: str, chunk_size: int, overlap: int) -> list[tuple[str, int, int]]:
         """Split text into overlapping chunks. Returns (content, start, end) tuples."""
         # Approximate characters per token ~4
         chars_per_token = 4

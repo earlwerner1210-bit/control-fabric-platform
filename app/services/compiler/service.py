@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.db.models import ControlObject, ControlObjectType, ControlLink
+from app.db.models import ControlLink, ControlObject, ControlObjectType
 
 logger = get_logger("compiler")
 
@@ -151,7 +151,9 @@ class CompilerService:
         objects.append(obj)
 
         await self.db.flush()
-        logger.info("work_order_compiled", document_id=str(source_document_id), objects=len(objects))
+        logger.info(
+            "work_order_compiled", document_id=str(source_document_id), objects=len(objects)
+        )
         return objects
 
     async def compile_incident(

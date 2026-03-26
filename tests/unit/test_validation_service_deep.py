@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -331,7 +331,9 @@ class TestValidateReconciliationInconsistentVerdict:
         result = await svc.validate_reconciliation_output(tenant_id, case_id, reconciliation)
 
         rules = result.rule_results["rules"]
-        consistency_rule = next(r for r in rules if r["rule_name"] == "verdict_conflict_consistency")
+        consistency_rule = next(
+            r for r in rules if r["rule_name"] == "verdict_conflict_consistency"
+        )
         assert consistency_rule["passed"] is False
 
 

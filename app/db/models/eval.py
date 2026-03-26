@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, TimestampMixin, TenantMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, TenantMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class EvalCase(Base, UUIDPrimaryKeyMixin, TimestampMixin):

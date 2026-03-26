@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jose import JWTError, jwt
@@ -40,7 +40,7 @@ def create_access_token(
     expires_delta: timedelta | None = None,
 ) -> str:
     """Create a signed JWT access token."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expire = now + (expires_delta or timedelta(minutes=_settings.JWT_EXPIRATION_MINUTES))
     payload: dict[str, Any] = {
         "sub": user_id,

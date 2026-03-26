@@ -123,7 +123,9 @@ async def _create_case_record(
 # ── Workflow trigger endpoints ────────────────────────────────────────────
 
 
-@router.post("/contract-compile", response_model=CaseStartResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/contract-compile", response_model=CaseStartResponse, status_code=status.HTTP_202_ACCEPTED
+)
 async def trigger_contract_compile(
     body: ContractCompileRequest,
     db: AsyncSession = Depends(get_db),
@@ -157,7 +159,9 @@ async def trigger_contract_compile(
     )
 
 
-@router.post("/work-order-readiness", response_model=CaseStartResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/work-order-readiness", response_model=CaseStartResponse, status_code=status.HTTP_202_ACCEPTED
+)
 async def trigger_work_order_readiness(
     body: WorkOrderReadinessRequest,
     db: AsyncSession = Depends(get_db),
@@ -192,7 +196,11 @@ async def trigger_work_order_readiness(
     )
 
 
-@router.post("/incident-dispatch-reconcile", response_model=CaseStartResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/incident-dispatch-reconcile",
+    response_model=CaseStartResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def trigger_incident_dispatch(
     body: IncidentDispatchRequest,
     db: AsyncSession = Depends(get_db),
@@ -226,7 +234,9 @@ async def trigger_incident_dispatch(
     )
 
 
-@router.post("/margin-diagnosis", response_model=CaseStartResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/margin-diagnosis", response_model=CaseStartResponse, status_code=status.HTTP_202_ACCEPTED
+)
 async def trigger_margin_diagnosis(
     body: MarginDiagnosisRequest,
     db: AsyncSession = Depends(get_db),

@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -71,9 +71,7 @@ class EvalService:
         """Simulate output for eval case. Replace with actual workflow call in production."""
         return case.expected_output  # Passthrough for now
 
-    def _compare_outputs(
-        self, expected: dict, actual: dict
-    ) -> tuple[bool, float, dict]:
+    def _compare_outputs(self, expected: dict, actual: dict) -> tuple[bool, float, dict]:
         """Compare expected and actual outputs."""
         matching_keys = 0
         total_keys = len(expected)
@@ -89,11 +87,15 @@ class EvalService:
         score = matching_keys / max(total_keys, 1)
         passed = score >= 0.8
 
-        return passed, score, {
-            "matching_keys": matching_keys,
-            "total_keys": total_keys,
-            "mismatches": mismatches,
-        }
+        return (
+            passed,
+            score,
+            {
+                "matching_keys": matching_keys,
+                "total_keys": total_keys,
+                "mismatches": mismatches,
+            },
+        )
 
     async def list_cases(
         self, domain: str | None = None, workflow_type: str | None = None

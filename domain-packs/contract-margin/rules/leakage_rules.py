@@ -8,14 +8,11 @@ orders, or unmitigated penalty exposure.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
-from typing import Optional
 
 from ..schemas.contract_schemas import (
     LeakageDriver,
     MarginLeakageDiagnosis,
     ParsedContract,
-    PenaltyCondition,
     RecoveryRecommendation,
 )
 
@@ -31,7 +28,7 @@ class WorkHistoryEntry:
     actual_rate: float
     date: str
     billed: bool = False
-    change_order_ref: Optional[str] = None
+    change_order_ref: str | None = None
     in_original_scope: bool = True
 
 
@@ -112,10 +109,16 @@ class LeakageRuleEngine:
 
         summary_parts = []
         if triggers:
-            summary_parts.append(f"Identified {len(triggers)} leakage trigger(s) across {len(drivers)} driver(s).")
-            summary_parts.append(f"Estimated total leakage: {contract.currency} {total_leakage:,.2f}.")
+            summary_parts.append(
+                f"Identified {len(triggers)} leakage trigger(s) across {len(drivers)} driver(s)."
+            )
+            summary_parts.append(
+                f"Estimated total leakage: {contract.currency} {total_leakage:,.2f}."
+            )
             if recommendations:
-                summary_parts.append(f"Generated {len(recommendations)} recovery recommendation(s).")
+                summary_parts.append(
+                    f"Generated {len(recommendations)} recovery recommendation(s)."
+                )
         else:
             summary_parts.append("No margin leakage detected. Contract performance is healthy.")
 
@@ -175,7 +178,7 @@ class LeakageRuleEngine:
 
         for entry in work_history:
             role_lower = entry.role.lower()
-            contracted_rate: Optional[float] = None
+            contracted_rate: float | None = None
             for role_key, rate in rate_lookup.items():
                 if role_lower in role_key or role_key in role_lower:
                     contracted_rate = rate
@@ -207,8 +210,7 @@ class LeakageRuleEngine:
         """Detect work performed outside the original contract scope without a change order."""
         triggers: list[LeakageTrigger] = []
         out_of_scope = [
-            e for e in work_history
-            if not e.in_original_scope and not e.change_order_ref
+            e for e in work_history if not e.in_original_scope and not e.change_order_ref
         ]
         if not out_of_scope:
             return triggers
@@ -240,8 +242,7 @@ class LeakageRuleEngine:
         """Detect out-of-scope work that lacks a formal change order."""
         triggers: list[LeakageTrigger] = []
         missing_co = [
-            e for e in work_history
-            if not e.in_original_scope and e.change_order_ref is None
+            e for e in work_history if not e.in_original_scope and e.change_order_ref is None
         ]
         if not missing_co:
             return triggers

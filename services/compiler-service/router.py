@@ -10,7 +10,12 @@ from shared.schemas.common import TenantContext
 from shared.schemas.control_objects import ControlObjectResponse
 from shared.security.auth import get_current_user
 
-from .schemas import CompileContractRequest, CompileIncidentRequest, CompileResponse, CompileWorkOrderRequest
+from .schemas import (
+    CompileContractRequest,
+    CompileIncidentRequest,
+    CompileResponse,
+    CompileWorkOrderRequest,
+)
 from .service import CompilerService
 
 router = APIRouter(prefix="/compile", tags=["compiler"])

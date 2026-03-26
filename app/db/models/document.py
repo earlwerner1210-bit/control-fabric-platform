@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import uuid
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pgvector.sqlalchemy import Vector
 
-from app.db.base import Base, TimestampMixin, TenantMixin, UUIDPrimaryKeyMixin
-from app.core.config import get_settings
+from app.db.base import Base, TenantMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class Document(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
@@ -34,7 +33,10 @@ class DocumentChunk(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
     __tablename__ = "document_chunks"
 
     document_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)

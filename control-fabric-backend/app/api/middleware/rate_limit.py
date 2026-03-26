@@ -16,7 +16,7 @@ _EXEMPT_PREFIXES = ("/health", "/ready", "/metrics")
 class _TokenBucket:
     """Simple token-bucket implementation."""
 
-    __slots__ = ("max_tokens", "refill_rate", "_tokens", "_last_refill", "_lock")
+    __slots__ = ("_last_refill", "_lock", "_tokens", "max_tokens", "refill_rate")
 
     def __init__(self, max_tokens: float, refill_rate: float) -> None:
         self.max_tokens = max_tokens
@@ -52,7 +52,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Tokens restored per second.
     """
 
-    def __init__(self, app, max_tokens: float = 60.0, refill_rate: float = 10.0) -> None:  # noqa: ANN001
+    def __init__(self, app, max_tokens: float = 60.0, refill_rate: float = 10.0) -> None:
         super().__init__(app)
         self.max_tokens = max_tokens
         self.refill_rate = refill_rate

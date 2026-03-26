@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Optional
 
 from ..schemas.telco_schemas import ParsedIncident, ServiceStateMapping
 from ..taxonomy.telco_taxonomy import (
@@ -23,7 +22,9 @@ from ..taxonomy.telco_taxonomy import (
 # ---------------------------------------------------------------------------
 
 _SEVERITY_KEYWORDS: dict[IncidentSeverity, re.Pattern[str]] = {
-    IncidentSeverity.p1: re.compile(r"\b(P1|priority\s*1|critical|sev[- ]?1|major\s+outage)\b", re.I),
+    IncidentSeverity.p1: re.compile(
+        r"\b(P1|priority\s*1|critical|sev[- ]?1|major\s+outage)\b", re.I
+    ),
     IncidentSeverity.p2: re.compile(r"\b(P2|priority\s*2|high|sev[- ]?2|significant)\b", re.I),
     IncidentSeverity.p3: re.compile(r"\b(P3|priority\s*3|medium|sev[- ]?3|moderate)\b", re.I),
     IncidentSeverity.p4: re.compile(r"\b(P4|priority\s*4|low|sev[- ]?4|minor)\b", re.I),
@@ -32,7 +33,9 @@ _SEVERITY_KEYWORDS: dict[IncidentSeverity, re.Pattern[str]] = {
 _STATE_KEYWORDS: dict[IncidentState, re.Pattern[str]] = {
     IncidentState.new: re.compile(r"\b(new|opened|raised|reported)\b", re.I),
     IncidentState.acknowledged: re.compile(r"\b(acknowledged|accepted|assigned)\b", re.I),
-    IncidentState.investigating: re.compile(r"\b(investigating|in\s+progress|diagnosing|troubleshooting)\b", re.I),
+    IncidentState.investigating: re.compile(
+        r"\b(investigating|in\s+progress|diagnosing|troubleshooting)\b", re.I
+    ),
     IncidentState.resolved: re.compile(r"\b(resolved|fixed|repaired|restored)\b", re.I),
     IncidentState.closed: re.compile(r"\b(closed|completed|archived)\b", re.I),
 }
@@ -40,9 +43,13 @@ _STATE_KEYWORDS: dict[IncidentState, re.Pattern[str]] = {
 _SERVICE_STATE_KEYWORDS: dict[ServiceState, re.Pattern[str]] = {
     ServiceState.outage: re.compile(r"\b(outage|down|offline|unavailable|total\s+loss)\b", re.I),
     ServiceState.degraded: re.compile(r"\b(degraded|impaired|slow|intermittent|partial)\b", re.I),
-    ServiceState.maintenance: re.compile(r"\b(maintenance|planned\s+work|scheduled\s+downtime)\b", re.I),
+    ServiceState.maintenance: re.compile(
+        r"\b(maintenance|planned\s+work|scheduled\s+downtime)\b", re.I
+    ),
     ServiceState.active: re.compile(r"\b(active|operational|healthy|normal|up)\b", re.I),
-    ServiceState.provisioning: re.compile(r"\b(provisioning|setup|deploying|commissioning)\b", re.I),
+    ServiceState.provisioning: re.compile(
+        r"\b(provisioning|setup|deploying|commissioning)\b", re.I
+    ),
 }
 
 _DATETIME_PATTERN = re.compile(
@@ -50,12 +57,20 @@ _DATETIME_PATTERN = re.compile(
 )
 
 _FIELD_PATTERNS = {
-    "incident_id": re.compile(r"(?:incident|ticket|id|ref|#)\s*[:=]?\s*(INC[- ]?[\w\-]+|\w+-\d+)", re.I),
+    "incident_id": re.compile(
+        r"(?:incident|ticket|id|ref|#)\s*[:=]?\s*(INC[- ]?[\w\-]+|\w+-\d+)", re.I
+    ),
     "title": re.compile(r"(?:title|subject|summary)\s*[:=]\s*(.+?)(?:\n|$)", re.I),
-    "reporter": re.compile(r"(?:reported\s+by|reporter|raised\s+by|from)\s*[:=]?\s*(.+?)(?:\n|$)", re.I),
+    "reporter": re.compile(
+        r"(?:reported\s+by|reporter|raised\s+by|from)\s*[:=]?\s*(.+?)(?:\n|$)", re.I
+    ),
     "assigned_to": re.compile(r"(?:assigned\s+to|owner|assignee)\s*[:=]?\s*(.+?)(?:\n|$)", re.I),
-    "root_cause": re.compile(r"(?:root\s+cause|rca|cause)\s*[:=]\s*(.+?)(?:\n\n|\Z)", re.I | re.DOTALL),
-    "resolution": re.compile(r"(?:resolution|fix|solution|workaround)\s*[:=]\s*(.+?)(?:\n\n|\Z)", re.I | re.DOTALL),
+    "root_cause": re.compile(
+        r"(?:root\s+cause|rca|cause)\s*[:=]\s*(.+?)(?:\n\n|\Z)", re.I | re.DOTALL
+    ),
+    "resolution": re.compile(
+        r"(?:resolution|fix|solution|workaround)\s*[:=]\s*(.+?)(?:\n\n|\Z)", re.I | re.DOTALL
+    ),
 }
 
 _AFFECTED_SERVICE_PATTERN = re.compile(
@@ -76,7 +91,7 @@ _RECURRING_PATTERN = re.compile(
 _TAG_PATTERN = re.compile(r"(?:tags?|labels?|categories?)\s*[:=]\s*(.+?)(?:\n|$)", re.I)
 
 
-def _parse_datetime(text: str) -> Optional[datetime]:
+def _parse_datetime(text: str) -> datetime | None:
     """Parse first datetime from text."""
     match = _DATETIME_PATTERN.search(text)
     if match:
@@ -155,7 +170,9 @@ class IncidentParser:
         # Recurring
         is_recurring = bool(_RECURRING_PATTERN.search(text))
         recurrence_match = re.search(r"(\d+)\s*(?:times?|occurrences?|repeats?)", text, re.I)
-        recurrence_count = int(recurrence_match.group(1)) if recurrence_match else (1 if is_recurring else 0)
+        recurrence_count = (
+            int(recurrence_match.group(1)) if recurrence_match else (1 if is_recurring else 0)
+        )
 
         # Related incidents
         related_ids: list[str] = []
@@ -195,14 +212,18 @@ class IncidentParser:
     def _detect_state(self, text: str) -> IncidentState:
         """Detect current incident state from keywords."""
         # Check terminal states first
-        for state in (IncidentState.closed, IncidentState.resolved,
-                      IncidentState.investigating, IncidentState.acknowledged,
-                      IncidentState.new):
+        for state in (
+            IncidentState.closed,
+            IncidentState.resolved,
+            IncidentState.investigating,
+            IncidentState.acknowledged,
+            IncidentState.new,
+        ):
             if _STATE_KEYWORDS[state].search(text):
                 return state
         return IncidentState.new
 
-    def _extract_field(self, text: str, field_name: str) -> Optional[str]:
+    def _extract_field(self, text: str, field_name: str) -> str | None:
         """Extract a named field value from text."""
         pattern = _FIELD_PATTERNS.get(field_name)
         if pattern:
@@ -259,7 +280,7 @@ class TicketParser:
             Dictionary of field name to value.
         """
         fields: dict[str, str] = {}
-        current_key: Optional[str] = None
+        current_key: str | None = None
         current_value_lines: list[str] = []
 
         for line in text.split("\n"):

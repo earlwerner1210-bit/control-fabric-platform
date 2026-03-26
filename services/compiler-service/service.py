@@ -95,7 +95,9 @@ class CompilerService:
 
         links_created = await self.create_control_links(objects, tenant_id)
         await self.db.flush()
-        logger.info("Compiled contract %s: %d objects, %d links", document_id, len(objects), links_created)
+        logger.info(
+            "Compiled contract %s: %d objects, %d links", document_id, len(objects), links_created
+        )
         return {"objects": objects, "links_created": links_created, "warnings": warnings}
 
     async def compile_work_order(
@@ -105,7 +107,11 @@ class CompilerService:
         doc = await self._get_document(document_id, tenant_id)
         objects: list[ControlObject] = []
 
-        for ctype in [ControlObjectType.dispatch_precondition, ControlObjectType.skill_requirement, ControlObjectType.readiness_check]:
+        for ctype in [
+            ControlObjectType.dispatch_precondition,
+            ControlObjectType.skill_requirement,
+            ControlObjectType.readiness_check,
+        ]:
             obj = ControlObject(
                 id=uuid.uuid4(),
                 tenant_id=tenant_id,
@@ -152,9 +158,7 @@ class CompilerService:
         logger.info("Compiled incident %s: %d objects", document_id, len(objects))
         return {"objects": objects, "links_created": links_created, "warnings": []}
 
-    async def create_control_links(
-        self, objects: list[ControlObject], tenant_id: uuid.UUID
-    ) -> int:
+    async def create_control_links(self, objects: list[ControlObject], tenant_id: uuid.UUID) -> int:
         """Create links between related control objects."""
         count = 0
         for i in range(len(objects)):

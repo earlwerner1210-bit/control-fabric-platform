@@ -31,7 +31,6 @@ from workflows.contract_compile.workflow import (
     ValidateOutput,
 )
 
-
 # ── Shared HTTP client for service calls ──────────────────────────────────
 
 SERVICE_BASE_URLS = {
@@ -75,9 +74,7 @@ async def parse_documents(input: ParseDocumentsInput) -> ParseDocumentsOutput:
                 parsed_content[doc_id] = result.get("content", {})
                 activity.logger.info("Parsed document %s", doc_id)
             except httpx.HTTPStatusError as exc:
-                activity.logger.error(
-                    "Failed to parse document %s: %s", doc_id, exc.response.text
-                )
+                activity.logger.error("Failed to parse document %s: %s", doc_id, exc.response.text)
                 raise
             except httpx.ConnectError:
                 activity.logger.warning(
@@ -262,9 +259,7 @@ async def create_links(input: CreateLinksInput) -> CreateLinksOutput:
 @activity.defn
 async def validate_output(input: ValidateInput) -> ValidateOutput:
     """Run domain-specific validation rules on compiled control objects."""
-    activity.logger.info(
-        "Validating %d control objects", len(input.control_object_ids)
-    )
+    activity.logger.info("Validating %d control objects", len(input.control_object_ids))
 
     async with _client() as client:
         try:

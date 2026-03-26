@@ -90,9 +90,7 @@ class RetrievalService:
 
         if filters:
             for key, value in filters.items():
-                candidates = [
-                    c for c in candidates if c.get("metadata", {}).get(key) == value
-                ]
+                candidates = [c for c in candidates if c.get("metadata", {}).get(key) == value]
 
         if not candidates:
             return []

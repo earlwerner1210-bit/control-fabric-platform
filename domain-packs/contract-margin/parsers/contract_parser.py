@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from datetime import date, datetime
-from typing import Optional
+from datetime import date
 
 from ..schemas.contract_schemas import (
     BillableEvent,
@@ -65,20 +64,35 @@ _BILLABLE_KEYWORDS = re.compile(
 )
 
 _MONTH_MAP = {
-    "january": 1, "february": 2, "march": 3, "april": 4,
-    "may": 5, "june": 6, "july": 7, "august": 8,
-    "september": 9, "october": 10, "november": 11, "december": 12,
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
 }
 
 # Clause-type keyword mapping
 _CLAUSE_TYPE_KEYWORDS: dict[ClauseType, re.Pattern[str]] = {
     ClauseType.obligation: re.compile(r"\b(obligation|shall|must|required)\b", re.I),
-    ClauseType.penalty: re.compile(r"\b(penalty|liquidated damages|service credit|deduction)\b", re.I),
+    ClauseType.penalty: re.compile(
+        r"\b(penalty|liquidated damages|service credit|deduction)\b", re.I
+    ),
     ClauseType.sla: re.compile(r"\b(service level|SLA|uptime|availability|response time)\b", re.I),
-    ClauseType.rate: re.compile(r"\b(rate card|pricing|fee schedule|hourly rate|daily rate)\b", re.I),
+    ClauseType.rate: re.compile(
+        r"\b(rate card|pricing|fee schedule|hourly rate|daily rate)\b", re.I
+    ),
     ClauseType.scope: re.compile(r"\b(scope of work|deliverable|in scope|out of scope)\b", re.I),
     ClauseType.termination: re.compile(r"\b(terminat|cancel|expir|end of term)\b", re.I),
-    ClauseType.liability: re.compile(r"\b(liability|liable|cap on liability|limitation of liability)\b", re.I),
+    ClauseType.liability: re.compile(
+        r"\b(liability|liable|cap on liability|limitation of liability)\b", re.I
+    ),
     ClauseType.indemnity: re.compile(r"\b(indemnif|hold harmless|defend and indemnify)\b", re.I),
 }
 
@@ -86,17 +100,21 @@ _CLAUSE_TYPE_KEYWORDS: dict[ClauseType, re.Pattern[str]] = {
 _CONTRACT_TYPE_KEYWORDS: dict[ContractType, re.Pattern[str]] = {
     ContractType.master_services: re.compile(r"\b(master service|MSA|framework agreement)\b", re.I),
     ContractType.work_order: re.compile(r"\b(work order|statement of work|SOW)\b", re.I),
-    ContractType.change_order: re.compile(r"\b(change order|change request|variation order)\b", re.I),
+    ContractType.change_order: re.compile(
+        r"\b(change order|change request|variation order)\b", re.I
+    ),
     ContractType.framework: re.compile(r"\b(framework|blanket agreement|umbrella)\b", re.I),
     ContractType.amendment: re.compile(r"\b(amendment|addendum|supplement)\b", re.I),
 }
 
 
-def _parse_date_match(match: re.Match[str]) -> Optional[date]:
+def _parse_date_match(match: re.Match[str]) -> date | None:
     """Convert a regex date match into a date object."""
     try:
         if match.group("year"):
-            return date(int(match.group("year")), int(match.group("month")), int(match.group("day")))
+            return date(
+                int(match.group("year")), int(match.group("month")), int(match.group("day"))
+            )
         if match.group("year2"):
             month_num = _MONTH_MAP.get(match.group("month2").lower())
             if month_num:
@@ -110,7 +128,7 @@ def _parse_date_match(match: re.Match[str]) -> Optional[date]:
     return None
 
 
-def _extract_first_date(text: str) -> Optional[date]:
+def _extract_first_date(text: str) -> date | None:
     """Extract the first date found in text."""
     match = _DATE_PATTERN.search(text)
     if match:
@@ -159,13 +177,13 @@ def _extract_parties(text: str) -> list[str]:
     )
     if between_match:
         for group in between_match.groups():
-            party = re.sub(r"\s*\(.*?\)\s*", "", group).strip().strip('"\'')
+            party = re.sub(r"\s*\(.*?\)\s*", "", group).strip().strip("\"'")
             if party and len(party) < 200:
                 parties.append(party)
     return parties
 
 
-def _extract_amount(text: str) -> Optional[float]:
+def _extract_amount(text: str) -> float | None:
     """Extract a monetary amount from text."""
     match = re.search(
         r"(?:USD|GBP|EUR|\$|£|€)\s*([\d,]+(?:\.\d{2})?)",
@@ -210,7 +228,7 @@ class ContractParser:
         expiry_date = dates[1] if len(dates) > 1 else None
 
         # Detect billing category from text
-        billing_category: Optional[BillableCategory] = None
+        billing_category: BillableCategory | None = None
         billing_patterns: dict[BillableCategory, re.Pattern[str]] = {
             BillableCategory.time_and_materials: re.compile(r"\btime\s+and\s+materials?\b", re.I),
             BillableCategory.fixed_price: re.compile(r"\bfixed\s+price\b", re.I),
@@ -325,7 +343,9 @@ class ContractParser:
             for sentence in sentences:
                 if _OBLIGATION_KEYWORDS.search(sentence):
                     # Try to identify the obligated party
-                    party_match = re.match(r"^([\w\s]+?)\s+(?:shall|must|is required)", sentence, re.I)
+                    party_match = re.match(
+                        r"^([\w\s]+?)\s+(?:shall|must|is required)", sentence, re.I
+                    )
                     party = party_match.group(1).strip() if party_match else "Provider"
                     obligations.append(
                         Obligation(
@@ -354,7 +374,11 @@ class ContractParser:
             formula = formula_match.group(1).strip() if formula_match else None
 
             # Look for cap
-            cap_match = re.search(r"(?:cap|maximum|not\s+exceed)\s*(?:of\s+)?(?:USD|GBP|EUR|\$|£|€)?\s*([\d,]+)", clause.text, re.I)
+            cap_match = re.search(
+                r"(?:cap|maximum|not\s+exceed)\s*(?:of\s+)?(?:USD|GBP|EUR|\$|£|€)?\s*([\d,]+)",
+                clause.text,
+                re.I,
+            )
             cap = float(cap_match.group(1).replace(",", "")) if cap_match else None
 
             # Determine penalty type

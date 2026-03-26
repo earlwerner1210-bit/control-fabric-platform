@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import io
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 
 
@@ -33,7 +30,9 @@ class TestDocumentsAPI:
         assert data["status"] == "uploaded"
 
     @pytest.mark.asyncio
-    async def test_parse_document_not_found(self, async_client: AsyncClient, auth_headers: dict[str, str]):
+    async def test_parse_document_not_found(
+        self, async_client: AsyncClient, auth_headers: dict[str, str]
+    ):
         """POST /documents/{id}/parse should return 404 for non-existent document."""
         response = await async_client.post(
             "/api/v1/documents/fake-id/parse",
@@ -42,7 +41,9 @@ class TestDocumentsAPI:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_embed_document_not_found(self, async_client: AsyncClient, auth_headers: dict[str, str]):
+    async def test_embed_document_not_found(
+        self, async_client: AsyncClient, auth_headers: dict[str, str]
+    ):
         """POST /documents/{id}/embed should return 404 for non-existent document."""
         response = await async_client.post(
             "/api/v1/documents/fake-id/embed",
@@ -51,7 +52,9 @@ class TestDocumentsAPI:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_document_not_found(self, async_client: AsyncClient, auth_headers: dict[str, str]):
+    async def test_get_document_not_found(
+        self, async_client: AsyncClient, auth_headers: dict[str, str]
+    ):
         """GET /documents/{id} should return 404 for non-existent document."""
         response = await async_client.get(
             "/api/v1/documents/fake-id",
@@ -60,7 +63,9 @@ class TestDocumentsAPI:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_list_documents_empty(self, async_client: AsyncClient, auth_headers: dict[str, str]):
+    async def test_list_documents_empty(
+        self, async_client: AsyncClient, auth_headers: dict[str, str]
+    ):
         """GET /documents should return empty list for no documents."""
         response = await async_client.get(
             "/api/v1/documents",

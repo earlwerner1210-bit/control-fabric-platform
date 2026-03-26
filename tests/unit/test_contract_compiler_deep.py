@@ -8,7 +8,6 @@ import pytest
 
 from app.domain_packs.contract_margin.compiler import ContractCompiler, ContractCompileResult
 from app.domain_packs.contract_margin.schemas import (
-    ClauseSegment,
     ClauseType,
     ContractType,
     ExtractedClause,
@@ -18,7 +17,6 @@ from app.domain_packs.contract_margin.schemas import (
     ScopeType,
     SLAEntry,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -39,12 +37,14 @@ def contract_with_scope() -> ParsedContract:
         parties=["AlphaCorp", "BetaServices"],
         clauses=[
             ExtractedClause(
-                id="CL-001", type=ClauseType.scope,
+                id="CL-001",
+                type=ClauseType.scope,
                 text="Services include network maintenance and monitoring.",
                 section="2.1",
             ),
             ExtractedClause(
-                id="CL-002", type=ClauseType.obligation,
+                id="CL-002",
+                type=ClauseType.obligation,
                 text="Provider shall deliver all scheduled maintenance.",
                 section="2.2",
             ),
@@ -82,42 +82,50 @@ def contract_with_billing_gates() -> ParsedContract:
         title="Billing Gate Contract",
         clauses=[
             ExtractedClause(
-                id="CL-010", type=ClauseType.obligation,
+                id="CL-010",
+                type=ClauseType.obligation,
                 text="Prior approval must be obtained before commencing variation work.",
                 section="3.1",
             ),
             ExtractedClause(
-                id="CL-011", type=ClauseType.obligation,
+                id="CL-011",
+                type=ClauseType.obligation,
                 text="A signed daywork sheet must accompany all T&M claims.",
                 section="3.2",
             ),
             ExtractedClause(
-                id="CL-012", type=ClauseType.obligation,
+                id="CL-012",
+                type=ClauseType.obligation,
                 text="Completion certificate is required before final invoicing.",
                 section="3.3",
             ),
             ExtractedClause(
-                id="CL-013", type=ClauseType.obligation,
+                id="CL-013",
+                type=ClauseType.obligation,
                 text="Provider shall submit as-built drawings within 14 days.",
                 section="3.4",
             ),
             ExtractedClause(
-                id="CL-014", type=ClauseType.obligation,
+                id="CL-014",
+                type=ClauseType.obligation,
                 text="All permits must be closed out before demobilisation.",
                 section="3.5",
             ),
             ExtractedClause(
-                id="CL-015", type=ClauseType.obligation,
+                id="CL-015",
+                type=ClauseType.obligation,
                 text="A purchase order must be raised for all work exceeding threshold.",
                 section="3.6",
             ),
             ExtractedClause(
-                id="CL-016", type=ClauseType.obligation,
+                id="CL-016",
+                type=ClauseType.obligation,
                 text="Customer sign-off is required on all completed jobs.",
                 section="3.7",
             ),
             ExtractedClause(
-                id="CL-017", type=ClauseType.obligation,
+                id="CL-017",
+                type=ClauseType.obligation,
                 text="A variation order must be issued for scope changes.",
                 section="3.8",
             ),
@@ -137,50 +145,69 @@ def spen_contract() -> ParsedContract:
         contract_type=ContractType.master_services,
         clauses=[
             ExtractedClause(
-                id="CL-S01", type=ClauseType.obligation,
+                id="CL-S01",
+                type=ClauseType.obligation,
                 text="Provider shall maintain all safety certifications.",
-                section="5.1", confidence=0.95,
+                section="5.1",
+                confidence=0.95,
             ),
             ExtractedClause(
-                id="CL-S02", type=ClauseType.penalty,
+                id="CL-S02",
+                type=ClauseType.penalty,
                 text="Failure to meet SLA shall result in 5% penalty. Breach cap at $50,000.",
-                section="6.1", confidence=0.90,
+                section="6.1",
+                confidence=0.90,
             ),
             ExtractedClause(
-                id="CL-S03", type=ClauseType.scope,
+                id="CL-S03",
+                type=ClauseType.scope,
                 text="Services include HV switching, LV fault repair, cable jointing.",
-                section="1.1", confidence=0.92,
+                section="1.1",
+                confidence=0.92,
             ),
             ExtractedClause(
-                id="CL-S04", type=ClauseType.obligation,
+                id="CL-S04",
+                type=ClauseType.obligation,
                 text="Prior approval is required for all emergency callouts above threshold.",
-                section="7.1", confidence=0.88,
+                section="7.1",
+                confidence=0.88,
             ),
             ExtractedClause(
-                id="CL-S05", type=ClauseType.obligation,
+                id="CL-S05",
+                type=ClauseType.obligation,
                 text="Completion certificate must be submitted before final payment.",
-                section="7.2", confidence=0.91,
+                section="7.2",
+                confidence=0.91,
             ),
         ],
         sla_table=[
             SLAEntry(
-                priority="P1", response_time_hours=1.0,
-                resolution_time_hours=4.0, availability="24x7",
+                priority="P1",
+                response_time_hours=1.0,
+                resolution_time_hours=4.0,
+                availability="24x7",
                 penalty_percentage=5.0,
             ),
             SLAEntry(
-                priority="P2", response_time_hours=2.0,
-                resolution_time_hours=8.0, availability="24x7",
+                priority="P2",
+                response_time_hours=2.0,
+                resolution_time_hours=8.0,
+                availability="24x7",
                 penalty_percentage=3.0,
             ),
         ],
         rate_card=[
             RateCardEntry(
-                activity="hv_switching", unit="hour", rate=150.0,
-                currency="GBP", escalation_rate=2.5,
+                activity="hv_switching",
+                unit="hour",
+                rate=150.0,
+                currency="GBP",
+                escalation_rate=2.5,
             ),
             RateCardEntry(
-                activity="lv_fault_repair", unit="hour", rate=125.0,
+                activity="lv_fault_repair",
+                unit="hour",
+                rate=125.0,
                 currency="GBP",
             ),
         ],
@@ -345,16 +372,12 @@ class TestCompileFullContractWithBillingGates:
         result = compiler.compile(contract_with_billing_gates)
         assert len(result.billing_gates) >= 6
         # Billing gates should appear in control_object_payloads
-        bg_payloads = [
-            p for p in result.control_object_payloads if p["type"] == "billing_gate"
-        ]
+        bg_payloads = [p for p in result.control_object_payloads if p["type"] == "billing_gate"]
         assert len(bg_payloads) == len(result.billing_gates)
 
 
 class TestCompilePreservesSourceLineage:
-    def test_clause_ids_preserved(
-        self, compiler: ContractCompiler, spen_contract: ParsedContract
-    ):
+    def test_clause_ids_preserved(self, compiler: ContractCompiler, spen_contract: ParsedContract):
         result = compiler.compile(spen_contract)
         clause_ids = [c["clause_id"] for c in result.clauses]
         assert "CL-S01" in clause_ids
@@ -373,6 +396,7 @@ class TestCompileCreatesNormalizedIds:
         self, compiler: ContractCompiler, spen_contract: ParsedContract
     ):
         import uuid as uuid_mod
+
         result = compiler.compile(spen_contract)
         for obj in result.control_object_payloads:
             payload = obj["payload"]
@@ -395,9 +419,7 @@ class TestCompileSummaryIncludesAllCounts:
         assert len(result.scope_boundaries) == 1
         assert len(result.billing_gates) >= 1
 
-    def test_payload_count_matches(
-        self, compiler: ContractCompiler, spen_contract: ParsedContract
-    ):
+    def test_payload_count_matches(self, compiler: ContractCompiler, spen_contract: ParsedContract):
         result = compiler.compile(spen_contract)
         expected = (
             len(result.clauses)
@@ -424,9 +446,7 @@ class TestCompileEmptyInput:
 
 
 class TestCompileSpenContractFixture:
-    def test_spen_full_compile(
-        self, compiler: ContractCompiler, spen_contract: ParsedContract
-    ):
+    def test_spen_full_compile(self, compiler: ContractCompiler, spen_contract: ParsedContract):
         result = compiler.compile(spen_contract)
         # All expected sections present
         assert result.clauses
@@ -438,9 +458,7 @@ class TestCompileSpenContractFixture:
         assert result.billing_gates
 
         # Verify SLA penalty auto-generation
-        sla_penalties = [
-            p for p in result.penalties if p["clause_id"].startswith("sla-")
-        ]
+        sla_penalties = [p for p in result.penalties if p["clause_id"].startswith("sla-")]
         assert len(sla_penalties) >= 2
 
 

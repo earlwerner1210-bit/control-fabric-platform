@@ -7,7 +7,7 @@ recommendations with estimated values, evidence references, and priorities.
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence
+from typing import Any
 
 from app.domain_packs.contract_margin.schemas.contract import (
     CommercialRecoveryRecommendation,
@@ -132,8 +132,8 @@ class RecoveryRecommendationEngine:
     def build_recommendations(
         self,
         leakage_triggers: list[LeakageTrigger],
-        contract_objects: Optional[ParsedContract] = None,
-        rate_card: Optional[list[RateCardEntry]] = None,
+        contract_objects: ParsedContract | None = None,
+        rate_card: list[RateCardEntry] | None = None,
     ) -> list[CommercialRecoveryRecommendation]:
         """Generate prioritised recovery recommendations.
 
@@ -175,7 +175,7 @@ class RecoveryRecommendationEngine:
         self,
         trigger: LeakageTrigger,
         rate_card: list[RateCardEntry],
-    ) -> Optional[CommercialRecoveryRecommendation]:
+    ) -> CommercialRecoveryRecommendation | None:
         """Build a single recommendation from a trigger."""
         mapping = _TRIGGER_RECOVERY_MAP.get(trigger.trigger_type)
         if mapping is None:

@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.domain_packs.reconciliation import (
     ContractWorkOrderLinker,
-    CrossPlaneConflict,
     CrossPlaneLink,
     CrossPlaneReconciler,
     EvidenceBundle,
@@ -15,7 +12,6 @@ from app.domain_packs.reconciliation import (
     ReadinessEvidenceAssembler,
     WorkOrderIncidentLinker,
 )
-
 
 # ---------------------------------------------------------------------------
 # Shared test data builders
@@ -167,7 +163,13 @@ class TestConflictDetectionRateMismatch:
     def test_rate_mismatch_detected(self):
         linker = ContractWorkOrderLinker()
         contract_objects = [
-            {"type": "rate_card", "id": "rc-er", "activity": "emergency_repair", "rate": 187.50, "unit": "hour"},
+            {
+                "type": "rate_card",
+                "id": "rc-er",
+                "activity": "emergency_repair",
+                "rate": 187.50,
+                "unit": "hour",
+            },
         ]
         wo = _make_work_order_dict_mismatch()
 
@@ -231,12 +233,14 @@ class TestWorkOrderIncidentLinking:
             "description": "painting a fence in another country",
             "location": "Remote Village",
         }
-        incidents = [{
-            "incident_id": "INC-NOMATCH",
-            "affected_services": ["billing"],
-            "description": "billing issue",
-            "location": "Data Center Z",
-        }]
+        incidents = [
+            {
+                "incident_id": "INC-NOMATCH",
+                "affected_services": ["billing"],
+                "description": "billing issue",
+                "location": "Data Center Z",
+            }
+        ]
 
         links = linker.link(wo, incidents)
         assert len(links) == 0
@@ -259,7 +263,11 @@ class TestMarginEvidenceAssembly:
             {"work_order_id": "WO-1", "description": "maintenance", "status": "completed"},
         ]
         leakage_triggers = [
-            {"trigger_type": "unbilled_work", "description": "Unbilled completed work", "severity": "warning"},
+            {
+                "trigger_type": "unbilled_work",
+                "description": "Unbilled completed work",
+                "severity": "warning",
+            },
         ]
 
         bundle = assembler.assemble(contract_objects, work_history, leakage_triggers)
@@ -312,7 +320,11 @@ class TestReadinessEvidenceAssembly:
             work_order={"work_order_id": "WO-1", "description": "repair"},
             engineer={"engineer_id": "ENG-1", "name": "Eng"},
             blockers=[
-                {"blocker_type": "missing_skill", "description": "Missing gas_fitting", "severity": "error"},
+                {
+                    "blocker_type": "missing_skill",
+                    "description": "Missing gas_fitting",
+                    "severity": "error",
+                },
             ],
             skill_fit={"fit": False},
         )
@@ -420,10 +432,7 @@ class TestFullReconciliation:
 
         result = reconciler.reconcile_contract_to_work_order(contract_data, wo_data)
 
-        rate_conflicts = [
-            c for c in result["conflicts"]
-            if c.get("field") == "rate"
-        ]
+        rate_conflicts = [c for c in result["conflicts"] if c.get("field") == "rate"]
         assert len(rate_conflicts) >= 1
 
     def test_empty_inputs_no_crash(self):

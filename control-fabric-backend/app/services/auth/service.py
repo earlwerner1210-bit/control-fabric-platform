@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -85,7 +85,7 @@ class AuthService:
         roles: list[str] | None = None,
     ) -> str:
         """Create a signed JWT containing user identity claims."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expire = now + timedelta(minutes=self._expiration_minutes)
         payload: dict[str, Any] = {
             "sub": str(user_id),

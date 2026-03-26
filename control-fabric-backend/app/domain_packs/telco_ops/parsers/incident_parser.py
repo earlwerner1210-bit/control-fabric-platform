@@ -6,7 +6,7 @@ states, and escalation rule extraction.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from app.domain_packs.telco_ops.schemas.telco_schemas import (
     EscalationRuleObject,
@@ -18,7 +18,6 @@ from app.domain_packs.telco_ops.schemas.telco_schemas import (
     ServiceImpact,
     ServiceStateObject,
 )
-
 
 # ---------------------------------------------------------------------------
 # Default escalation rule definitions
@@ -138,6 +137,7 @@ _DEFAULT_ESCALATION_RULES: dict[str, list[dict[str, Any]]] = {
 # Parser
 # ---------------------------------------------------------------------------
 
+
 class IncidentParser:
     """Parses raw payloads into validated telco-ops domain objects."""
 
@@ -209,7 +209,7 @@ class IncidentParser:
             except ValueError:
                 continue  # skip invalid transitions
 
-            previous_state: Optional[IncidentStatus] = None
+            previous_state: IncidentStatus | None = None
             if previous_raw:
                 try:
                     previous_state = IncidentStatus(previous_raw)
@@ -231,7 +231,7 @@ class IncidentParser:
     # -- Service state -------------------------------------------------------
 
     @staticmethod
-    def extract_service_state(payload: dict[str, Any]) -> Optional[ServiceStateObject]:
+    def extract_service_state(payload: dict[str, Any]) -> ServiceStateObject | None:
         """Extract a service-state snapshot from the payload, if present."""
         svc = payload.get("service_state", payload.get("service"))
         if not svc or not isinstance(svc, dict):
@@ -285,7 +285,8 @@ class IncidentParser:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _parse_dt(value: Any) -> Optional[datetime]:
+
+def _parse_dt(value: Any) -> datetime | None:
     """Best-effort datetime parsing."""
     if value is None:
         return None

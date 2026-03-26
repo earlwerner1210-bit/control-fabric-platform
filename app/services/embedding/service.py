@@ -48,6 +48,7 @@ class FakeEmbeddingProvider:
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         import hashlib
+
         results = []
         for text in texts:
             h = hashlib.md5(text.encode()).hexdigest()
@@ -112,9 +113,7 @@ class EmbeddingService:
 
     # ── Document-chunk embedding (original) ───────────────────────
 
-    async def embed_document_chunks(
-        self, document_id: uuid.UUID, tenant_id: uuid.UUID
-    ) -> int:
+    async def embed_document_chunks(self, document_id: uuid.UUID, tenant_id: uuid.UUID) -> int:
         result = await self.db.execute(
             select(DocumentChunk)
             .where(DocumentChunk.document_id == document_id, DocumentChunk.tenant_id == tenant_id)
@@ -176,9 +175,7 @@ class EmbeddingService:
         import math
 
         if len(a) != len(b):
-            raise ValueError(
-                f"Vector length mismatch: {len(a)} vs {len(b)}"
-            )
+            raise ValueError(f"Vector length mismatch: {len(a)} vs {len(b)}")
         dot = sum(x * y for x, y in zip(a, b))
         mag_a = math.sqrt(sum(x * x for x in a))
         mag_b = math.sqrt(sum(x * x for x in b))

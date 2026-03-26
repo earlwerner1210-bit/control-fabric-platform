@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
+from app.domain_packs.reconciliation import WorkOrderIncidentLinker
 from app.domain_packs.telco_ops.parsers import (
     IncidentParser,
-    RunbookParser,
     VodafoneTicketParser,
 )
 from app.domain_packs.telco_ops.rules import (
@@ -22,15 +22,14 @@ from app.domain_packs.telco_ops.rules import (
     OwnershipRuleEngine,
 )
 from app.domain_packs.telco_ops.schemas import (
+    VODAFONE_SLA_DEFINITIONS,
     ClosureGate,
     ClosurePrerequisite,
     EscalationLevel,
     IncidentSeverity,
     IncidentState,
     ServiceState,
-    VODAFONE_SLA_DEFINITIONS,
 )
-from app.domain_packs.reconciliation import WorkOrderIncidentLinker
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -92,13 +91,15 @@ class TestP1IncidentEscalation:
         p1_incident: dict,
     ):
         """P1 core outage triggers L3 escalation."""
-        parsed = incident_parser.parse_incident({
-            "incident_id": p1_incident["incident_id"],
-            "title": p1_incident["title"],
-            "severity": "p1",
-            "state": "investigating",
-            "affected_services": [s["service_id"] for s in p1_incident["affected_services"]],
-        })
+        parsed = incident_parser.parse_incident(
+            {
+                "incident_id": p1_incident["incident_id"],
+                "title": p1_incident["title"],
+                "severity": "p1",
+                "state": "investigating",
+                "affected_services": [s["service_id"] for s in p1_incident["affected_services"]],
+            }
+        )
         decision = escalation_engine.evaluate(
             incident=parsed,
             service_state=ServiceState.outage,
@@ -107,9 +108,7 @@ class TestP1IncidentEscalation:
         assert decision.level == EscalationLevel.l3
         assert decision.owner != ""
 
-    def test_major_incident_handling(
-        self, incident_parser: IncidentParser, p1_incident: dict
-    ):
+    def test_major_incident_handling(self, incident_parser: IncidentParser, p1_incident: dict):
         """P1 incident data includes major incident fields."""
         assert p1_incident["major_incident"] is True
         # The fixture uses mim_bridge_ref at the top level
@@ -130,13 +129,15 @@ class TestP2IncidentDispatch:
         p2_incident: dict,
     ):
         """P2 RAN degradation dispatches an engineer."""
-        parsed = incident_parser.parse_incident({
-            "incident_id": p2_incident["incident_id"],
-            "title": p2_incident["title"],
-            "severity": "p2",
-            "state": "investigating",
-            "affected_services": [s["service_id"] for s in p2_incident["affected_services"]],
-        })
+        parsed = incident_parser.parse_incident(
+            {
+                "incident_id": p2_incident["incident_id"],
+                "title": p2_incident["title"],
+                "severity": "p2",
+                "state": "investigating",
+                "affected_services": [s["service_id"] for s in p2_incident["affected_services"]],
+            }
+        )
         action = action_engine.evaluate(
             incident_state=parsed.state,
             service_state=ServiceState.degraded,
@@ -152,13 +153,15 @@ class TestP2IncidentDispatch:
         p2_incident: dict,
     ):
         """P2 incident triggers L2 escalation."""
-        parsed = incident_parser.parse_incident({
-            "incident_id": p2_incident["incident_id"],
-            "title": p2_incident["title"],
-            "severity": "p2",
-            "state": "investigating",
-            "affected_services": [s["service_id"] for s in p2_incident["affected_services"]],
-        })
+        parsed = incident_parser.parse_incident(
+            {
+                "incident_id": p2_incident["incident_id"],
+                "title": p2_incident["title"],
+                "severity": "p2",
+                "state": "investigating",
+                "affected_services": [s["service_id"] for s in p2_incident["affected_services"]],
+            }
+        )
         decision = escalation_engine.evaluate(incident=parsed)
         assert decision.escalate is True
         assert decision.level == EscalationLevel.l2
@@ -214,9 +217,17 @@ class TestClosureGateValidation:
     def test_closure_gate_validation_satisfied(self):
         """All mandatory gates satisfied -> closure allowed."""
         gates = [
-            ClosureGate(prerequisite=ClosurePrerequisite.service_restored, satisfied=True, mandatory=True),
-            ClosureGate(prerequisite=ClosurePrerequisite.customer_notified, satisfied=True, mandatory=True),
-            ClosureGate(prerequisite=ClosurePrerequisite.root_cause_identified, satisfied=True, mandatory=True),
+            ClosureGate(
+                prerequisite=ClosurePrerequisite.service_restored, satisfied=True, mandatory=True
+            ),
+            ClosureGate(
+                prerequisite=ClosurePrerequisite.customer_notified, satisfied=True, mandatory=True
+            ),
+            ClosureGate(
+                prerequisite=ClosurePrerequisite.root_cause_identified,
+                satisfied=True,
+                mandatory=True,
+            ),
         ]
         unsatisfied_mandatory = [g for g in gates if g.mandatory and not g.satisfied]
         assert len(unsatisfied_mandatory) == 0
@@ -224,9 +235,17 @@ class TestClosureGateValidation:
     def test_closure_gate_validation_blocked(self):
         """Mandatory gate unsatisfied -> closure blocked."""
         gates = [
-            ClosureGate(prerequisite=ClosurePrerequisite.service_restored, satisfied=True, mandatory=True),
-            ClosureGate(prerequisite=ClosurePrerequisite.customer_notified, satisfied=False, mandatory=True),
-            ClosureGate(prerequisite=ClosurePrerequisite.root_cause_identified, satisfied=True, mandatory=True),
+            ClosureGate(
+                prerequisite=ClosurePrerequisite.service_restored, satisfied=True, mandatory=True
+            ),
+            ClosureGate(
+                prerequisite=ClosurePrerequisite.customer_notified, satisfied=False, mandatory=True
+            ),
+            ClosureGate(
+                prerequisite=ClosurePrerequisite.root_cause_identified,
+                satisfied=True,
+                mandatory=True,
+            ),
         ]
         unsatisfied_mandatory = [g for g in gates if g.mandatory and not g.satisfied]
         assert len(unsatisfied_mandatory) == 1
@@ -280,21 +299,21 @@ class TestIncidentWorkOrderLinkage:
 class TestVodafoneTicketParsing:
     """Test Vodafone ticket parsing."""
 
-    def test_vodafone_ticket_parse(
-        self, ticket_parser: VodafoneTicketParser, p1_incident: dict
-    ):
+    def test_vodafone_ticket_parse(self, ticket_parser: VodafoneTicketParser, p1_incident: dict):
         """Parse a Vodafone P1 ticket into structured incident."""
-        parsed = ticket_parser.parse_vodafone_ticket({
-            "incident_id": p1_incident["incident_id"],
-            "title": p1_incident["title"],
-            "severity": "p1",
-            "state": "major_incident_declared",
-            "affected_services": [s["service_id"] for s in p1_incident["affected_services"]],
-            "major_incident": True,
-            "service_domain": "core_network",
-            "category": "core_network_outage",
-            "bridge_call_id": p1_incident.get("mim_bridge_ref", ""),
-        })
+        parsed = ticket_parser.parse_vodafone_ticket(
+            {
+                "incident_id": p1_incident["incident_id"],
+                "title": p1_incident["title"],
+                "severity": "p1",
+                "state": "major_incident_declared",
+                "affected_services": [s["service_id"] for s in p1_incident["affected_services"]],
+                "major_incident": True,
+                "service_domain": "core_network",
+                "category": "core_network_outage",
+                "bridge_call_id": p1_incident.get("mim_bridge_ref", ""),
+            }
+        )
         assert parsed.incident_id == p1_incident["incident_id"]
         assert parsed.severity == IncidentSeverity.p1
         assert "major_incident" in parsed.tags

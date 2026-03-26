@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
-
 from app.domain_packs.reconciliation import (
     ContradictionDetector,
     CrossPlaneConflict,
@@ -15,7 +13,6 @@ from app.domain_packs.reconciliation import (
     MarginDiagnosisBundle,
     MarginDiagnosisReconciler,
 )
-
 
 # ---------------------------------------------------------------------------
 # Shared fixture builders
@@ -107,7 +104,10 @@ def _sla_performance_breached() -> dict:
     return {
         "sla_status": {"status": "breached", "sla_type": "resolution"},
         "field_blockers": [
-            {"blocker_type": "provider_resource_shortage", "description": "Insufficient crew available"},
+            {
+                "blocker_type": "provider_resource_shortage",
+                "description": "Insufficient crew available",
+            },
         ],
         "contract_assumptions": [],
         "sla_breaches": [
@@ -133,17 +133,18 @@ def _sla_performance_customer_caused() -> dict:
 
 
 class TestMarginDiagnosisReconciler:
-
     def test_healthy_margin_no_conflicts(self):
         reconciler = MarginDiagnosisReconciler()
         # Provide an invoice matching the work order so leakage is not flagged
         co = _contract_objects_basic()
-        co.append({
-            "type": "invoice",
-            "id": "inv-001",
-            "work_order_id": "WO-001",
-            "amount": 125.0,
-        })
+        co.append(
+            {
+                "type": "invoice",
+                "id": "inv-001",
+                "work_order_id": "WO-001",
+                "amount": 125.0,
+            }
+        )
         bundle = reconciler.reconcile(
             contract_objects=co,
             work_orders=[_work_order_completed()],
@@ -176,9 +177,7 @@ class TestMarginDiagnosisReconciler:
             sla_performance=_sla_performance_breached(),
         )
         assert bundle.verdict == "penalty_risk"
-        assert any(
-            c.field == "sla_accountability" for c in bundle.sla_conflicts
-        )
+        assert any(c.field == "sla_accountability" for c in bundle.sla_conflicts)
 
     def test_under_recovery_rate_mismatch(self):
         wo = _work_order_completed()
@@ -231,7 +230,11 @@ class TestMarginDiagnosisReconciler:
     def test_field_billing_conflict_missing_gate(self):
         wo = _work_order_completed()
         wo["billing_gates"] = [
-            {"gate_type": "completion_cert", "satisfied": False, "description": "Completion cert required"},
+            {
+                "gate_type": "completion_cert",
+                "satisfied": False,
+                "description": "Completion cert required",
+            },
         ]
         reconciler = MarginDiagnosisReconciler()
         bundle = reconciler.reconcile(
@@ -239,9 +242,7 @@ class TestMarginDiagnosisReconciler:
             work_orders=[wo],
         )
         assert len(bundle.field_billing_conflicts) > 0
-        assert any(
-            "billing_gate" in c.field for c in bundle.field_billing_conflicts
-        )
+        assert any("billing_gate" in c.field for c in bundle.field_billing_conflicts)
 
     def test_field_billing_conflict_unsigned_daywork(self):
         wo = _work_order_completed()
@@ -253,10 +254,7 @@ class TestMarginDiagnosisReconciler:
             work_orders=[wo],
         )
         assert len(bundle.field_billing_conflicts) > 0
-        daywork_conflicts = [
-            c for c in bundle.field_billing_conflicts
-            if "daywork" in c.field
-        ]
+        daywork_conflicts = [c for c in bundle.field_billing_conflicts if "daywork" in c.field]
         assert len(daywork_conflicts) >= 1
 
     def test_sla_accountability_customer_caused(self):
@@ -267,9 +265,7 @@ class TestMarginDiagnosisReconciler:
             sla_performance=_sla_performance_customer_caused(),
         )
         # Customer-caused blocker -> SLA mitigation factor present, not provider-accountable
-        mitigation_conflicts = [
-            c for c in bundle.sla_conflicts if c.field == "sla_mitigation"
-        ]
+        mitigation_conflicts = [c for c in bundle.sla_conflicts if c.field == "sla_mitigation"]
         assert len(mitigation_conflicts) >= 1
 
     def test_sla_accountability_provider_caused(self):
@@ -293,7 +289,12 @@ class TestMarginDiagnosisReconciler:
             evidence_items=[
                 {"type": "rate_card", "domain": "contract_margin", "id": "rc-1", "data": {}},
                 {"type": "work_order", "domain": "utilities_field", "id": "wo-1", "data": {}},
-                {"type": "completion_certificate", "domain": "utilities_field", "id": "cc-1", "data": {}},
+                {
+                    "type": "completion_certificate",
+                    "domain": "utilities_field",
+                    "id": "cc-1",
+                    "data": {},
+                },
                 {"type": "invoice", "domain": "contract_margin", "id": "inv-1", "data": {}},
             ],
             total_items=4,
@@ -311,7 +312,12 @@ class TestMarginDiagnosisReconciler:
             domains=["contract_margin"],
             evidence_items=[
                 {"type": "rate_card", "domain": "contract_margin", "id": "rc-1", "data": {}},
-                {"type": "completion_certificate", "domain": "utilities_field", "id": "cc-1", "data": {}},
+                {
+                    "type": "completion_certificate",
+                    "domain": "utilities_field",
+                    "id": "cc-1",
+                    "data": {},
+                },
                 {"type": "invoice", "domain": "contract_margin", "id": "inv-1", "data": {}},
             ],
             total_items=3,
@@ -386,9 +392,7 @@ class TestMarginDiagnosisReconciler:
         field_data = {"status": "completed", "description": "Work done"}
         incident_data = {"state": "investigating", "severity": "p2"}
         conflicts = detector.detect(contract_data, field_data, incident_data)
-        completion_conflicts = [
-            c for c in conflicts if c.field == "completion_vs_incident"
-        ]
+        completion_conflicts = [c for c in conflicts if c.field == "completion_vs_incident"]
         assert len(completion_conflicts) >= 1
 
     def test_contradiction_rate_mismatch(self):

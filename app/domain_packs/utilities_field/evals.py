@@ -32,9 +32,16 @@ UTILITIES_FIELD_EVAL_CASES = [
                 "work_order_id": "WO-002",
                 "work_order_type": "installation",
                 "required_skills": [],
-                "required_permits": [{"permit_type": "street_works", "required": True, "obtained": False}],
+                "required_permits": [
+                    {"permit_type": "street_works", "required": True, "obtained": False}
+                ],
             },
-            "engineer": {"engineer_id": "ENG-002", "name": "Jane Doe", "skills": [], "accreditations": []},
+            "engineer": {
+                "engineer_id": "ENG-002",
+                "name": "Jane Doe",
+                "skills": [],
+                "accreditations": [],
+            },
         },
         "expected_output": {"verdict": "blocked"},
     },
@@ -84,7 +91,9 @@ UTILITIES_FIELD_EVAL_CASES = [
             "engineer": {
                 "engineer_id": "SPEN-ENG-101",
                 "name": "Alistair MacLeod",
-                "skills": [{"skill_name": "hv_switching", "category": "electrical", "level": "expert"}],
+                "skills": [
+                    {"skill_name": "hv_switching", "category": "electrical", "level": "expert"}
+                ],
                 "accreditations": [
                     {"name": "hv_authorized_person", "issuing_body": "SPEN", "is_valid": True},
                     {"name": "ecs_card", "issuing_body": "ECS", "is_valid": True},
@@ -117,7 +126,9 @@ UTILITIES_FIELD_EVAL_CASES = [
             "engineer": {
                 "engineer_id": "SPEN-ENG-102",
                 "name": "Craig Henderson",
-                "skills": [{"skill_name": "hv_switching", "category": "electrical", "level": "qualified"}],
+                "skills": [
+                    {"skill_name": "hv_switching", "category": "electrical", "level": "qualified"}
+                ],
                 "accreditations": [
                     {"name": "ecs_card", "issuing_body": "ECS", "is_valid": True},
                     {"name": "first_aid_at_work", "issuing_body": "Red Cross", "is_valid": True},
@@ -143,13 +154,20 @@ UTILITIES_FIELD_EVAL_CASES = [
                 "customer_confirmed": False,
                 "required_skills": [{"skill_name": "cable_jointing", "category": "electrical"}],
                 "required_permits": [
-                    {"permit_type": "street_works", "required": True, "obtained": False, "description": "NRSWA S50 permit for footway excavation"}
+                    {
+                        "permit_type": "street_works",
+                        "required": True,
+                        "obtained": False,
+                        "description": "NRSWA S50 permit for footway excavation",
+                    }
                 ],
             },
             "engineer": {
                 "engineer_id": "SPEN-ENG-103",
                 "name": "Darren Campbell",
-                "skills": [{"skill_name": "cable_jointing", "category": "electrical", "level": "expert"}],
+                "skills": [
+                    {"skill_name": "cable_jointing", "category": "electrical", "level": "expert"}
+                ],
                 "accreditations": [
                     {"name": "cable_jointer_approved", "issuing_body": "SPEN", "is_valid": True},
                     {"name": "cscs_card", "issuing_body": "CSCS", "is_valid": True},
@@ -180,7 +198,9 @@ UTILITIES_FIELD_EVAL_CASES = [
             "engineer": {
                 "engineer_id": "SPEN-ENG-104",
                 "name": "Fiona Stewart",
-                "skills": [{"skill_name": "metering", "category": "electrical", "level": "qualified"}],
+                "skills": [
+                    {"skill_name": "metering", "category": "electrical", "level": "qualified"}
+                ],
                 "accreditations": [
                     {"name": "ecs_card", "issuing_body": "ECS", "is_valid": True},
                 ],
@@ -209,7 +229,9 @@ UTILITIES_FIELD_EVAL_CASES = [
             "engineer": {
                 "engineer_id": "SPEN-ENG-105",
                 "name": "Graeme Wallace",
-                "skills": [{"skill_name": "overhead_lines", "category": "electrical", "level": "expert"}],
+                "skills": [
+                    {"skill_name": "overhead_lines", "category": "electrical", "level": "expert"}
+                ],
                 "accreditations": [
                     {"name": "working_at_height", "issuing_body": "CITB", "is_valid": True},
                     {"name": "ipaf_mewp", "issuing_body": "IPAF", "is_valid": True},
@@ -238,13 +260,20 @@ UTILITIES_FIELD_EVAL_CASES = [
                 "required_skills": [{"skill_name": "new_connections", "category": "electrical"}],
                 "required_permits": [],
                 "dependencies": [
-                    {"type": "design", "description": "scheme design", "status": "pending", "blocking": True}
+                    {
+                        "type": "design",
+                        "description": "scheme design",
+                        "status": "pending",
+                        "blocking": True,
+                    }
                 ],
             },
             "engineer": {
                 "engineer_id": "SPEN-ENG-106",
                 "name": "Ross Mackenzie",
-                "skills": [{"skill_name": "new_connections", "category": "electrical", "level": "expert"}],
+                "skills": [
+                    {"skill_name": "new_connections", "category": "electrical", "level": "expert"}
+                ],
                 "accreditations": [
                     {"name": "lv_authorized_person", "issuing_body": "SPEN", "is_valid": True},
                     {"name": "ecs_card", "issuing_body": "ECS", "is_valid": True},
@@ -272,14 +301,21 @@ UTILITIES_FIELD_EVAL_CASES = [
                 "customer_confirmed": False,
                 "required_skills": [{"skill_name": "excavation", "category": "general"}],
                 "required_permits": [
-                    {"permit_type": "street_works", "required": True, "obtained": True, "reference": "NRSWA-2026-KA1-0098"}
+                    {
+                        "permit_type": "street_works",
+                        "required": True,
+                        "obtained": True,
+                        "reference": "NRSWA-2026-KA1-0098",
+                    }
                 ],
                 "special_instructions": "Traffic management plan ref TM-2026-0098 approved.",
             },
             "engineer": {
                 "engineer_id": "SPEN-ENG-107",
                 "name": "Kevin Murray",
-                "skills": [{"skill_name": "excavation", "category": "general", "level": "qualified"}],
+                "skills": [
+                    {"skill_name": "excavation", "category": "general", "level": "qualified"}
+                ],
                 "accreditations": [
                     {"name": "cscs_card", "issuing_body": "CSCS", "is_valid": True},
                     {"name": "nrswa_operative", "issuing_body": "HAUC", "is_valid": True},
@@ -297,11 +333,26 @@ UTILITIES_FIELD_EVAL_CASES = [
         "input_payload": {
             "work_category": "hv_switching",
             "evidence": [
-                {"evidence_type": "after_photo", "provided": True, "reference": "IMG-2026-0451-01.jpg"},
-                {"evidence_type": "risk_assessment_completed", "provided": True, "reference": "RA-2026-0451"},
-                {"evidence_type": "safety_documentation", "provided": True, "reference": "HV-SD-2026-0451"},
+                {
+                    "evidence_type": "after_photo",
+                    "provided": True,
+                    "reference": "IMG-2026-0451-01.jpg",
+                },
+                {
+                    "evidence_type": "risk_assessment_completed",
+                    "provided": True,
+                    "reference": "RA-2026-0451",
+                },
+                {
+                    "evidence_type": "safety_documentation",
+                    "provided": True,
+                    "reference": "HV-SD-2026-0451",
+                },
             ],
         },
-        "expected_output": {"verdict": "completion_invalid", "missing_evidence": ["test_certificate"]},
+        "expected_output": {
+            "verdict": "completion_invalid",
+            "missing_evidence": ["test_certificate"],
+        },
     },
 ]

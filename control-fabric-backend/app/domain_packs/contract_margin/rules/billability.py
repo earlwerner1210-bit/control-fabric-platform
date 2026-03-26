@@ -8,13 +8,12 @@ scope, evidence, and prior claims.
 
 from __future__ import annotations
 
-import re
 from datetime import date, datetime
-from typing import Any, Optional, Sequence
+from typing import Any
 
 from app.domain_packs.contract_margin.schemas.contract import (
-    BillableCategory,
     BillabilityDecision,
+    BillableCategory,
     Obligation,
     RateCardEntry,
 )
@@ -28,8 +27,8 @@ class BillabilityRuleEngine:
         activity: dict[str, Any],
         rate_card: list[RateCardEntry],
         obligations: list[Obligation],
-        prior_claims: Optional[list[dict[str, Any]]] = None,
-        work_date: Optional[date] = None,
+        prior_claims: list[dict[str, Any]] | None = None,
+        work_date: date | None = None,
         has_approval: bool = False,
         approval_threshold: float = 0.0,
     ) -> BillabilityDecision:
@@ -69,17 +68,13 @@ class BillabilityRuleEngine:
         activity_quantity = float(activity.get("quantity", 1))
 
         # --- Rule 1: Rate card match ---
-        matched_entry, rc_passed, rc_reason = self._rule_rate_card_match(
-            activity_name, rate_card
-        )
+        matched_entry, rc_passed, rc_reason = self._rule_rate_card_match(activity_name, rate_card)
         rule_results["rate_card_match"] = rc_passed
         if not rc_passed:
             reasons.append(rc_reason)
 
         # --- Rule 2: Obligation check ---
-        ob_passed, ob_reason = self._rule_obligation_check(
-            activity_name, obligations
-        )
+        ob_passed, ob_reason = self._rule_obligation_check(activity_name, obligations)
         rule_results["obligation_check"] = ob_passed
         if not ob_passed:
             reasons.append(ob_reason)
@@ -116,9 +111,7 @@ class BillabilityRuleEngine:
             reasons.append(dc_reason)
 
         # --- Rule 7: Expired rate check ---
-        er_passed, er_reason = self._rule_expired_rate_check(
-            matched_entry, work_date
-        )
+        er_passed, er_reason = self._rule_expired_rate_check(matched_entry, work_date)
         rule_results["expired_rate_check"] = er_passed
         if not er_passed:
             reasons.append(er_reason)
@@ -134,9 +127,7 @@ class BillabilityRuleEngine:
         # Aggregate decision
         all_passed = all(rule_results.values())
         critical_rules = {"rate_card_match", "scope_check", "expired_rate_check"}
-        critical_passed = all(
-            rule_results.get(r, True) for r in critical_rules
-        )
+        critical_passed = all(rule_results.get(r, True) for r in critical_rules)
 
         billable = all_passed
         rate_applied = 0.0
@@ -154,7 +145,10 @@ class BillabilityRuleEngine:
             rate_applied = 0.0
 
         if billable:
-            reasons.insert(0, f"Activity '{activity_name}' is billable at {rate_applied} per {matched_entry.unit if matched_entry else 'unit'}")
+            reasons.insert(
+                0,
+                f"Activity '{activity_name}' is billable at {rate_applied} per {matched_entry.unit if matched_entry else 'unit'}",
+            )
         else:
             reasons.insert(0, f"Activity '{activity_name}' is NOT billable")
 
@@ -180,7 +174,7 @@ class BillabilityRuleEngine:
     def _rule_rate_card_match(
         activity_name: str,
         rate_card: list[RateCardEntry],
-    ) -> tuple[Optional[RateCardEntry], bool, str]:
+    ) -> tuple[RateCardEntry | None, bool, str]:
         """Check that the activity matches an entry in the rate card."""
         activity_lower = activity_name.lower().strip()
         for entry in rate_card:
@@ -257,7 +251,10 @@ class BillabilityRuleEngine:
         if activity_value <= threshold:
             return True, f"Activity value {activity_value} is below threshold {threshold}"
         if has_approval:
-            return True, f"Activity value {activity_value} exceeds threshold but approval is present"
+            return (
+                True,
+                f"Activity value {activity_value} exceeds threshold but approval is present",
+            )
         return (
             False,
             f"Activity value {activity_value} exceeds threshold {threshold} and no approval found",
@@ -296,7 +293,7 @@ class BillabilityRuleEngine:
 
     @staticmethod
     def _rule_expired_rate_check(
-        matched_entry: Optional[RateCardEntry],
+        matched_entry: RateCardEntry | None,
         work_date: date,
     ) -> tuple[bool, str]:
         """Check that the matched rate card entry has not expired."""
@@ -307,11 +304,14 @@ class BillabilityRuleEngine:
                 False,
                 f"Rate card entry for '{matched_entry.activity}' is not active on {work_date.isoformat()}",
             )
-        return True, f"Rate card entry for '{matched_entry.activity}' is active on {work_date.isoformat()}"
+        return (
+            True,
+            f"Rate card entry for '{matched_entry.activity}' is active on {work_date.isoformat()}",
+        )
 
     @staticmethod
     def _rule_minimum_charge_enforcement(
-        matched_entry: Optional[RateCardEntry],
+        matched_entry: RateCardEntry | None,
         quantity: float,
     ) -> tuple[bool, str]:
         """Ensure that the minimum billable quantity is met.

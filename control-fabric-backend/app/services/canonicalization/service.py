@@ -30,7 +30,9 @@ class _EntityStore:
     def add(self, entity: CanonicalEntity) -> None:
         self._entities.append(entity)
 
-    def all_for_tenant(self, tenant_id: UUID, entity_type: str | None = None) -> list[CanonicalEntity]:
+    def all_for_tenant(
+        self, tenant_id: UUID, entity_type: str | None = None
+    ) -> list[CanonicalEntity]:
         results = [e for e in self._entities if e.tenant_id == tenant_id]
         if entity_type:
             results = [e for e in results if e.entity_type == entity_type]

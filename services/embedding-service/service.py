@@ -18,7 +18,9 @@ logger = get_logger("embedding_service")
 class EmbeddingProvider:
     """OpenAI-compatible embedding provider abstraction."""
 
-    def __init__(self, api_key: str, model: str, base_url: str = "https://api.openai.com/v1") -> None:
+    def __init__(
+        self, api_key: str, model: str, base_url: str = "https://api.openai.com/v1"
+    ) -> None:
         self.api_key = api_key
         self.model = model
         self.base_url = base_url.rstrip("/")
@@ -28,7 +30,10 @@ class EmbeddingProvider:
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
                 f"{self.base_url}/embeddings",
-                headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
                 json={"input": texts, "model": self.model},
             )
             resp.raise_for_status()

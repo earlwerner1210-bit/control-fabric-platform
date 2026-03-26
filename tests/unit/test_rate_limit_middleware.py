@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.api.middleware.rate_limit import RateLimitMiddleware, _Bucket
 
 
@@ -28,6 +26,7 @@ class TestBucket:
 
     def test_refill(self):
         import time
+
         bucket = _Bucket(tokens=0.0, max_tokens=10.0, refill_rate=1000.0)
         # Wait a tiny bit for refill
         time.sleep(0.01)
@@ -36,6 +35,7 @@ class TestBucket:
     def test_max_cap(self):
         bucket = _Bucket(tokens=10.0, max_tokens=10.0, refill_rate=1000.0)
         import time
+
         time.sleep(0.01)
         bucket.consume()
         # Tokens should not exceed max

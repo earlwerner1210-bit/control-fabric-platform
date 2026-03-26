@@ -8,16 +8,20 @@ from sqlalchemy import Float, Integer, String
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, TimestampMixin, TenantMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, TenantMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class ModelRun(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):
     __tablename__ = "model_runs"
 
-    workflow_case_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    workflow_case_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True, index=True
+    )
     provider: Mapped[str] = mapped_column(String(63), nullable=False)  # vllm, openai, mlx, fake
     model_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    operation: Mapped[str] = mapped_column(String(63), nullable=False)  # generate, summarize, classify, explain
+    operation: Mapped[str] = mapped_column(
+        String(63), nullable=False
+    )  # generate, summarize, classify, explain
     prompt_template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     input_payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     output_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)

@@ -7,32 +7,16 @@ rule engines, validators, and reconciliation logic to verify the full flow.
 
 from __future__ import annotations
 
-from datetime import date
-
-import pytest
-
 from app.domain_packs.contract_margin.compiler import ContractCompiler
 from app.domain_packs.contract_margin.parsers import ContractParser
 from app.domain_packs.contract_margin.rules import (
     BillabilityRuleEngine,
     LeakageRuleEngine,
 )
-from app.domain_packs.contract_margin.schemas import (
-    ClauseType,
-    ContractType,
-    ExtractedClause,
-    ParsedContract,
-    RateCardEntry,
-    SLAEntry,
-    ScopeBoundaryObject,
-    ScopeType,
-)
 from app.domain_packs.reconciliation import (
-    ContractWorkOrderLinker,
     CrossPlaneReconciler,
     MarginEvidenceAssembler,
     ReadinessEvidenceAssembler,
-    WorkOrderIncidentLinker,
 )
 from app.domain_packs.telco_ops.compiler import TelcoCompiler
 from app.domain_packs.telco_ops.parsers import IncidentParser
@@ -42,9 +26,6 @@ from app.domain_packs.telco_ops.rules import (
 )
 from app.domain_packs.telco_ops.schemas import (
     IncidentSeverity,
-    IncidentState,
-    ParsedIncident,
-    ServiceState,
 )
 from app.domain_packs.utilities_field.compiler import FieldCompiler
 from app.domain_packs.utilities_field.parsers import (
@@ -53,7 +34,6 @@ from app.domain_packs.utilities_field.parsers import (
 )
 from app.domain_packs.utilities_field.rules import ReadinessRuleEngine
 from app.domain_packs.utilities_field.schemas import (
-    Accreditation,
     EngineerProfile,
     ParsedWorkOrder,
     PermitRequirement,
@@ -63,7 +43,6 @@ from app.domain_packs.utilities_field.schemas import (
     SkillRecord,
     WorkOrderType,
 )
-
 
 # ---------------------------------------------------------------------------
 # Test: Contract compile -> margin diagnosis
@@ -82,11 +61,26 @@ class TestContractCompileToMarginDiagnosis:
             "title": "MSA for Network Services",
             "parties": ["TelcoCorp", "FieldServices"],
             "clauses": [
-                {"id": "CL-1", "type": "obligation", "text": "Provider shall deliver maintenance", "section": "2.1"},
-                {"id": "CL-2", "type": "penalty", "text": "Failure to meet SLA shall result in penalty", "section": "3.1"},
+                {
+                    "id": "CL-1",
+                    "type": "obligation",
+                    "text": "Provider shall deliver maintenance",
+                    "section": "2.1",
+                },
+                {
+                    "id": "CL-2",
+                    "type": "penalty",
+                    "text": "Failure to meet SLA shall result in penalty",
+                    "section": "3.1",
+                },
             ],
             "sla_table": [
-                {"priority": "P1", "response_time_hours": 1, "resolution_time_hours": 4, "penalty_percentage": 5.0},
+                {
+                    "priority": "P1",
+                    "response_time_hours": 1,
+                    "resolution_time_hours": 4,
+                    "penalty_percentage": 5.0,
+                },
             ],
             "rate_card": [
                 {"activity": "standard_maintenance", "rate": 125.0, "unit": "hour"},
@@ -105,8 +99,19 @@ class TestContractCompileToMarginDiagnosis:
 
         # 3. Run leakage rules with work history
         work_history = [
-            {"activity": "standard_maintenance", "status": "completed", "billed": False, "estimated_value": 500},
-            {"activity": "emergency_repair", "status": "completed", "billed": True, "billed_rate": 150, "contract_rate": 187.50},
+            {
+                "activity": "standard_maintenance",
+                "status": "completed",
+                "billed": False,
+                "estimated_value": 500,
+            },
+            {
+                "activity": "emergency_repair",
+                "status": "completed",
+                "billed": True,
+                "billed_rate": 150,
+                "contract_rate": 187.50,
+            },
         ]
         leakage_engine = LeakageRuleEngine()
         triggers = leakage_engine.evaluate(compiled.control_object_payloads, work_history)
@@ -154,28 +159,32 @@ class TestWorkOrderReadinessEndToEnd:
     def test_full_pipeline(self):
         # 1. Parse work order
         wo_parser = WorkOrderParser()
-        wo = wo_parser.parse_work_order({
-            "work_order_id": "WO-READY",
-            "work_order_type": "maintenance",
-            "description": "Fiber cabinet maintenance",
-            "priority": "normal",
-            "required_skills": [
-                {"skill_name": "fiber", "category": "fiber", "level": "qualified"},
-            ],
-            "required_permits": [
-                {"permit_type": "building_access", "required": True, "obtained": True},
-            ],
-            "estimated_duration_hours": 3.0,
-        })
+        wo = wo_parser.parse_work_order(
+            {
+                "work_order_id": "WO-READY",
+                "work_order_type": "maintenance",
+                "description": "Fiber cabinet maintenance",
+                "priority": "normal",
+                "required_skills": [
+                    {"skill_name": "fiber", "category": "fiber", "level": "qualified"},
+                ],
+                "required_permits": [
+                    {"permit_type": "building_access", "required": True, "obtained": True},
+                ],
+                "estimated_duration_hours": 3.0,
+            }
+        )
 
         # 2. Parse engineer
         eng_parser = EngineerProfileParser()
-        engineer = eng_parser.parse_profile({
-            "engineer_id": "ENG-READY",
-            "name": "Test Engineer",
-            "skills": [{"skill_name": "fiber", "category": "fiber", "level": "expert"}],
-            "accreditations": [{"name": "general_competency", "is_valid": True}],
-        })
+        engineer = eng_parser.parse_profile(
+            {
+                "engineer_id": "ENG-READY",
+                "name": "Test Engineer",
+                "skills": [{"skill_name": "fiber", "category": "fiber", "level": "expert"}],
+                "accreditations": [{"name": "general_competency", "is_valid": True}],
+            }
+        )
 
         # 3. Compile
         compiler = FieldCompiler()
@@ -217,7 +226,9 @@ class TestWorkOrderReadinessBlocked:
                 SkillRecord(skill_name="gas_fitting", category=SkillCategory.gas, level="expert"),
             ],
             required_permits=[
-                PermitRequirement(permit_type=PermitType.building_access, required=True, obtained=False),
+                PermitRequirement(
+                    permit_type=PermitType.building_access, required=True, obtained=False
+                ),
             ],
         )
         engineer = EngineerProfile(
@@ -248,15 +259,17 @@ class TestIncidentDispatchEndToEnd:
     def test_full_pipeline(self):
         # 1. Parse incident
         inc_parser = IncidentParser()
-        incident = inc_parser.parse_incident({
-            "incident_id": "INC-DISPATCH",
-            "title": "Core network failure",
-            "description": "Complete core network outage",
-            "severity": "p1",
-            "state": "new",
-            "affected_services": ["core_network", "voice_platform"],
-            "assigned_to": "on_call_eng",
-        })
+        incident = inc_parser.parse_incident(
+            {
+                "incident_id": "INC-DISPATCH",
+                "title": "Core network failure",
+                "description": "Complete core network outage",
+                "severity": "p1",
+                "state": "new",
+                "affected_services": ["core_network", "voice_platform"],
+                "assigned_to": "on_call_eng",
+            }
+        )
         assert incident.severity == IncidentSeverity.p1
 
         # 2. Compile
@@ -287,7 +300,17 @@ class TestIncidentDispatchEndToEnd:
             "escalation_level": esc_decision.level.value if esc_decision.level else None,
             "escalation_owner": esc_decision.owner,
         }
-        valid_actions = {"investigate", "escalate", "dispatch", "resolve", "monitor", "assign_engineer", "close", "reopen", "contact_customer"}
+        valid_actions = {
+            "investigate",
+            "escalate",
+            "dispatch",
+            "resolve",
+            "monitor",
+            "assign_engineer",
+            "close",
+            "reopen",
+            "contact_customer",
+        }
         assert output["next_action"] in valid_actions
         assert output["escalation_level"] in ("l1", "l2", "l3", "management")
 
@@ -365,7 +388,9 @@ class TestReadinessBlockedPropagatesToReconciliation:
                 SkillRecord(skill_name="hvac_repair", category=SkillCategory.hvac, level="expert"),
             ],
             required_permits=[
-                PermitRequirement(permit_type=PermitType.confined_space, required=True, obtained=False),
+                PermitRequirement(
+                    permit_type=PermitType.confined_space, required=True, obtained=False
+                ),
             ],
         )
         engineer = EngineerProfile(
@@ -423,7 +448,11 @@ class TestReadinessBlockedPropagatesToReconciliation:
             work_order={"work_order_id": "WO-EVD", "description": "repair job"},
             engineer={"engineer_id": "ENG-EVD", "name": "Test"},
             blockers=[
-                {"blocker_type": "missing_skill", "description": "Missing hvac_repair", "severity": "error"},
+                {
+                    "blocker_type": "missing_skill",
+                    "description": "Missing hvac_repair",
+                    "severity": "error",
+                },
             ],
             skill_fit={"fit": False, "missing_skills": ["hvac_repair"]},
         )

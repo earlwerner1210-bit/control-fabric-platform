@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
-from typing import Any
-
 import pytest
 
 from app.domain_packs.contract_margin.rules import (
@@ -14,7 +11,6 @@ from app.domain_packs.contract_margin.rules import (
 )
 from app.domain_packs.contract_margin.schemas import (
     BillabilityDecision,
-    LeakageTrigger,
     RateCardEntry,
 )
 
@@ -143,7 +139,9 @@ class TestContractValidators:
         # At least one rule should detect the SLA breach
         failed_rules = [r for r in results if not r.passed]
         assert len(failed_rules) >= 1
-        assert any("sla" in r.message.lower() or "breach" in r.message.lower() for r in failed_rules)
+        assert any(
+            "sla" in r.message.lower() or "breach" in r.message.lower() for r in failed_rules
+        )
 
 
 class TestLeakageDetection:
@@ -154,7 +152,12 @@ class TestLeakageDetection:
         triggers = leakage_engine.evaluate(
             contract_objects=[],
             work_history=[
-                {"activity": "emergency_repair", "status": "completed", "billed": False, "estimated_value": 750},
+                {
+                    "activity": "emergency_repair",
+                    "status": "completed",
+                    "billed": False,
+                    "estimated_value": 750,
+                },
             ],
         )
 

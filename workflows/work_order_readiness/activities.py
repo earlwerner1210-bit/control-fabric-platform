@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 import httpx
 from temporalio import activity
@@ -233,7 +232,9 @@ async def call_model_for_explanation(input: ModelExplanationInput) -> ModelExpla
             data = response.json()
             return ModelExplanationOutput(
                 explanation=data.get("text", ""),
-                readiness_score=data.get("readiness_score", 1.0 if input.decision == "ready" else 0.0),
+                readiness_score=data.get(
+                    "readiness_score", 1.0 if input.decision == "ready" else 0.0
+                ),
             )
         except httpx.ConnectError:
             activity.logger.warning("Inference gateway unavailable (stub)")

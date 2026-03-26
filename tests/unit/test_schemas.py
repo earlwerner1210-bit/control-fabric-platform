@@ -3,24 +3,22 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-import pytest
-
-from app.schemas.common import PaginatedResponse, BaseSchema, ErrorResponse, HealthResponse
+from app.schemas.common import ErrorResponse, HealthResponse, PaginatedResponse
+from app.schemas.control_objects import (
+    ControlLinkCreate,
+    ControlObjectCreate,
+    ControlObjectResponse,
+    ControlObjectTypeEnum,
+)
 from app.schemas.workflows import (
-    SPENBillabilityVerdict,
-    WorkflowTimelineEntry,
-    WorkflowStatusEnum,
     CaseVerdictEnum,
     MarginVerdict,
     ReadinessVerdict,
-)
-from app.schemas.control_objects import (
-    ControlObjectResponse,
-    ControlObjectCreate,
-    ControlObjectTypeEnum,
-    ControlLinkCreate,
+    SPENBillabilityVerdict,
+    WorkflowStatusEnum,
+    WorkflowTimelineEntry,
 )
 
 
@@ -91,7 +89,7 @@ class TestWorkflowTimelineEntry:
 
     def test_create(self):
         entry = WorkflowTimelineEntry(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             event_type="workflow_started",
             stage="init",
             detail="Margin diagnosis workflow initiated",
@@ -143,7 +141,7 @@ class TestControlObjectResponse:
     """Test ControlObjectResponse schema."""
 
     def test_create(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         resp = ControlObjectResponse(
             id=uuid.uuid4(),
             tenant_id=uuid.uuid4(),

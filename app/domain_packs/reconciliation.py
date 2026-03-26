@@ -16,7 +16,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # ---------------------------------------------------------------------------
 # Domain constants
 # ---------------------------------------------------------------------------
@@ -107,8 +106,7 @@ def _parse_datetime(value: Any) -> datetime | None:
     if not value:
         return None
     raw = str(value).strip()
-    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f",
-                "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
         try:
             return datetime.strptime(raw, fmt)
         except ValueError:
@@ -119,7 +117,14 @@ def _parse_datetime(value: Any) -> datetime | None:
 def _extract_activities(description: str) -> set[str]:
     """Extract a rough set of normalised 'activity tokens' from free text."""
     tokens: set[str] = set()
-    for word in description.lower().replace(",", " ").replace(".", " ").replace("_", " ").replace("-", " ").split():
+    for word in (
+        description.lower()
+        .replace(",", " ")
+        .replace(".", " ")
+        .replace("_", " ")
+        .replace("-", " ")
+        .split()
+    ):
         cleaned = word.strip()
         if len(cleaned) > 2:
             tokens.add(cleaned)
@@ -154,9 +159,7 @@ class ContractWorkOrderLinker:
 
         for obj in contract_objects:
             obj_type = _safe_str(obj.get("type", obj.get("object_type", "")))
-            obj_id = _safe_str(
-                obj.get("id", obj.get("clause_id", obj.get("activity", "")))
-            )
+            obj_id = _safe_str(obj.get("id", obj.get("clause_id", obj.get("activity", ""))))
 
             # --- Rate card matching ---
             if obj_type in ("rate_card", "rate") or "activity" in obj:
@@ -167,9 +170,7 @@ class ContractWorkOrderLinker:
                     activity_tokens = _extract_activities(activity_name)
                     overlap = activity_tokens & wo_activities
                     token_score = (
-                        len(overlap) / max(len(activity_tokens), 1)
-                        if activity_tokens
-                        else 0.0
+                        len(overlap) / max(len(activity_tokens), 1) if activity_tokens else 0.0
                     )
                     combined = max(sim, token_score)
                     if combined >= _TEXT_SIMILARITY_THRESHOLD:
@@ -216,15 +217,11 @@ class ContractWorkOrderLinker:
             # --- Scope boundary matching ---
             if obj_type in ("scope", "scope_boundary") or "scope_type" in obj:
                 scope_desc = _safe_str(obj.get("description", ""))
-                scope_activities = set(
-                    a.lower().strip() for a in obj.get("activities", [])
-                )
+                scope_activities = set(a.lower().strip() for a in obj.get("activities", []))
                 overlap = scope_activities & wo_activities
                 desc_sim = _text_similarity(scope_desc, wo_desc)
                 token_score = (
-                    len(overlap) / max(len(scope_activities), 1)
-                    if scope_activities
-                    else 0.0
+                    len(overlap) / max(len(scope_activities), 1) if scope_activities else 0.0
                 )
                 combined = max(desc_sim, token_score)
                 if combined >= _TEXT_SIMILARITY_THRESHOLD:
@@ -294,9 +291,7 @@ class ContractWorkOrderLinker:
         for boundary in scope_boundaries:
             scope_type = _safe_str(boundary.get("scope_type", ""))
             if scope_type == "out_of_scope":
-                out_activities = set(
-                    a.lower().strip() for a in boundary.get("activities", [])
-                )
+                out_activities = set(a.lower().strip() for a in boundary.get("activities", []))
                 overlap = out_activities & wo_activities
                 if overlap:
                     conflicts.append(
@@ -317,14 +312,10 @@ class ContractWorkOrderLinker:
 
         # --- Missing obligation coverage ---
         linked_obligation_ids = {
-            link.source_id
-            for link in links
-            if link.link_type == "obligation_to_work_order"
+            link.source_id for link in links if link.link_type == "obligation_to_work_order"
         }
         for obligation in obligations:
-            ob_id = _safe_str(
-                obligation.get("clause_id", obligation.get("id", ""))
-            )
+            ob_id = _safe_str(obligation.get("clause_id", obligation.get("id", "")))
             ob_status = _safe_str(obligation.get("status", "active"))
             if ob_status == "active" and ob_id not in linked_obligation_ids:
                 ob_desc = _safe_str(obligation.get("description", ""))
@@ -376,10 +367,7 @@ class WorkOrderIncidentLinker:
 
         for incident in incidents:
             inc_id = _safe_str(incident.get("incident_id", ""))
-            inc_services = [
-                s.lower().strip()
-                for s in incident.get("affected_services", [])
-            ]
+            inc_services = [s.lower().strip() for s in incident.get("affected_services", [])]
             inc_desc = _safe_str(incident.get("description", ""))
             inc_title = _safe_str(incident.get("title", ""))
             inc_created = _parse_datetime(incident.get("created_at"))
@@ -460,9 +448,7 @@ class WorkOrderIncidentLinker:
     ) -> list[CrossPlaneConflict]:
         conflicts: list[CrossPlaneConflict] = []
 
-        wo_start = _parse_datetime(
-            wo_data.get("scheduled_date") or wo_data.get("scheduled_start")
-        )
+        wo_start = _parse_datetime(wo_data.get("scheduled_date") or wo_data.get("scheduled_start"))
         wo_end = _parse_datetime(wo_data.get("scheduled_end"))
         wo_assigned = _safe_str(wo_data.get("assigned_to", wo_data.get("engineer", "")))
 
@@ -591,40 +577,40 @@ class MarginEvidenceAssembler:
         items: list[dict] = []
 
         for obj in contract_objects:
-            items.append({
-                "domain": DOMAIN_CONTRACT_MARGIN,
-                "type": _safe_str(
-                    obj.get("type", obj.get("object_type", "contract_object"))
-                ),
-                "id": _safe_str(
-                    obj.get("id", obj.get("clause_id", obj.get("activity", "")))
-                ),
-                "summary": _safe_str(obj.get("description", obj.get("activity", "")))[:200],
-                "data": obj,
-            })
+            items.append(
+                {
+                    "domain": DOMAIN_CONTRACT_MARGIN,
+                    "type": _safe_str(obj.get("type", obj.get("object_type", "contract_object"))),
+                    "id": _safe_str(obj.get("id", obj.get("clause_id", obj.get("activity", "")))),
+                    "summary": _safe_str(obj.get("description", obj.get("activity", "")))[:200],
+                    "data": obj,
+                }
+            )
 
         for wo in work_history:
-            items.append({
-                "domain": DOMAIN_UTILITIES_FIELD,
-                "type": "work_order",
-                "id": _safe_str(wo.get("work_order_id", "")),
-                "summary": _safe_str(wo.get("description", ""))[:200],
-                "data": wo,
-            })
+            items.append(
+                {
+                    "domain": DOMAIN_UTILITIES_FIELD,
+                    "type": "work_order",
+                    "id": _safe_str(wo.get("work_order_id", "")),
+                    "summary": _safe_str(wo.get("description", ""))[:200],
+                    "data": wo,
+                }
+            )
 
         for trigger in leakage_triggers:
-            items.append({
-                "domain": DOMAIN_CONTRACT_MARGIN,
-                "type": "leakage_trigger",
-                "id": _safe_str(trigger.get("trigger_type", "")),
-                "summary": _safe_str(trigger.get("description", ""))[:200],
-                "severity": _safe_str(trigger.get("severity", "medium")),
-                "data": trigger,
-            })
+            items.append(
+                {
+                    "domain": DOMAIN_CONTRACT_MARGIN,
+                    "type": "leakage_trigger",
+                    "id": _safe_str(trigger.get("trigger_type", "")),
+                    "summary": _safe_str(trigger.get("description", ""))[:200],
+                    "severity": _safe_str(trigger.get("severity", "medium")),
+                    "data": trigger,
+                }
+            )
 
-        domains = sorted(
-            {item["domain"] for item in items}
-        )
+        domains = sorted({item["domain"] for item in items})
         confidence = self._compute_confidence(items, leakage_triggers)
 
         return EvidenceBundle(
@@ -636,20 +622,15 @@ class MarginEvidenceAssembler:
         )
 
     @staticmethod
-    def _compute_confidence(
-        items: list[dict], leakage_triggers: list[dict]
-    ) -> float:
+    def _compute_confidence(items: list[dict], leakage_triggers: list[dict]) -> float:
         if not items:
             return 0.0
         domain_count = len({item["domain"] for item in items})
         has_contract = any(
-            item["domain"] == DOMAIN_CONTRACT_MARGIN
-            and item["type"] != "leakage_trigger"
+            item["domain"] == DOMAIN_CONTRACT_MARGIN and item["type"] != "leakage_trigger"
             for item in items
         )
-        has_work = any(
-            item["domain"] == DOMAIN_UTILITIES_FIELD for item in items
-        )
+        has_work = any(item["domain"] == DOMAIN_UTILITIES_FIELD for item in items)
         has_triggers = len(leakage_triggers) > 0
 
         score = 0.3 * min(domain_count / 2, 1.0)
@@ -674,43 +655,49 @@ class ReadinessEvidenceAssembler:
     ) -> EvidenceBundle:
         items: list[dict] = []
 
-        items.append({
-            "domain": DOMAIN_UTILITIES_FIELD,
-            "type": "work_order",
-            "id": _safe_str(work_order.get("work_order_id", "")),
-            "summary": _safe_str(work_order.get("description", ""))[:200],
-            "data": work_order,
-        })
+        items.append(
+            {
+                "domain": DOMAIN_UTILITIES_FIELD,
+                "type": "work_order",
+                "id": _safe_str(work_order.get("work_order_id", "")),
+                "summary": _safe_str(work_order.get("description", ""))[:200],
+                "data": work_order,
+            }
+        )
 
-        items.append({
-            "domain": DOMAIN_UTILITIES_FIELD,
-            "type": "engineer_profile",
-            "id": _safe_str(engineer.get("engineer_id", "")),
-            "summary": _safe_str(engineer.get("name", "")),
-            "data": engineer,
-        })
+        items.append(
+            {
+                "domain": DOMAIN_UTILITIES_FIELD,
+                "type": "engineer_profile",
+                "id": _safe_str(engineer.get("engineer_id", "")),
+                "summary": _safe_str(engineer.get("name", "")),
+                "data": engineer,
+            }
+        )
 
         for blocker in blockers:
-            items.append({
+            items.append(
+                {
+                    "domain": DOMAIN_UTILITIES_FIELD,
+                    "type": "blocker",
+                    "id": _safe_str(blocker.get("blocker_type", "")),
+                    "summary": _safe_str(blocker.get("description", ""))[:200],
+                    "severity": _safe_str(blocker.get("severity", "error")),
+                    "data": blocker,
+                }
+            )
+
+        items.append(
+            {
                 "domain": DOMAIN_UTILITIES_FIELD,
-                "type": "blocker",
-                "id": _safe_str(blocker.get("blocker_type", "")),
-                "summary": _safe_str(blocker.get("description", ""))[:200],
-                "severity": _safe_str(blocker.get("severity", "error")),
-                "data": blocker,
-            })
-
-        items.append({
-            "domain": DOMAIN_UTILITIES_FIELD,
-            "type": "skill_fit",
-            "id": "skill_fit_analysis",
-            "summary": "fit" if skill_fit.get("fit") else "no_fit",
-            "data": skill_fit,
-        })
-
-        confidence = self._compute_confidence(
-            work_order, engineer, blockers, skill_fit
+                "type": "skill_fit",
+                "id": "skill_fit_analysis",
+                "summary": "fit" if skill_fit.get("fit") else "no_fit",
+                "data": skill_fit,
+            }
         )
+
+        confidence = self._compute_confidence(work_order, engineer, blockers, skill_fit)
 
         return EvidenceBundle(
             bundle_id=str(uuid.uuid4()),
@@ -756,51 +743,55 @@ class OpsEvidenceAssembler:
     ) -> EvidenceBundle:
         items: list[dict] = []
 
-        items.append({
-            "domain": DOMAIN_TELCO_OPS,
-            "type": "incident",
-            "id": _safe_str(incident.get("incident_id", "")),
-            "summary": _safe_str(
-                incident.get("title", incident.get("description", ""))
-            )[:200],
-            "severity": _safe_str(incident.get("severity", "")),
-            "data": incident,
-        })
+        items.append(
+            {
+                "domain": DOMAIN_TELCO_OPS,
+                "type": "incident",
+                "id": _safe_str(incident.get("incident_id", "")),
+                "summary": _safe_str(incident.get("title", incident.get("description", "")))[:200],
+                "severity": _safe_str(incident.get("severity", "")),
+                "data": incident,
+            }
+        )
 
         for svc in service_states:
-            items.append({
-                "domain": DOMAIN_TELCO_OPS,
-                "type": "service_state",
-                "id": _safe_str(svc.get("service_id", "")),
-                "summary": (
-                    f"{_safe_str(svc.get('service_name', ''))} "
-                    f"[{_safe_str(svc.get('state', ''))}]"
-                ),
-                "impact_level": _safe_str(svc.get("impact_level", "")),
-                "data": svc,
-            })
+            items.append(
+                {
+                    "domain": DOMAIN_TELCO_OPS,
+                    "type": "service_state",
+                    "id": _safe_str(svc.get("service_id", "")),
+                    "summary": (
+                        f"{_safe_str(svc.get('service_name', ''))} "
+                        f"[{_safe_str(svc.get('state', ''))}]"
+                    ),
+                    "impact_level": _safe_str(svc.get("impact_level", "")),
+                    "data": svc,
+                }
+            )
 
         if escalation:
-            items.append({
-                "domain": DOMAIN_TELCO_OPS,
-                "type": "escalation_decision",
-                "id": _safe_str(escalation.get("level", "none")),
-                "summary": _safe_str(escalation.get("reason", "")),
-                "data": escalation,
-            })
+            items.append(
+                {
+                    "domain": DOMAIN_TELCO_OPS,
+                    "type": "escalation_decision",
+                    "id": _safe_str(escalation.get("level", "none")),
+                    "summary": _safe_str(escalation.get("reason", "")),
+                    "data": escalation,
+                }
+            )
 
         if next_action:
-            items.append({
-                "domain": DOMAIN_TELCO_OPS,
-                "type": "next_action",
-                "id": _safe_str(next_action.get("action", "")),
-                "summary": _safe_str(next_action.get("reason", "")),
-                "data": next_action,
-            })
+            items.append(
+                {
+                    "domain": DOMAIN_TELCO_OPS,
+                    "type": "next_action",
+                    "id": _safe_str(next_action.get("action", "")),
+                    "summary": _safe_str(next_action.get("reason", "")),
+                    "data": next_action,
+                }
+            )
 
-        confidence = self._compute_confidence(
-            incident, service_states, escalation, next_action
-        )
+        confidence = self._compute_confidence(incident, service_states, escalation, next_action)
 
         return EvidenceBundle(
             bundle_id=str(uuid.uuid4()),
@@ -852,9 +843,7 @@ class CrossPlaneReconciler:
         contract_objects = self._collect_contract_objects(contract_data)
 
         links = self._contract_wo_linker.link(contract_objects, wo_data)
-        conflicts = self._contract_wo_linker.detect_conflicts(
-            links, contract_data, wo_data
-        )
+        conflicts = self._contract_wo_linker.detect_conflicts(links, contract_data, wo_data)
 
         leakage_triggers = contract_data.get("leakage_triggers", [])
         evidence = self._margin_assembler.assemble(
@@ -881,9 +870,7 @@ class CrossPlaneReconciler:
             incidents = [incidents]
 
         links = self._wo_incident_linker.link(wo_data, incidents)
-        conflicts = self._wo_incident_linker.detect_conflicts(
-            links, wo_data, incident_data
-        )
+        conflicts = self._wo_incident_linker.detect_conflicts(links, wo_data, incident_data)
 
         primary_incident = incidents[0] if incidents else {}
         service_states = incident_data.get("service_states", [])
@@ -911,12 +898,8 @@ class CrossPlaneReconciler:
         wo_data: dict,
         incident_data: dict,
     ) -> dict:
-        contract_to_wo = self.reconcile_contract_to_work_order(
-            contract_data, wo_data
-        )
-        wo_to_incident = self.reconcile_work_order_to_incident(
-            wo_data, incident_data
-        )
+        contract_to_wo = self.reconcile_contract_to_work_order(contract_data, wo_data)
+        wo_to_incident = self.reconcile_work_order_to_incident(wo_data, incident_data)
 
         all_links = contract_to_wo["links"] + wo_to_incident["links"]
         all_conflicts = contract_to_wo["conflicts"] + wo_to_incident["conflicts"]
@@ -925,13 +908,10 @@ class CrossPlaneReconciler:
         contract_evidence = contract_to_wo["evidence"]
         ops_evidence = wo_to_incident["evidence"]
 
-        combined_items = (
-            contract_evidence.get("evidence_items", [])
-            + ops_evidence.get("evidence_items", [])
+        combined_items = contract_evidence.get("evidence_items", []) + ops_evidence.get(
+            "evidence_items", []
         )
-        combined_domains = sorted(
-            {item.get("domain", "") for item in combined_items}
-        )
+        combined_domains = sorted({item.get("domain", "") for item in combined_items})
         avg_confidence = 0.0
         confidences = [
             contract_evidence.get("confidence", 0),
@@ -1033,48 +1013,55 @@ class FieldCompletionBillabilityLinker:
         missing_evidence = required_evidence_types - provided_evidence_types
         if missing_evidence:
             billable = False
-            blockers.append({
-                "rule": "missing_completion_evidence",
-                "description": f"Missing required evidence: {', '.join(sorted(missing_evidence))}",
-                "severity": "error",
-            })
-            leakage_triggers.append({
-                "trigger_type": "incomplete_evidence_prevents_billing",
-                "description": f"Cannot invoice — missing evidence: {', '.join(sorted(missing_evidence))}",
-                "severity": "error",
-            })
+            blockers.append(
+                {
+                    "rule": "missing_completion_evidence",
+                    "description": f"Missing required evidence: {', '.join(sorted(missing_evidence))}",
+                    "severity": "error",
+                }
+            )
+            leakage_triggers.append(
+                {
+                    "trigger_type": "incomplete_evidence_prevents_billing",
+                    "description": f"Cannot invoice — missing evidence: {', '.join(sorted(missing_evidence))}",
+                    "severity": "error",
+                }
+            )
 
         # Rule 2: billing gates
-        unsatisfied_gates = [
-            g for g in billing_gates
-            if not g.get("satisfied", False)
-        ]
+        unsatisfied_gates = [g for g in billing_gates if not g.get("satisfied", False)]
         if unsatisfied_gates:
             billable = False
             for gate in unsatisfied_gates:
-                blockers.append({
-                    "rule": "billing_gate_unsatisfied",
-                    "gate_type": gate.get("gate_type", "unknown"),
-                    "description": gate.get("description", "Billing gate not satisfied"),
-                    "severity": "error",
-                })
+                blockers.append(
+                    {
+                        "rule": "billing_gate_unsatisfied",
+                        "gate_type": gate.get("gate_type", "unknown"),
+                        "description": gate.get("description", "Billing gate not satisfied"),
+                        "severity": "error",
+                    }
+                )
 
         # Rule 3: reattendance — provider fault
         if reattendance_info:
             trigger = reattendance_info.get("trigger", "")
             if trigger == "provider_fault":
                 billable = False
-                blockers.append({
-                    "rule": "reattendance_provider_fault",
-                    "description": "Re-attendance caused by provider fault — non-billable",
-                    "severity": "error",
-                })
+                blockers.append(
+                    {
+                        "rule": "reattendance_provider_fault",
+                        "description": "Re-attendance caused by provider fault — non-billable",
+                        "severity": "error",
+                    }
+                )
                 if reattendance_info.get("billed", False):
-                    leakage_triggers.append({
-                        "trigger_type": "reattendance_incorrectly_billed",
-                        "description": "Provider-fault re-visit was billed to customer",
-                        "severity": "critical",
-                    })
+                    leakage_triggers.append(
+                        {
+                            "trigger_type": "reattendance_incorrectly_billed",
+                            "description": "Provider-fault re-visit was billed to customer",
+                            "severity": "critical",
+                        }
+                    )
 
             # Rule 4: abortive visit
             elif trigger == "customer_no_access":
@@ -1082,27 +1069,35 @@ class FieldCompletionBillabilityLinker:
                 category = "abortive_visit"
 
         # Rule 5: daywork sheet
-        if work_order.get("category") == "daywork" and not work_order.get("daywork_sheet_signed", False):
+        if work_order.get("category") == "daywork" and not work_order.get(
+            "daywork_sheet_signed", False
+        ):
             billable = False
-            blockers.append({
-                "rule": "daywork_sheet_not_signed",
-                "description": "Daywork sheet not signed — cannot invoice",
-                "severity": "error",
-            })
+            blockers.append(
+                {
+                    "rule": "daywork_sheet_not_signed",
+                    "description": "Daywork sheet not signed — cannot invoice",
+                    "severity": "error",
+                }
+            )
 
         # Rule 6: variation without change order
         if work_order.get("is_variation", False) and not work_order.get("variation_order_ref"):
             billable = False
-            blockers.append({
-                "rule": "variation_no_change_order",
-                "description": "Variation work without formal change order — non-billable",
-                "severity": "error",
-            })
-            leakage_triggers.append({
-                "trigger_type": "variation_work_unbilled",
-                "description": "Out-of-scope variation work done without variation order — cannot bill",
-                "severity": "error",
-            })
+            blockers.append(
+                {
+                    "rule": "variation_no_change_order",
+                    "description": "Variation work without formal change order — non-billable",
+                    "severity": "error",
+                }
+            )
+            leakage_triggers.append(
+                {
+                    "trigger_type": "variation_work_unbilled",
+                    "description": "Out-of-scope variation work done without variation order — cannot bill",
+                    "severity": "error",
+                }
+            )
 
         return {
             "billable": billable,
@@ -1147,22 +1142,26 @@ class TicketClosureHandoverLinker:
             has_evidence = any(e.get("provided", False) for e in completion_evidence)
             if not has_evidence:
                 can_close = False
-                blockers.append({
-                    "rule": "missing_completion_evidence",
-                    "description": "Incident resolved but field completion evidence not provided",
-                    "severity": "error",
-                })
+                blockers.append(
+                    {
+                        "rule": "missing_completion_evidence",
+                        "description": "Incident resolved but field completion evidence not provided",
+                        "severity": "error",
+                    }
+                )
 
         # Rule 2: state mismatch
         if inc_state == "resolved" and wo_status and wo_status != "completed":
             can_close = False
-            mismatches.append({
-                "field": "state_alignment",
-                "incident_value": inc_state,
-                "work_order_value": wo_status,
-                "severity": "error",
-                "description": f"Ticket is '{inc_state}' but work order is '{wo_status}'",
-            })
+            mismatches.append(
+                {
+                    "field": "state_alignment",
+                    "incident_value": inc_state,
+                    "work_order_value": wo_status,
+                    "severity": "error",
+                    "description": f"Ticket is '{inc_state}' but work order is '{wo_status}'",
+                }
+            )
 
         # Rule 3: P1/P2 require RCA
         if inc_severity in ("p1", "p2"):
@@ -1172,41 +1171,45 @@ class TicketClosureHandoverLinker:
             )
             if not rca_submitted:
                 can_close = False
-                blockers.append({
-                    "rule": "rca_not_submitted",
-                    "description": f"{inc_severity.upper()} ticket requires RCA before closure",
-                    "severity": "error",
-                })
+                blockers.append(
+                    {
+                        "rule": "rca_not_submitted",
+                        "description": f"{inc_severity.upper()} ticket requires RCA before closure",
+                        "severity": "error",
+                    }
+                )
 
         # Rule 4: open permits
         open_permits = [
-            g for g in closure_gates
-            if g.get("prerequisite") == "permit_closed_out"
-            and not g.get("satisfied", False)
+            g
+            for g in closure_gates
+            if g.get("prerequisite") == "permit_closed_out" and not g.get("satisfied", False)
         ]
         if open_permits:
             can_close = False
-            blockers.append({
-                "rule": "open_permits",
-                "description": "Work order has permits not closed out",
-                "severity": "error",
-            })
+            blockers.append(
+                {
+                    "rule": "open_permits",
+                    "description": "Work order has permits not closed out",
+                    "severity": "error",
+                }
+            )
 
         # Rule 5: customer sign-off
-        needs_sign_off = any(
-            g.get("prerequisite") == "customer_sign_off" for g in closure_gates
-        )
+        needs_sign_off = any(g.get("prerequisite") == "customer_sign_off" for g in closure_gates)
         has_sign_off = any(
             g.get("prerequisite") == "customer_sign_off" and g.get("satisfied", False)
             for g in closure_gates
         )
         if needs_sign_off and not has_sign_off:
             can_close = False
-            blockers.append({
-                "rule": "customer_sign_off_missing",
-                "description": "Customer sign-off required but not obtained",
-                "severity": "error",
-            })
+            blockers.append(
+                {
+                    "rule": "customer_sign_off_missing",
+                    "description": "Customer sign-off required but not obtained",
+                    "severity": "error",
+                }
+            )
 
         return {
             "can_close": can_close,
@@ -1284,21 +1287,25 @@ class SLAAccountabilityLinker:
                 if not mapping["accountable"]:
                     has_non_accountable = True
                     fully_accountable_only = False
-                    mitigation_factors.append({
-                        "blocker_type": blocker_type,
-                        "mitigation": mapping["mitigation"],
-                        "description": blocker.get("description", ""),
-                    })
+                    mitigation_factors.append(
+                        {
+                            "blocker_type": blocker_type,
+                            "mitigation": mapping["mitigation"],
+                            "description": blocker.get("description", ""),
+                        }
+                    )
                     if mapping["adjusted_status"]:
                         adjusted_status = mapping["adjusted_status"]
                 elif mapping["mitigation"]:
                     # Partial mitigation (e.g. third_party_dependency)
                     fully_accountable_only = False
-                    mitigation_factors.append({
-                        "blocker_type": blocker_type,
-                        "mitigation": mapping["mitigation"],
-                        "description": blocker.get("description", ""),
-                    })
+                    mitigation_factors.append(
+                        {
+                            "blocker_type": blocker_type,
+                            "mitigation": mapping["mitigation"],
+                            "description": blocker.get("description", ""),
+                        }
+                    )
                     if mapping["adjusted_status"]:
                         adjusted_status = mapping["adjusted_status"]
 
@@ -1367,26 +1374,30 @@ class MarginLeakageReconciler:
 
             # 1. field_completion_not_billed
             if wo_status == "completed" and wo_id not in invoiced_wo_ids:
-                triggers.append({
-                    "trigger_type": "field_completion_not_billed",
-                    "work_order_id": wo_id,
-                    "description": f"Work order {wo_id} completed but no invoice raised",
-                    "severity": "error",
-                    "at_risk_value": wo_value,
-                })
+                triggers.append(
+                    {
+                        "trigger_type": "field_completion_not_billed",
+                        "work_order_id": wo_id,
+                        "description": f"Work order {wo_id} completed but no invoice raised",
+                        "severity": "error",
+                        "at_risk_value": wo_value,
+                    }
+                )
                 total_at_risk += wo_value
                 recommendations.append(f"Raise invoice for completed work order {wo_id}")
 
             # 2. abortive_visit_not_claimed
             if wo.get("abortive", False) and not wo.get("abortive_claimed", False):
                 abortive_value = _safe_float(wo.get("abortive_value", 0))
-                triggers.append({
-                    "trigger_type": "abortive_visit_not_claimed",
-                    "work_order_id": wo_id,
-                    "description": f"Abortive visit for {wo_id} not claimed",
-                    "severity": "warning",
-                    "at_risk_value": abortive_value,
-                })
+                triggers.append(
+                    {
+                        "trigger_type": "abortive_visit_not_claimed",
+                        "work_order_id": wo_id,
+                        "description": f"Abortive visit for {wo_id} not claimed",
+                        "severity": "warning",
+                        "at_risk_value": abortive_value,
+                    }
+                )
                 total_at_risk += abortive_value
                 recommendations.append(f"Claim abortive visit charge for {wo_id}")
 
@@ -1399,44 +1410,50 @@ class MarginLeakageReconciler:
                 expected_rate = base_rate * emergency_multiplier
                 if billed_rate > 0 and base_rate > 0 and billed_rate < expected_rate * 0.99:
                     diff = expected_rate - billed_rate
-                    triggers.append({
-                        "trigger_type": "emergency_billed_at_base_rate",
-                        "work_order_id": wo_id,
-                        "description": (
-                            f"Emergency callout billed at {billed_rate} "
-                            f"instead of expected {expected_rate}"
-                        ),
-                        "severity": "error",
-                        "at_risk_value": diff,
-                    })
-                    total_at_risk += diff
-                    recommendations.append(
-                        f"Rebill {wo_id} at emergency rate ({expected_rate})"
+                    triggers.append(
+                        {
+                            "trigger_type": "emergency_billed_at_base_rate",
+                            "work_order_id": wo_id,
+                            "description": (
+                                f"Emergency callout billed at {billed_rate} "
+                                f"instead of expected {expected_rate}"
+                            ),
+                            "severity": "error",
+                            "at_risk_value": diff,
+                        }
                     )
+                    total_at_risk += diff
+                    recommendations.append(f"Rebill {wo_id} at emergency rate ({expected_rate})")
 
             # 4. reattendance_incorrectly_billed
             reattendance = wo.get("reattendance_info", {})
-            if reattendance.get("trigger") == "provider_fault" and reattendance.get("billed", False):
-                triggers.append({
-                    "trigger_type": "reattendance_incorrectly_billed",
-                    "work_order_id": wo_id,
-                    "description": f"Provider-fault re-visit {wo_id} billed to customer",
-                    "severity": "critical",
-                    "at_risk_value": wo_value,
-                })
+            if reattendance.get("trigger") == "provider_fault" and reattendance.get(
+                "billed", False
+            ):
+                triggers.append(
+                    {
+                        "trigger_type": "reattendance_incorrectly_billed",
+                        "work_order_id": wo_id,
+                        "description": f"Provider-fault re-visit {wo_id} billed to customer",
+                        "severity": "critical",
+                        "at_risk_value": wo_value,
+                    }
+                )
                 total_at_risk += wo_value
                 recommendations.append(f"Issue credit note for incorrectly billed rework {wo_id}")
 
             # 5. permit_cost_not_recovered
             permit_cost = _safe_float(wo.get("permit_cost", 0))
             if permit_cost > 0 and not wo.get("permit_cost_recovered", False):
-                triggers.append({
-                    "trigger_type": "permit_cost_not_recovered",
-                    "work_order_id": wo_id,
-                    "description": f"NRSWA permit cost {permit_cost:.2f} not passed through",
-                    "severity": "warning",
-                    "at_risk_value": permit_cost,
-                })
+                triggers.append(
+                    {
+                        "trigger_type": "permit_cost_not_recovered",
+                        "work_order_id": wo_id,
+                        "description": f"NRSWA permit cost {permit_cost:.2f} not passed through",
+                        "severity": "warning",
+                        "at_risk_value": permit_cost,
+                    }
+                )
                 total_at_risk += permit_cost
                 recommendations.append(f"Recover permit cost {permit_cost:.2f} for {wo_id}")
 
@@ -1447,25 +1464,29 @@ class MarginLeakageReconciler:
                 volume = _safe_float(wo.get("volume", 1))
                 delta = contract_rate * esc_pct / 100.0 * volume
                 if delta > 0:
-                    triggers.append({
-                        "trigger_type": "rate_escalation_not_applied",
-                        "work_order_id": wo_id,
-                        "description": f"Annual rate escalation not applied — under-recovery {delta:.2f}",
-                        "severity": "warning",
-                        "at_risk_value": delta,
-                    })
+                    triggers.append(
+                        {
+                            "trigger_type": "rate_escalation_not_applied",
+                            "work_order_id": wo_id,
+                            "description": f"Annual rate escalation not applied — under-recovery {delta:.2f}",
+                            "severity": "warning",
+                            "at_risk_value": delta,
+                        }
+                    )
                     total_at_risk += delta
                     recommendations.append(f"Apply rate escalation for {wo_id}")
 
             # 7. variation_work_unbilled
             if wo.get("is_variation", False) and not wo.get("variation_order_ref"):
-                triggers.append({
-                    "trigger_type": "variation_work_unbilled",
-                    "work_order_id": wo_id,
-                    "description": f"Variation work on {wo_id} without variation order — cannot bill",
-                    "severity": "error",
-                    "at_risk_value": wo_value,
-                })
+                triggers.append(
+                    {
+                        "trigger_type": "variation_work_unbilled",
+                        "work_order_id": wo_id,
+                        "description": f"Variation work on {wo_id} without variation order — cannot bill",
+                        "severity": "error",
+                        "at_risk_value": wo_value,
+                    }
+                )
                 total_at_risk += wo_value
                 recommendations.append(f"Raise variation order for {wo_id} before invoicing")
 
@@ -1478,13 +1499,15 @@ class MarginLeakageReconciler:
             }
             missing = required_evidence - provided_evidence
             if missing and wo_status == "completed":
-                triggers.append({
-                    "trigger_type": "incomplete_evidence_prevents_billing",
-                    "work_order_id": wo_id,
-                    "description": f"Missing evidence ({', '.join(sorted(missing))}) prevents invoicing",
-                    "severity": "error",
-                    "at_risk_value": wo_value,
-                })
+                triggers.append(
+                    {
+                        "trigger_type": "incomplete_evidence_prevents_billing",
+                        "work_order_id": wo_id,
+                        "description": f"Missing evidence ({', '.join(sorted(missing))}) prevents invoicing",
+                        "severity": "error",
+                        "at_risk_value": wo_value,
+                    }
+                )
                 total_at_risk += wo_value
                 recommendations.append(f"Collect missing evidence for {wo_id}")
 
@@ -1492,13 +1515,15 @@ class MarginLeakageReconciler:
         for breach in sla_breaches:
             if not breach.get("credit_applied", False):
                 credit_value = _safe_float(breach.get("credit_value", 0))
-                triggers.append({
-                    "trigger_type": "sla_credit_not_deducted",
-                    "incident_id": breach.get("incident_id", ""),
-                    "description": f"SLA breach but service credit not applied",
-                    "severity": "warning",
-                    "at_risk_value": credit_value,
-                })
+                triggers.append(
+                    {
+                        "trigger_type": "sla_credit_not_deducted",
+                        "incident_id": breach.get("incident_id", ""),
+                        "description": "SLA breach but service credit not applied",
+                        "severity": "warning",
+                        "at_risk_value": credit_value,
+                    }
+                )
                 total_at_risk += credit_value
                 recommendations.append("Apply SLA service credit for breach")
 
@@ -1516,13 +1541,15 @@ class MarginLeakageReconciler:
                 activity_wo_map.setdefault(key, []).append(wo.get("work_order_id", ""))
         for key, wo_ids in activity_wo_map.items():
             if len(wo_ids) > 1:
-                triggers.append({
-                    "trigger_type": "duplicate_claim_risk",
-                    "work_order_ids": wo_ids,
-                    "description": f"Possible duplicate claim across work orders: {', '.join(wo_ids)}",
-                    "severity": "warning",
-                    "at_risk_value": 0.0,
-                })
+                triggers.append(
+                    {
+                        "trigger_type": "duplicate_claim_risk",
+                        "work_order_ids": wo_ids,
+                        "description": f"Possible duplicate claim across work orders: {', '.join(wo_ids)}",
+                        "severity": "warning",
+                        "at_risk_value": 0.0,
+                    }
+                )
                 recommendations.append(f"Review potential duplicate: {', '.join(wo_ids)}")
 
         return {
@@ -1586,9 +1613,7 @@ class ContradictionDetector:
 
         for boundary in scope_boundaries:
             scope_type = _safe_str(boundary.get("scope_type", ""))
-            scope_activities = set(
-                a.lower().strip() for a in boundary.get("activities", [])
-            )
+            scope_activities = set(a.lower().strip() for a in boundary.get("activities", []))
             overlap = scope_activities & wo_activities
 
             if scope_type == "in_scope" and field_scope == "out_of_scope" and overlap:
@@ -1598,7 +1623,7 @@ class ContradictionDetector:
                         domain_a=DOMAIN_CONTRACT_MARGIN,
                         value_a=f"in_scope: {', '.join(sorted(overlap))}",
                         domain_b=DOMAIN_UTILITIES_FIELD,
-                        value_b=f"field reports out_of_scope",
+                        value_b="field reports out_of_scope",
                         severity="error",
                         resolution="Contract defines activities as in-scope but field execution flagged them as out-of-scope. Clarify scope with contract team.",
                     )
@@ -1610,7 +1635,7 @@ class ContradictionDetector:
                         domain_a=DOMAIN_CONTRACT_MARGIN,
                         value_a=f"out_of_scope: {', '.join(sorted(overlap))}",
                         domain_b=DOMAIN_UTILITIES_FIELD,
-                        value_b=f"field reports in_scope",
+                        value_b="field reports in_scope",
                         severity="error",
                         resolution="Contract defines activities as out-of-scope but field executed them as in-scope. May indicate unauthorised work.",
                     )
@@ -1637,7 +1662,11 @@ class ContradictionDetector:
                 )
 
             # Incident resolved but work order still open
-            if inc_state in ("resolved", "closed") and wo_status in ("pending", "in_progress", "assigned"):
+            if inc_state in ("resolved", "closed") and wo_status in (
+                "pending",
+                "in_progress",
+                "assigned",
+            ):
                 conflicts.append(
                     CrossPlaneConflict(
                         field="completion_vs_incident",
@@ -1653,7 +1682,9 @@ class ContradictionDetector:
         # --- Rate contradiction ---
         rate_card = contract_data.get("rate_card", [])
         field_rate = _safe_float(field_data.get("rate", field_data.get("billed_rate", 0)))
-        field_activity = _safe_str(field_data.get("activity", field_data.get("work_order_type", "")))
+        field_activity = _safe_str(
+            field_data.get("activity", field_data.get("work_order_type", ""))
+        )
 
         if field_rate > 0 and field_activity:
             for rc in rate_card:
@@ -1744,7 +1775,12 @@ class EvidenceChainValidator:
         {
             "stage": "execution_evidence",
             "label": "Execution Evidence",
-            "required_types": {"completion_certificate", "daywork_sheet", "field_log", "completion_evidence"},
+            "required_types": {
+                "completion_certificate",
+                "daywork_sheet",
+                "field_log",
+                "completion_evidence",
+            },
         },
         {
             "stage": "billing_evidence",
@@ -1765,8 +1801,7 @@ class EvidenceChainValidator:
         """
         results: list[dict] = []
         item_types = {
-            _safe_str(item.get("type", "")).lower()
-            for item in evidence_bundle.evidence_items
+            _safe_str(item.get("type", "")).lower() for item in evidence_bundle.evidence_items
         }
 
         for stage_def in self.CHAIN_STAGES:
@@ -1778,13 +1813,15 @@ class EvidenceChainValidator:
             present = bool(item_types & required_types)
 
             if present:
-                results.append({
-                    "stage": stage,
-                    "label": label,
-                    "present": True,
-                    "severity": "ok",
-                    "message": f"{label} evidence found.",
-                })
+                results.append(
+                    {
+                        "stage": stage,
+                        "label": label,
+                        "present": True,
+                        "severity": "ok",
+                        "message": f"{label} evidence found.",
+                    }
+                )
             else:
                 # Contract basis and work authorization are blockers; the rest are warnings
                 if stage in ("contract_basis", "work_authorization"):
@@ -1793,13 +1830,15 @@ class EvidenceChainValidator:
                 else:
                     severity = "warning"
                     message = f"Missing {label} -- margin diagnosis may be incomplete."
-                results.append({
-                    "stage": stage,
-                    "label": label,
-                    "present": False,
-                    "severity": severity,
-                    "message": message,
-                })
+                results.append(
+                    {
+                        "stage": stage,
+                        "label": label,
+                        "present": False,
+                        "severity": severity,
+                        "message": message,
+                    }
+                )
 
         return results
 
@@ -1895,17 +1934,15 @@ class MarginDiagnosisReconciler:
         field_blockers = sla_performance.get("field_blockers", [])
         contract_assumptions = sla_performance.get("contract_assumptions", [])
         if sla_status or field_blockers:
-            sla_result = self.sla_linker.evaluate(
-                sla_status, field_blockers, contract_assumptions
-            )
+            sla_result = self.sla_linker.evaluate(sla_status, field_blockers, contract_assumptions)
             if sla_result.get("accountable", False) and sla_status.get("status") == "breached":
                 sla_conflicts.append(
                     CrossPlaneConflict(
                         field="sla_accountability",
                         domain_a=DOMAIN_TELCO_OPS,
-                        value_a=f"sla_breached",
+                        value_a="sla_breached",
                         domain_b=DOMAIN_CONTRACT_MARGIN,
-                        value_b=f"provider_accountable",
+                        value_b="provider_accountable",
                         severity="critical",
                         resolution="SLA breached and provider is accountable. Penalty exposure applies.",
                     )
@@ -1926,9 +1963,7 @@ class MarginDiagnosisReconciler:
         # 5. Margin leakage detection
         field_data = {"work_orders": work_orders + work_history}
         ops_data = {"sla_breaches": sla_performance.get("sla_breaches", [])}
-        leakage_result = self.leakage_reconciler.reconcile(
-            contract_data, field_data, ops_data
-        )
+        leakage_result = self.leakage_reconciler.reconcile(contract_data, field_data, ops_data)
         leakage_patterns = leakage_result.get("leakage_triggers", [])
 
         # 6. Assemble evidence bundle
@@ -1948,28 +1983,18 @@ class MarginDiagnosisReconciler:
         contradiction_conflicts: list[CrossPlaneConflict] = []
         for wo in work_orders:
             primary_incident = incidents[0] if incidents else None
-            detected = self.contradiction_detector.detect(
-                contract_data, wo, primary_incident
-            )
+            detected = self.contradiction_detector.detect(contract_data, wo, primary_incident)
             contradiction_conflicts.extend(detected)
 
         # Aggregate all conflicts
-        all_conflicts = (
-            field_billing_conflicts
-            + sla_conflicts
-            + contradiction_conflicts
-        )
+        all_conflicts = field_billing_conflicts + sla_conflicts + contradiction_conflicts
 
         # 8. Determine verdict
-        verdict = self._determine_verdict(
-            leakage_patterns, all_conflicts, sla_conflicts
-        )
+        verdict = self._determine_verdict(leakage_patterns, all_conflicts, sla_conflicts)
         confidence = self._compute_confidence(
             contract_objects, work_orders, incidents, evidence_bundle, all_conflicts
         )
-        summary = self._build_summary(
-            verdict, leakage_patterns, all_conflicts, evidence_bundle
-        )
+        summary = self._build_summary(verdict, leakage_patterns, all_conflicts, evidence_bundle)
 
         return MarginDiagnosisBundle(
             contract_wo_links=all_contract_wo_links,
@@ -2022,8 +2047,7 @@ class MarginDiagnosisReconciler:
     ) -> str:
         # Penalty risk takes precedence
         has_penalty_risk = any(
-            c.field == "sla_accountability" and c.severity == "critical"
-            for c in sla_conflicts
+            c.field == "sla_accountability" and c.severity == "critical" for c in sla_conflicts
         )
         if has_penalty_risk:
             return "penalty_risk"
@@ -2039,9 +2063,7 @@ class MarginDiagnosisReconciler:
 
         # Conflicts present but no leakage
         if all_conflicts:
-            critical_conflicts = any(
-                c.severity in ("error", "critical") for c in all_conflicts
-            )
+            critical_conflicts = any(c.severity in ("error", "critical") for c in all_conflicts)
             if critical_conflicts:
                 return "under_recovery"
             return "leakage_detected"

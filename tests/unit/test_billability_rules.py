@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from domain_packs.contract_margin.rules.billability_rules import (
@@ -72,7 +70,9 @@ def sample_parsed_contract() -> ParsedContract:
 class TestBillabilityRuleEngine:
     """Tests for the BillabilityRuleEngine."""
 
-    def test_billable_standard_event(self, engine: BillabilityRuleEngine, sample_parsed_contract: ParsedContract):
+    def test_billable_standard_event(
+        self, engine: BillabilityRuleEngine, sample_parsed_contract: ParsedContract
+    ):
         """A standard maintenance event should be billable."""
         event = WorkEvent(
             event_id="WE-001",
@@ -107,7 +107,9 @@ class TestBillabilityRuleEngine:
         result = engine.evaluate(event, contract)
         assert result.billable is False
 
-    def test_not_billable_excluded_activity(self, engine: BillabilityRuleEngine, sample_parsed_contract: ParsedContract):
+    def test_not_billable_excluded_activity(
+        self, engine: BillabilityRuleEngine, sample_parsed_contract: ParsedContract
+    ):
         """An excluded activity should not be billable."""
         event = WorkEvent(
             event_id="WE-003",
@@ -120,7 +122,9 @@ class TestBillabilityRuleEngine:
         result = engine.evaluate(event, sample_parsed_contract)
         assert result.billable is False
 
-    def test_billable_sla_not_met_warning(self, engine: BillabilityRuleEngine, sample_parsed_contract: ParsedContract):
+    def test_billable_sla_not_met_warning(
+        self, engine: BillabilityRuleEngine, sample_parsed_contract: ParsedContract
+    ):
         """An event where SLA is not met should produce a warning but may still be billable."""
         event = WorkEvent(
             event_id="WE-004",

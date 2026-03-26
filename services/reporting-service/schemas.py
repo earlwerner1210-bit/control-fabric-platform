@@ -13,7 +13,9 @@ from shared.schemas.common import BaseSchema
 
 class GenerateReportRequest(BaseModel):
     case_id: uuid.UUID
-    report_type: str = Field(default="case_summary", description="case_summary or management_summary")
+    report_type: str = Field(
+        default="case_summary", description="case_summary or management_summary"
+    )
     format: str = Field(default="json", description="json or text")
     include_audit_trail: bool = True
     include_validations: bool = True

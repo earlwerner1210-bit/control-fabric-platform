@@ -11,11 +11,10 @@ from typing import Any
 from app.domain_packs.utilities_field.parsers.work_order_parser import WorkOrderParser
 from app.domain_packs.utilities_field.schemas.field_schemas import (
     AccreditationType,
+    EngineerProfileObject,
     WorkCategory,
     WorkOrderObject,
-    EngineerProfileObject,
 )
-
 
 # ---------------------------------------------------------------------------
 # Grade ordering (lowest -> highest)
@@ -88,6 +87,7 @@ _SAFETY_EQUIPMENT: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 # Readiness Rule Engine
 # ---------------------------------------------------------------------------
+
 
 class ReadinessRuleEngine:
     """Evaluates dispatch-readiness of a work order against an engineer profile.
@@ -273,9 +273,7 @@ class ReadinessRuleEngine:
         if work_order.location:
             reqs_lower = [r.lower() for r in work_order.special_requirements]
             has_access = any(
-                keyword in r
-                for r in reqs_lower
-                for keyword in ("access", "key", "escort", "gate")
+                keyword in r for r in reqs_lower for keyword in ("access", "key", "escort", "gate")
             )
             if not has_access:
                 return False, "Work has a location but no access arrangements documented"

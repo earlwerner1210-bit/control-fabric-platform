@@ -7,7 +7,6 @@ accreditations, permits, access clearance, safety equipment, and time windows.
 from __future__ import annotations
 
 from datetime import date
-from typing import Optional
 
 from ..schemas.field_schemas import (
     ComplianceBlocker,
@@ -78,9 +77,7 @@ class ReadinessRuleEngine:
         for blocker in blockers:
             missing_prereqs.append(blocker.description)
         if skill_fit.missing_skills:
-            missing_prereqs.extend(
-                f"Missing skill: {s}" for s in skill_fit.missing_skills
-            )
+            missing_prereqs.extend(f"Missing skill: {s}" for s in skill_fit.missing_skills)
 
         # Determine status
         critical_blockers = [b for b in blockers if b.severity == "blocking"]
@@ -136,9 +133,7 @@ class ReadinessRuleEngine:
 
         # Determine which accreditations are needed based on skills
         required_categories = set(work_order.required_skills)
-        categories_needing_cert = {
-            c for c in required_categories if c.requires_certification
-        }
+        categories_needing_cert = {c for c in required_categories if c.requires_certification}
 
         if not categories_needing_cert:
             return blockers
@@ -223,8 +218,7 @@ class ReadinessRuleEngine:
 
         # Check for building access permits
         building_permits = [
-            p for p in work_order.required_permits
-            if p.permit_type.value == "building_access"
+            p for p in work_order.required_permits if p.permit_type.value == "building_access"
         ]
         for permit in building_permits:
             if permit.status != "approved":

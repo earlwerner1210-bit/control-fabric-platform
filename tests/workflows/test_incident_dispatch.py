@@ -9,8 +9,8 @@ import pytest
 
 from services.escalation_engine import EscalationRuleEngine
 from workflows.incident_dispatch_reconcile.workflow import (
-    IncidentDispatchWorkflow,
     IncidentDispatchResult,
+    IncidentDispatchWorkflow,
 )
 
 
@@ -76,7 +76,9 @@ class TestIncidentDispatchWorkflow:
         assert result.sla_target_minutes == 240
 
     @pytest.mark.asyncio
-    async def test_dispatch_with_sample_incident(self, escalation_engine: EscalationRuleEngine, sample_incident: dict[str, Any]):
+    async def test_dispatch_with_sample_incident(
+        self, escalation_engine: EscalationRuleEngine, sample_incident: dict[str, Any]
+    ):
         """Workflow should work with sample incident fixture."""
         workflow = IncidentDispatchWorkflow(escalation_engine=escalation_engine)
         result = await workflow.run(

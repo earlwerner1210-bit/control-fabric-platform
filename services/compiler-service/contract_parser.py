@@ -59,12 +59,14 @@ class ContractParser:
         parsed: list[dict[str, Any]] = []
 
         for entry in sla_table:
-            parsed.append({
-                "priority": entry.get("priority", ""),
-                "response_time_hours": entry.get("response_time_hours", 0),
-                "resolution_time_hours": entry.get("resolution_time_hours", 0),
-                "availability": entry.get("availability", "business_hours"),
-            })
+            parsed.append(
+                {
+                    "priority": entry.get("priority", ""),
+                    "response_time_hours": entry.get("response_time_hours", 0),
+                    "resolution_time_hours": entry.get("resolution_time_hours", 0),
+                    "availability": entry.get("availability", "business_hours"),
+                }
+            )
 
         return parsed
 
@@ -74,12 +76,14 @@ class ContractParser:
         parsed: list[dict[str, Any]] = []
 
         for entry in rate_card:
-            parsed.append({
-                "activity": entry.get("activity", ""),
-                "unit": entry.get("unit", ""),
-                "rate": float(entry.get("rate", 0)),
-                "currency": entry.get("currency", "USD"),
-            })
+            parsed.append(
+                {
+                    "activity": entry.get("activity", ""),
+                    "unit": entry.get("unit", ""),
+                    "rate": float(entry.get("rate", 0)),
+                    "currency": entry.get("currency", "USD"),
+                }
+            )
 
         return parsed
 
@@ -102,10 +106,12 @@ class ContractParser:
         results: list[dict[str, Any]] = []
         pattern = r"(P\d)\s*(?:incidents?)?\s*:\s*(\d+)\s*hours?"
         for match in re.finditer(pattern, text, re.IGNORECASE):
-            results.append({
-                "priority": match.group(1).upper(),
-                "resolution_time_hours": int(match.group(2)),
-            })
+            results.append(
+                {
+                    "priority": match.group(1).upper(),
+                    "resolution_time_hours": int(match.group(2)),
+                }
+            )
         return results
 
     @staticmethod
@@ -114,11 +120,13 @@ class ContractParser:
         results: list[dict[str, Any]] = []
         pattern = r"(?:(\w[\w\s/]*?))\s*(?:rate)?\s*:\s*\$\s*([\d,]+(?:\.\d{2})?)\s*/?\s*hr"
         for match in re.finditer(pattern, text, re.IGNORECASE):
-            results.append({
-                "category": match.group(1).strip().lower(),
-                "rate": float(match.group(2).replace(",", "")),
-                "unit": "hour",
-            })
+            results.append(
+                {
+                    "category": match.group(1).strip().lower(),
+                    "rate": float(match.group(2).replace(",", "")),
+                    "unit": "hour",
+                }
+            )
         return results
 
     @staticmethod

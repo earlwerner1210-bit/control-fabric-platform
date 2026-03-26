@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import date, datetime
-from typing import Any, Optional, Sequence, Union
+from typing import Any
 
 from app.domain_packs.contract_margin.schemas.contract import (
     BillableCategory,
@@ -36,13 +36,25 @@ from app.domain_packs.contract_margin.schemas.contract import (
 _CLAUSE_KEYWORD_MAP: dict[ClauseType, list[str]] = {
     ClauseType.obligation: ["shall", "must", "required to", "obligated", "responsible for"],
     ClauseType.sla: ["service level", "sla", "response time", "resolution time", "availability"],
-    ClauseType.penalty: ["penalty", "liquidated damages", "service credit", "deduction", "abatement"],
+    ClauseType.penalty: [
+        "penalty",
+        "liquidated damages",
+        "service credit",
+        "deduction",
+        "abatement",
+    ],
     ClauseType.rate: ["rate", "price", "charge", "fee", "tariff", "cost per"],
     ClauseType.scope: ["scope", "in scope", "out of scope", "included", "excluded"],
     ClauseType.termination: ["termination", "terminate", "exit", "expiry", "cessation"],
     ClauseType.liability: ["liability", "indemnity", "indemnification", "limitation of liability"],
     ClauseType.billing: ["invoice", "billing", "payment", "remittance", "purchase order"],
-    ClauseType.re_attendance: ["re-attendance", "reattendance", "repeat visit", "rework", "revisit"],
+    ClauseType.re_attendance: [
+        "re-attendance",
+        "reattendance",
+        "repeat visit",
+        "rework",
+        "revisit",
+    ],
     ClauseType.evidence: ["evidence", "proof", "documentation", "daywork sheet", "photograph"],
     ClauseType.service_credit: ["service credit", "credit note", "rebate"],
     ClauseType.safety: ["safety", "health and safety", "risk assessment", "method statement"],
@@ -69,7 +81,7 @@ class ContractParser:
     # Public entry point
     # ------------------------------------------------------------------
 
-    def parse_contract(self, text_or_payload: Union[str, dict]) -> ParsedContract:
+    def parse_contract(self, text_or_payload: str | dict) -> ParsedContract:
         """Parse a contract from raw text or a structured dict payload.
 
         When *text_or_payload* is a dict the parser looks for pre-extracted
@@ -205,10 +217,12 @@ class ContractParser:
     # SLA extraction
     # ------------------------------------------------------------------
 
-    def extract_sla_table(self, text_or_data: Union[str, list]) -> list[SLAEntry]:
+    def extract_sla_table(self, text_or_data: str | list) -> list[SLAEntry]:
         """Extract SLA entries from a list of dicts or raw text."""
         if isinstance(text_or_data, list):
-            return [self._normalize_sla_entry(item) for item in text_or_data if isinstance(item, dict)]
+            return [
+                self._normalize_sla_entry(item) for item in text_or_data if isinstance(item, dict)
+            ]
         entries: list[SLAEntry] = []
         for line in text_or_data.splitlines():
             parts = [p.strip() for p in line.split("|") if p.strip()]
@@ -225,12 +239,14 @@ class ContractParser:
                         penalty_pct = float(re.sub(r"[^\d.]", "", parts[3]))
                     except ValueError:
                         pass
-                entries.append(SLAEntry(
-                    priority=priority,
-                    response_time_hours=response_h,
-                    resolution_time_hours=resolution_h,
-                    penalty_percentage=penalty_pct,
-                ))
+                entries.append(
+                    SLAEntry(
+                        priority=priority,
+                        response_time_hours=response_h,
+                        resolution_time_hours=resolution_h,
+                        penalty_percentage=penalty_pct,
+                    )
+                )
         return entries
 
     def _normalize_sla_entry(self, raw: dict) -> SLAEntry:
@@ -263,10 +279,12 @@ class ContractParser:
     # Rate card extraction
     # ------------------------------------------------------------------
 
-    def extract_rate_card(self, text_or_data: Union[str, list]) -> list[RateCardEntry]:
+    def extract_rate_card(self, text_or_data: str | list) -> list[RateCardEntry]:
         """Extract rate card entries from list of dicts or raw text."""
         if isinstance(text_or_data, list):
-            return [self._normalize_rate_entry(item) for item in text_or_data if isinstance(item, dict)]
+            return [
+                self._normalize_rate_entry(item) for item in text_or_data if isinstance(item, dict)
+            ]
         entries: list[RateCardEntry] = []
         for line in text_or_data.splitlines():
             parts = [p.strip() for p in line.split("|") if p.strip()]
@@ -282,7 +300,9 @@ class ContractParser:
 
     def _normalize_rate_entry(self, raw: dict) -> RateCardEntry:
         """Normalise varying field names into a canonical RateCardEntry."""
-        activity = raw.get("activity") or raw.get("activity_code") or raw.get("description") or "unknown"
+        activity = (
+            raw.get("activity") or raw.get("activity_code") or raw.get("description") or "unknown"
+        )
         rate_val = raw.get("rate") or raw.get("base_rate") or raw.get("unit_rate") or 0.0
 
         effective_from = self._parse_date(raw.get("effective_from"))
@@ -311,7 +331,7 @@ class ContractParser:
     # Scope, obligations, penalties, billable events
     # ------------------------------------------------------------------
 
-    def extract_scope_boundaries(self, data: Union[list, dict, str]) -> list[ScopeBoundary]:
+    def extract_scope_boundaries(self, data: list | dict | str) -> list[ScopeBoundary]:
         """Extract scope boundaries from structured data."""
         if isinstance(data, str):
             return []
@@ -325,12 +345,14 @@ class ContractParser:
                 scope_type = ScopeType(scope_raw)
             except ValueError:
                 scope_type = ScopeType.in_scope
-            boundaries.append(ScopeBoundary(
-                scope_type=scope_type,
-                description=item.get("description", ""),
-                activities=item.get("activities", []),
-                conditions=item.get("conditions", []),
-            ))
+            boundaries.append(
+                ScopeBoundary(
+                    scope_type=scope_type,
+                    description=item.get("description", ""),
+                    activities=item.get("activities", []),
+                    conditions=item.get("conditions", []),
+                )
+            )
         return boundaries
 
     def extract_obligations(self, clauses: list[ExtractedClause]) -> list[Obligation]:
@@ -351,7 +373,9 @@ class ContractParser:
                 evidence.append("completion_report")
 
             deadline = 30
-            deadline_match = re.search(r"(\d+)\s*(?:calendar|business|working)?\s*days?", clause.text, re.IGNORECASE)
+            deadline_match = re.search(
+                r"(\d+)\s*(?:calendar|business|working)?\s*days?", clause.text, re.IGNORECASE
+            )
             if deadline_match:
                 deadline = int(deadline_match.group(1))
 
@@ -361,14 +385,16 @@ class ContractParser:
             elif "both parties" in text_lower or "jointly" in text_lower:
                 owner = "both"
 
-            obligations.append(Obligation(
-                clause_id=clause.id,
-                description=clause.text[:200],
-                frequency="per_event",
-                owner=owner,
-                evidence_required=evidence,
-                deadline_days=deadline,
-            ))
+            obligations.append(
+                Obligation(
+                    clause_id=clause.id,
+                    description=clause.text[:200],
+                    frequency="per_event",
+                    owner=owner,
+                    evidence_required=evidence,
+                    deadline_days=deadline,
+                )
+            )
         return obligations
 
     def extract_penalties(self, clauses: list[ExtractedClause]) -> list[PenaltyCondition]:
@@ -396,31 +422,39 @@ class ContractParser:
                 if gbp_match:
                     amount = float(gbp_match.group(1).replace(",", ""))
 
-            cap: Optional[float] = None
-            cap_match = re.search(r"cap(?:ped)?\s*(?:at|of)?\s*[£$]?\s*([\d,]+(?:\.\d+)?)", clause.text, re.IGNORECASE)
+            cap: float | None = None
+            cap_match = re.search(
+                r"cap(?:ped)?\s*(?:at|of)?\s*[£$]?\s*([\d,]+(?:\.\d+)?)", clause.text, re.IGNORECASE
+            )
             if cap_match:
                 cap = float(cap_match.group(1).replace(",", ""))
 
             grace_days = 0
-            grace_match = re.search(r"grace\s*(?:period)?\s*(?:of)?\s*(\d+)\s*days?", clause.text, re.IGNORECASE)
+            grace_match = re.search(
+                r"grace\s*(?:period)?\s*(?:of)?\s*(\d+)\s*days?", clause.text, re.IGNORECASE
+            )
             if grace_match:
                 grace_days = int(grace_match.group(1))
 
             cure_days = 0
-            cure_match = re.search(r"cure\s*(?:period)?\s*(?:of)?\s*(\d+)\s*days?", clause.text, re.IGNORECASE)
+            cure_match = re.search(
+                r"cure\s*(?:period)?\s*(?:of)?\s*(\d+)\s*days?", clause.text, re.IGNORECASE
+            )
             if cure_match:
                 cure_days = int(cure_match.group(1))
 
-            penalties.append(PenaltyCondition(
-                clause_id=clause.id,
-                description=clause.text[:200],
-                trigger=self._extract_trigger(clause.text),
-                penalty_type=penalty_type,
-                penalty_amount=amount,
-                cap=cap,
-                grace_period_days=grace_days,
-                cure_period_days=cure_days,
-            ))
+            penalties.append(
+                PenaltyCondition(
+                    clause_id=clause.id,
+                    description=clause.text[:200],
+                    trigger=self._extract_trigger(clause.text),
+                    penalty_type=penalty_type,
+                    penalty_amount=amount,
+                    cap=cap,
+                    grace_period_days=grace_days,
+                    cure_period_days=cure_days,
+                )
+            )
         return penalties
 
     def extract_billable_events(self, rate_card: list[RateCardEntry]) -> list[BillableEvent]:
@@ -452,14 +486,16 @@ class ContractParser:
                 prerequisites.append("subcontractor_po_raised")
                 evidence.append("subcontractor_invoice")
 
-            events.append(BillableEvent(
-                activity=entry.activity,
-                category=category,
-                rate=entry.rate,
-                unit=entry.unit,
-                prerequisites=prerequisites,
-                evidence_required=evidence,
-            ))
+            events.append(
+                BillableEvent(
+                    activity=entry.activity,
+                    category=category,
+                    rate=entry.rate,
+                    unit=entry.unit,
+                    prerequisites=prerequisites,
+                    evidence_required=evidence,
+                )
+            )
         return events
 
     # ------------------------------------------------------------------
@@ -503,13 +539,13 @@ class ContractParser:
         text_lower = text.lower()
         if "failure to" in text_lower:
             idx = text_lower.index("failure to")
-            return text[idx: idx + 80].strip()
+            return text[idx : idx + 80].strip()
         if "breach" in text_lower:
             idx = text_lower.index("breach")
-            return text[idx: idx + 80].strip()
+            return text[idx : idx + 80].strip()
         if "exceed" in text_lower:
             idx = text_lower.index("exceed")
-            return text[idx: idx + 80].strip()
+            return text[idx : idx + 80].strip()
         return text[:80].strip()
 
     @staticmethod
@@ -520,7 +556,7 @@ class ContractParser:
         return first_line[:200]
 
     @staticmethod
-    def _parse_date(value: Any) -> Optional[date]:
+    def _parse_date(value: Any) -> date | None:
         if value is None:
             return None
         if isinstance(value, date):

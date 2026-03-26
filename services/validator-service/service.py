@@ -40,7 +40,9 @@ class ValidatorService:
         )
         objects = list(result.scalars().all())
         if not objects:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No control objects found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="No control objects found"
+            )
 
         validation_results: list[ValidationResult] = []
         for obj in objects:
@@ -54,8 +56,14 @@ class ValidatorService:
                 target_id=obj.id,
                 status=vr_status,
                 rules_passed=sum(1 for r in rule_results if r["passed"]),
-                rules_warned=sum(1 for r in rule_results if not r["passed"] and r["severity"] == "warning"),
-                rules_blocked=sum(1 for r in rule_results if not r["passed"] and r["severity"] in ("error", "critical")),
+                rules_warned=sum(
+                    1 for r in rule_results if not r["passed"] and r["severity"] == "warning"
+                ),
+                rules_blocked=sum(
+                    1
+                    for r in rule_results
+                    if not r["passed"] and r["severity"] in ("error", "critical")
+                ),
                 rule_results=rule_results,
                 metadata_={"case_id": str(case_id), "domain": domain},
             )
@@ -66,7 +74,9 @@ class ValidatorService:
         overall = self._compute_overall_status(validation_results)
         logger.info(
             "Validated %d objects for case %s: %s",
-            len(objects), case_id, overall,
+            len(objects),
+            case_id,
+            overall,
         )
         return {
             "case_id": case_id,
@@ -75,53 +85,63 @@ class ValidatorService:
         }
 
     @staticmethod
-    def run_domain_rules(
-        obj: ControlObject, domain: str, rules: list[str]
-    ) -> list[dict[str, Any]]:
+    def run_domain_rules(obj: ControlObject, domain: str, rules: list[str]) -> list[dict[str, Any]]:
         """Apply domain-specific validation rules to a control object."""
         results: list[dict[str, Any]] = []
 
         # Schema completeness check
-        results.append({
-            "rule_name": "schema_completeness",
-            "passed": bool(obj.payload),
-            "message": "Payload is present" if obj.payload else "Payload is empty",
-            "severity": "error" if not obj.payload else "info",
-            "metadata": {},
-        })
+        results.append(
+            {
+                "rule_name": "schema_completeness",
+                "passed": bool(obj.payload),
+                "message": "Payload is present" if obj.payload else "Payload is empty",
+                "severity": "error" if not obj.payload else "info",
+                "metadata": {},
+            }
+        )
 
         # Evidence check
         has_source = obj.source_document_id is not None
-        results.append({
-            "rule_name": "evidence_linkage",
-            "passed": has_source,
-            "message": "Linked to source document" if has_source else "No source document linked",
-            "severity": "warning" if not has_source else "info",
-            "metadata": {},
-        })
+        results.append(
+            {
+                "rule_name": "evidence_linkage",
+                "passed": has_source,
+                "message": "Linked to source document"
+                if has_source
+                else "No source document linked",
+                "severity": "warning" if not has_source else "info",
+                "metadata": {},
+            }
+        )
 
         # Confidence check
         confidence = obj.confidence or 0.0
         passed = confidence >= 0.7
-        results.append({
-            "rule_name": "confidence_threshold",
-            "passed": passed,
-            "message": f"Confidence {confidence:.2f} {'meets' if passed else 'below'} threshold 0.70",
-            "severity": "info" if passed else "warning",
-            "metadata": {"confidence": confidence, "threshold": 0.70},
-        })
+        results.append(
+            {
+                "rule_name": "confidence_threshold",
+                "passed": passed,
+                "message": f"Confidence {confidence:.2f} {'meets' if passed else 'below'} threshold 0.70",
+                "severity": "info" if passed else "warning",
+                "metadata": {"confidence": confidence, "threshold": 0.70},
+            }
+        )
 
         # Domain-specific rules
         if domain == "contract-margin" and obj.control_type:
             if obj.control_type.value == "billable_event":
                 has_rate = bool((obj.payload or {}).get("rate"))
-                results.append({
-                    "rule_name": "billing_rate_present",
-                    "passed": has_rate,
-                    "message": "Billing rate defined" if has_rate else "No billing rate in payload",
-                    "severity": "error" if not has_rate else "info",
-                    "metadata": {},
-                })
+                results.append(
+                    {
+                        "rule_name": "billing_rate_present",
+                        "passed": has_rate,
+                        "message": "Billing rate defined"
+                        if has_rate
+                        else "No billing rate in payload",
+                        "severity": "error" if not has_rate else "info",
+                        "metadata": {},
+                    }
+                )
 
         return results
 
@@ -130,15 +150,9 @@ class ValidatorService:
         rule_results: list[dict[str, Any]], confidence: float | None
     ) -> ValidationStatus:
         """Determine overall validation status based on rule results and confidence."""
-        has_critical = any(
-            not r["passed"] and r["severity"] == "critical" for r in rule_results
-        )
-        has_error = any(
-            not r["passed"] and r["severity"] == "error" for r in rule_results
-        )
-        has_warning = any(
-            not r["passed"] and r["severity"] == "warning" for r in rule_results
-        )
+        has_critical = any(not r["passed"] and r["severity"] == "critical" for r in rule_results)
+        has_error = any(not r["passed"] and r["severity"] == "error" for r in rule_results)
+        has_warning = any(not r["passed"] and r["severity"] == "warning" for r in rule_results)
 
         if has_critical:
             return ValidationStatus.escalated
@@ -177,7 +191,4 @@ class ValidatorService:
         )
         all_results = result.scalars().all()
         # Filter by case_id stored in metadata
-        return [
-            r for r in all_results
-            if (r.metadata_ or {}).get("case_id") == str(case_id)
-        ]
+        return [r for r in all_results if (r.metadata_ or {}).get("case_id") == str(case_id)]

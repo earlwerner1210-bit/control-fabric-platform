@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -20,8 +19,8 @@ from domain_packs.contract_margin.taxonomy.contract_taxonomy import (
     ContractType,
 )
 from workflows.margin_diagnosis.workflow import (
-    MarginDiagnosisWorkflow,
     MarginDiagnosisResult,
+    MarginDiagnosisWorkflow,
 )
 
 
@@ -47,7 +46,9 @@ class TestMarginDiagnosisWorkflow:
     """Tests for MarginDiagnosisWorkflow."""
 
     @pytest.mark.asyncio
-    async def test_healthy_margin(self, leakage_engine: LeakageRuleEngine, test_contract: ParsedContract):
+    async def test_healthy_margin(
+        self, leakage_engine: LeakageRuleEngine, test_contract: ParsedContract
+    ):
         """No leakage should produce 'healthy' verdict."""
         workflow = MarginDiagnosisWorkflow(leakage_engine=leakage_engine)
 
@@ -76,7 +77,9 @@ class TestMarginDiagnosisWorkflow:
         assert result.leakage_amount is None or result.leakage_amount == 0
 
     @pytest.mark.asyncio
-    async def test_leakage_detected(self, leakage_engine: LeakageRuleEngine, test_contract: ParsedContract):
+    async def test_leakage_detected(
+        self, leakage_engine: LeakageRuleEngine, test_contract: ParsedContract
+    ):
         """Unbilled work should produce leakage verdict."""
         workflow = MarginDiagnosisWorkflow(leakage_engine=leakage_engine)
 
@@ -117,7 +120,9 @@ class TestMarginDiagnosisWorkflow:
         assert result.verdict == "healthy"
 
     @pytest.mark.asyncio
-    async def test_workflow_audit(self, leakage_engine: LeakageRuleEngine, test_contract: ParsedContract):
+    async def test_workflow_audit(
+        self, leakage_engine: LeakageRuleEngine, test_contract: ParsedContract
+    ):
         """Workflow should log audit events."""
         mock_audit = AsyncMock()
         mock_audit.log = AsyncMock()

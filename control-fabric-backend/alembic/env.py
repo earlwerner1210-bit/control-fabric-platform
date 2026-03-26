@@ -6,14 +6,15 @@ import asyncio
 import os
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from alembic import context
 
 # Import the declarative Base so Alembic can detect all table metadata.
 # The models __init__ re-exports every model, which registers them on Base.
 from app.db.base import Base
-from app.db.models import (  # noqa: F401 – side-effect import
+from app.db.models import (
     AuditEvent,
     CanonicalEntity,
     ControlLink,

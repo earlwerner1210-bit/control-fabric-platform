@@ -19,20 +19,24 @@ from app.workflows.contract_compile.workflow import (
     ContractCompileWorkflow,
     compile_objects_activity,
     load_documents_activity,
-    log_audit_activity as cc_log_audit_activity,
     parse_documents_activity,
     validate_output_activity,
+)
+from app.workflows.contract_compile.workflow import (
+    log_audit_activity as cc_log_audit_activity,
 )
 from app.workflows.margin_diagnosis.workflow import (
     MarginDiagnosisWorkflow,
     load_contract_objects_activity,
-    log_audit_activity as md_log_audit_activity,
     parse_incident_activity,
     parse_work_order_activity,
     persist_results_activity,
     reconcile_activity,
     run_inference_activity,
     validate_diagnosis_activity,
+)
+from app.workflows.margin_diagnosis.workflow import (
+    log_audit_activity as md_log_audit_activity,
 )
 
 logger = logging.getLogger(__name__)

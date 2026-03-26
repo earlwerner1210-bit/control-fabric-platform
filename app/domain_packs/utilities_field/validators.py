@@ -10,7 +10,6 @@ from app.domain_packs.utilities_field.schemas import (
 )
 from app.schemas.validation import RuleResult
 
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -55,88 +54,110 @@ class UtilitiesFieldValidator:
         # 1. Verdict is valid.
         verdict = output_payload.get("verdict") or output_payload.get("status")
         if verdict is None:
-            results.append(RuleResult(
-                rule_name="readiness_verdict_present",
-                passed=False,
-                message="Readiness output missing 'verdict' or 'status' field",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="readiness_verdict_present",
+                    passed=False,
+                    message="Readiness output missing 'verdict' or 'status' field",
+                    severity="error",
+                )
+            )
         elif verdict not in _VALID_VERDICTS:
-            results.append(RuleResult(
-                rule_name="readiness_verdict_valid",
-                passed=False,
-                message=f"Invalid readiness verdict '{verdict}'; expected one of {sorted(_VALID_VERDICTS)}",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="readiness_verdict_valid",
+                    passed=False,
+                    message=f"Invalid readiness verdict '{verdict}'; expected one of {sorted(_VALID_VERDICTS)}",
+                    severity="error",
+                )
+            )
         else:
-            results.append(RuleResult(
-                rule_name="readiness_verdict_valid",
-                passed=True,
-                message=f"Readiness verdict '{verdict}' is valid",
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="readiness_verdict_valid",
+                    passed=True,
+                    message=f"Readiness verdict '{verdict}' is valid",
+                    severity="info",
+                )
+            )
 
         # 2. Blocked verdict must have reasons.
         if verdict == ReadinessStatus.blocked.value:
-            reasons = output_payload.get("reasons") or output_payload.get("missing_prerequisites") or []
+            reasons = (
+                output_payload.get("reasons") or output_payload.get("missing_prerequisites") or []
+            )
             if not reasons:
-                results.append(RuleResult(
-                    rule_name="readiness_blocked_has_reasons",
-                    passed=False,
-                    message="Readiness verdict is 'blocked' but no reasons or missing_prerequisites provided",
-                    severity="error",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="readiness_blocked_has_reasons",
+                        passed=False,
+                        message="Readiness verdict is 'blocked' but no reasons or missing_prerequisites provided",
+                        severity="error",
+                    )
+                )
             else:
-                results.append(RuleResult(
-                    rule_name="readiness_blocked_has_reasons",
-                    passed=True,
-                    message=f"Blocked verdict has {len(reasons)} reason(s)",
-                    severity="info",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="readiness_blocked_has_reasons",
+                        passed=True,
+                        message=f"Blocked verdict has {len(reasons)} reason(s)",
+                        severity="info",
+                    )
+                )
 
         # 3. skill_fit is present.
         skill_fit = output_payload.get("skill_fit")
         if skill_fit is None:
-            results.append(RuleResult(
-                rule_name="readiness_skill_fit_present",
-                passed=False,
-                message="Readiness output missing 'skill_fit' field",
-                severity="warning",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="readiness_skill_fit_present",
+                    passed=False,
+                    message="Readiness output missing 'skill_fit' field",
+                    severity="warning",
+                )
+            )
         else:
-            results.append(RuleResult(
-                rule_name="readiness_skill_fit_present",
-                passed=True,
-                message="skill_fit field is present",
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="readiness_skill_fit_present",
+                    passed=True,
+                    message="skill_fit field is present",
+                    severity="info",
+                )
+            )
 
         # 4. Every blocker has severity.
         blockers = output_payload.get("blockers", [])
         if isinstance(blockers, list):
             for idx, blocker in enumerate(blockers):
                 if not isinstance(blocker, dict):
-                    results.append(RuleResult(
-                        rule_name=f"readiness_blocker_{idx}_is_dict",
-                        passed=False,
-                        message=f"Blocker at index {idx} is not a dict",
-                        severity="error",
-                    ))
+                    results.append(
+                        RuleResult(
+                            rule_name=f"readiness_blocker_{idx}_is_dict",
+                            passed=False,
+                            message=f"Blocker at index {idx} is not a dict",
+                            severity="error",
+                        )
+                    )
                     continue
                 if "severity" not in blocker:
-                    results.append(RuleResult(
-                        rule_name=f"readiness_blocker_{idx}_has_severity",
-                        passed=False,
-                        message=f"Blocker at index {idx} missing 'severity' field",
-                        severity="warning",
-                    ))
+                    results.append(
+                        RuleResult(
+                            rule_name=f"readiness_blocker_{idx}_has_severity",
+                            passed=False,
+                            message=f"Blocker at index {idx} missing 'severity' field",
+                            severity="warning",
+                        )
+                    )
                 else:
-                    results.append(RuleResult(
-                        rule_name=f"readiness_blocker_{idx}_has_severity",
-                        passed=True,
-                        message=f"Blocker at index {idx} has severity '{blocker['severity']}'",
-                        severity="info",
-                    ))
+                    results.append(
+                        RuleResult(
+                            rule_name=f"readiness_blocker_{idx}_has_severity",
+                            passed=True,
+                            message=f"Blocker at index {idx} has severity '{blocker['severity']}'",
+                            severity="info",
+                        )
+                    )
 
         return results
 
@@ -155,75 +176,91 @@ class UtilitiesFieldValidator:
         # 1. Recommendation type valid.
         rec_type = rec.get("recommendation")
         if rec_type is None:
-            results.append(RuleResult(
-                rule_name="dispatch_recommendation_present",
-                passed=False,
-                message="Dispatch recommendation missing 'recommendation' field",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="dispatch_recommendation_present",
+                    passed=False,
+                    message="Dispatch recommendation missing 'recommendation' field",
+                    severity="error",
+                )
+            )
         elif rec_type not in _VALID_RECOMMENDATION_TYPES:
-            results.append(RuleResult(
-                rule_name="dispatch_recommendation_valid",
-                passed=False,
-                message=f"Invalid recommendation type '{rec_type}'; expected one of {sorted(_VALID_RECOMMENDATION_TYPES)}",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="dispatch_recommendation_valid",
+                    passed=False,
+                    message=f"Invalid recommendation type '{rec_type}'; expected one of {sorted(_VALID_RECOMMENDATION_TYPES)}",
+                    severity="error",
+                )
+            )
         else:
-            results.append(RuleResult(
-                rule_name="dispatch_recommendation_valid",
-                passed=True,
-                message=f"Recommendation type '{rec_type}' is valid",
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="dispatch_recommendation_valid",
+                    passed=True,
+                    message=f"Recommendation type '{rec_type}' is valid",
+                    severity="info",
+                )
+            )
 
         # 2. Reasons present.
         reasons = rec.get("reasons", [])
         if not reasons:
-            results.append(RuleResult(
-                rule_name="dispatch_reasons_present",
-                passed=False,
-                message="Dispatch recommendation has no reasons",
-                severity="warning",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="dispatch_reasons_present",
+                    passed=False,
+                    message="Dispatch recommendation has no reasons",
+                    severity="warning",
+                )
+            )
         else:
-            results.append(RuleResult(
-                rule_name="dispatch_reasons_present",
-                passed=True,
-                message=f"Dispatch recommendation has {len(reasons)} reason(s)",
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="dispatch_reasons_present",
+                    passed=True,
+                    message=f"Dispatch recommendation has {len(reasons)} reason(s)",
+                    severity="info",
+                )
+            )
 
         # 3. Confidence threshold.
         confidence = rec.get("confidence")
         if confidence is None:
-            results.append(RuleResult(
-                rule_name="dispatch_confidence_present",
-                passed=False,
-                message="Dispatch recommendation missing 'confidence' field",
-                severity="warning",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="dispatch_confidence_present",
+                    passed=False,
+                    message="Dispatch recommendation missing 'confidence' field",
+                    severity="warning",
+                )
+            )
         else:
             try:
                 conf_val = float(confidence)
             except (TypeError, ValueError):
-                results.append(RuleResult(
-                    rule_name="dispatch_confidence_numeric",
-                    passed=False,
-                    message=f"Confidence value '{confidence}' is not numeric",
-                    severity="error",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="dispatch_confidence_numeric",
+                        passed=False,
+                        message=f"Confidence value '{confidence}' is not numeric",
+                        severity="error",
+                    )
+                )
             else:
                 meets_threshold = conf_val >= _MIN_DISPATCH_CONFIDENCE
-                results.append(RuleResult(
-                    rule_name="dispatch_confidence_threshold",
-                    passed=meets_threshold,
-                    message=(
-                        f"Confidence {conf_val:.2f} meets minimum threshold {_MIN_DISPATCH_CONFIDENCE}"
-                        if meets_threshold
-                        else f"Confidence {conf_val:.2f} below minimum threshold {_MIN_DISPATCH_CONFIDENCE}"
-                    ),
-                    severity="info" if meets_threshold else "warning",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="dispatch_confidence_threshold",
+                        passed=meets_threshold,
+                        message=(
+                            f"Confidence {conf_val:.2f} meets minimum threshold {_MIN_DISPATCH_CONFIDENCE}"
+                            if meets_threshold
+                            else f"Confidence {conf_val:.2f} below minimum threshold {_MIN_DISPATCH_CONFIDENCE}"
+                        ),
+                        severity="info" if meets_threshold else "warning",
+                    )
+                )
 
         return results
 
@@ -241,43 +278,53 @@ class UtilitiesFieldValidator:
         # 1. Exception type valid.
         exc_type = exception.get("exception_type")
         if exc_type is None:
-            results.append(RuleResult(
-                rule_name="exception_type_present",
-                passed=False,
-                message="Field exception missing 'exception_type' field",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="exception_type_present",
+                    passed=False,
+                    message="Field exception missing 'exception_type' field",
+                    severity="error",
+                )
+            )
         elif exc_type not in _VALID_EXCEPTION_TYPES:
-            results.append(RuleResult(
-                rule_name="exception_type_valid",
-                passed=False,
-                message=f"Invalid exception type '{exc_type}'; expected one of {sorted(_VALID_EXCEPTION_TYPES)}",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="exception_type_valid",
+                    passed=False,
+                    message=f"Invalid exception type '{exc_type}'; expected one of {sorted(_VALID_EXCEPTION_TYPES)}",
+                    severity="error",
+                )
+            )
         else:
-            results.append(RuleResult(
-                rule_name="exception_type_valid",
-                passed=True,
-                message=f"Exception type '{exc_type}' is valid",
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="exception_type_valid",
+                    passed=True,
+                    message=f"Exception type '{exc_type}' is valid",
+                    severity="info",
+                )
+            )
 
         # 2. Root cause present.
         root_cause = exception.get("root_cause", "")
         if not root_cause or not str(root_cause).strip():
-            results.append(RuleResult(
-                rule_name="exception_root_cause_present",
-                passed=False,
-                message="Field exception missing or empty 'root_cause'",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="exception_root_cause_present",
+                    passed=False,
+                    message="Field exception missing or empty 'root_cause'",
+                    severity="error",
+                )
+            )
         else:
-            results.append(RuleResult(
-                rule_name="exception_root_cause_present",
-                passed=True,
-                message="Root cause is present",
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="exception_root_cause_present",
+                    passed=True,
+                    message="Root cause is present",
+                    severity="info",
+                )
+            )
 
         return results
 
@@ -298,71 +345,87 @@ class UtilitiesFieldValidator:
         # 1. Work order ID present.
         wo_id = wo.get("work_order_id", "")
         if not wo_id or not str(wo_id).strip():
-            results.append(RuleResult(
-                rule_name="wo_has_id",
-                passed=False,
-                message="Work order missing 'work_order_id'",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="wo_has_id",
+                    passed=False,
+                    message="Work order missing 'work_order_id'",
+                    severity="error",
+                )
+            )
         else:
-            results.append(RuleResult(
-                rule_name="wo_has_id",
-                passed=True,
-                message=f"Work order ID '{wo_id}' is present",
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="wo_has_id",
+                    passed=True,
+                    message=f"Work order ID '{wo_id}' is present",
+                    severity="info",
+                )
+            )
 
         # 2. Valid work order type.
         wo_type = wo.get("work_order_type", "")
         if wo_type not in valid_wo_types:
-            results.append(RuleResult(
-                rule_name="wo_type_valid",
-                passed=False,
-                message=f"Invalid work order type '{wo_type}'; expected one of {sorted(valid_wo_types)}",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="wo_type_valid",
+                    passed=False,
+                    message=f"Invalid work order type '{wo_type}'; expected one of {sorted(valid_wo_types)}",
+                    severity="error",
+                )
+            )
         else:
-            results.append(RuleResult(
-                rule_name="wo_type_valid",
-                passed=True,
-                message=f"Work order type '{wo_type}' is valid",
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="wo_type_valid",
+                    passed=True,
+                    message=f"Work order type '{wo_type}' is valid",
+                    severity="info",
+                )
+            )
 
         # 3. Has required skills.
         skills = wo.get("required_skills", [])
         if not skills:
-            results.append(RuleResult(
-                rule_name="wo_has_skills",
-                passed=False,
-                message="Work order has no required skills defined",
-                severity="warning",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="wo_has_skills",
+                    passed=False,
+                    message="Work order has no required skills defined",
+                    severity="warning",
+                )
+            )
         else:
-            results.append(RuleResult(
-                rule_name="wo_has_skills",
-                passed=True,
-                message=f"Work order has {len(skills)} required skill(s)",
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="wo_has_skills",
+                    passed=True,
+                    message=f"Work order has {len(skills)} required skill(s)",
+                    severity="info",
+                )
+            )
 
         # 4. High-risk types must have permits.
         if wo_type in _HIGH_RISK_WORK_ORDER_TYPES:
             permits = wo.get("required_permits", [])
             if not permits:
-                results.append(RuleResult(
-                    rule_name="wo_high_risk_has_permits",
-                    passed=False,
-                    message=f"High-risk work order type '{wo_type}' has no required permits defined",
-                    severity="error",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="wo_high_risk_has_permits",
+                        passed=False,
+                        message=f"High-risk work order type '{wo_type}' has no required permits defined",
+                        severity="error",
+                    )
+                )
             else:
-                results.append(RuleResult(
-                    rule_name="wo_high_risk_has_permits",
-                    passed=True,
-                    message=f"High-risk work order has {len(permits)} permit(s)",
-                    severity="info",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="wo_high_risk_has_permits",
+                        passed=True,
+                        message=f"High-risk work order has {len(permits)} permit(s)",
+                        severity="info",
+                    )
+                )
 
         return results
 

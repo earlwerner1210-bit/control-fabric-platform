@@ -2,22 +2,18 @@
 
 from __future__ import annotations
 
-import uuid
-
 import pytest
 
 from app.domain_packs.reconciliation import (
     ContractWorkOrderLinker,
-    CrossPlaneConflict,
     CrossPlaneLink,
     CrossPlaneReconciler,
     EvidenceBundle,
     MarginEvidenceAssembler,
-    ReadinessEvidenceAssembler,
     OpsEvidenceAssembler,
+    ReadinessEvidenceAssembler,
     WorkOrderIncidentLinker,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -97,9 +93,7 @@ def incident_data() -> dict:
 class TestContractWorkOrderLinking:
     """Tests for ContractWorkOrderLinker."""
 
-    def test_contract_work_order_linking(
-        self, contract_data: dict, work_order_data: dict
-    ):
+    def test_contract_work_order_linking(self, contract_data: dict, work_order_data: dict):
         """Should find links between matching contract and work order activities."""
         linker = ContractWorkOrderLinker()
 
@@ -129,9 +123,7 @@ class TestContractWorkOrderLinking:
             assert link.target_domain == "utilities_field"
             assert 0.0 < link.confidence <= 1.0
 
-    def test_commercial_field_conflict_detection(
-        self, contract_data: dict
-    ):
+    def test_commercial_field_conflict_detection(self, contract_data: dict):
         """Should detect rate mismatch conflicts."""
         linker = ContractWorkOrderLinker()
 
@@ -144,7 +136,12 @@ class TestContractWorkOrderLinking:
 
         # First link, then detect conflicts
         contract_objects = [
-            {"type": "rate_card", "activity": "standard_maintenance", "rate": 125.0, "unit": "hour"},
+            {
+                "type": "rate_card",
+                "activity": "standard_maintenance",
+                "rate": 125.0,
+                "unit": "hour",
+            },
         ]
         links = linker.link(contract_objects, wo_data)
         conflicts = linker.detect_conflicts(links, contract_data, wo_data)
@@ -163,9 +160,12 @@ class TestContractWorkOrderLinking:
             "description": "Equipment procurement and delivery",
         }
         contract_objects = [
-            {"type": "scope_boundary", "scope_type": "out_of_scope",
-             "description": "Capital equipment procurement",
-             "activities": ["procurement"]},
+            {
+                "type": "scope_boundary",
+                "scope_type": "out_of_scope",
+                "description": "Capital equipment procurement",
+                "activities": ["procurement"],
+            },
         ]
         links = linker.link(contract_objects, wo_data)
         conflicts = linker.detect_conflicts(links, contract_data, wo_data)
@@ -196,9 +196,7 @@ class TestContractWorkOrderLinking:
 class TestWorkOrderIncidentLinking:
     """Tests for WorkOrderIncidentLinker."""
 
-    def test_work_order_incident_linking(
-        self, work_order_data: dict, incident_data: dict
-    ):
+    def test_work_order_incident_linking(self, work_order_data: dict, incident_data: dict):
         """Should link work order to incident by location and service."""
         linker = WorkOrderIncidentLinker()
         links = linker.link(work_order_data, [incident_data])
@@ -212,9 +210,7 @@ class TestWorkOrderIncidentLinking:
             assert link.target_domain == "telco_ops"
             assert link.confidence > 0.0
 
-    def test_field_ops_conflict_detection(
-        self, work_order_data: dict, incident_data: dict
-    ):
+    def test_field_ops_conflict_detection(self, work_order_data: dict, incident_data: dict):
         """Should detect ownership or timing mismatches."""
         linker = WorkOrderIncidentLinker()
 
@@ -296,7 +292,11 @@ class TestMarginEvidenceAssembly:
             {"work_order_id": "WO-001", "description": "Maintenance work", "billed": True},
         ]
         leakage_triggers = [
-            {"trigger_type": "unbilled_work", "description": "Work not billed", "severity": "error"},
+            {
+                "trigger_type": "unbilled_work",
+                "description": "Work not billed",
+                "severity": "error",
+            },
         ]
 
         bundle = assembler.assemble(contract_objects, work_history, leakage_triggers)
@@ -371,9 +371,7 @@ class TestFullCrossPlaneReconciliation:
         """Should produce links, conflicts, and evidence from all three planes."""
         reconciler = CrossPlaneReconciler()
 
-        result = reconciler.full_reconciliation(
-            contract_data, work_order_data, incident_data
-        )
+        result = reconciler.full_reconciliation(contract_data, work_order_data, incident_data)
 
         assert "all_links" in result
         assert "all_conflicts" in result
@@ -390,9 +388,7 @@ class TestFullCrossPlaneReconciliation:
     ):
         """Should reconcile contract to work order."""
         reconciler = CrossPlaneReconciler()
-        result = reconciler.reconcile_contract_to_work_order(
-            contract_data, work_order_data
-        )
+        result = reconciler.reconcile_contract_to_work_order(contract_data, work_order_data)
 
         assert "links" in result
         assert "conflicts" in result
@@ -403,9 +399,7 @@ class TestFullCrossPlaneReconciliation:
     ):
         """Should reconcile work order to incident."""
         reconciler = CrossPlaneReconciler()
-        result = reconciler.reconcile_work_order_to_incident(
-            work_order_data, incident_data
-        )
+        result = reconciler.reconcile_work_order_to_incident(work_order_data, incident_data)
 
         assert "links" in result
         assert "conflicts" in result

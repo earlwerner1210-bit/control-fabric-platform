@@ -9,12 +9,10 @@ from typing import Any
 from app.domain_packs.contract_margin.schemas import (
     BillabilityDecision,
     BillableCategory,
-    BillableEvent,
     BillingGate,
     BillingPrerequisite,
     CommercialRecoveryRecommendation,
     LeakageTrigger,
-    NonBillableReason,
     PenaltyCondition,
     PenaltyExposureSummary,
     PriorityLevel,
@@ -23,9 +21,8 @@ from app.domain_packs.contract_margin.schemas import (
     RecoveryType,
     ScopeBoundaryObject,
     ScopeType,
-    SPENRateCard,
     ServiceCreditRule,
-    WorkCategory,
+    SPENRateCard,
 )
 from app.schemas.validation import RuleResult
 
@@ -52,7 +49,9 @@ class BillabilityRuleEngine:
             RuleResult(
                 rule_name="has_valid_rate",
                 passed=matching_rate is not None,
-                message=f"Rate found: {matching_rate.rate}/{matching_rate.unit}" if matching_rate else "No matching rate",
+                message=f"Rate found: {matching_rate.rate}/{matching_rate.unit}"
+                if matching_rate
+                else "No matching rate",
                 severity="error" if not matching_rate else "info",
             )
         )
@@ -63,7 +62,9 @@ class BillabilityRuleEngine:
             RuleResult(
                 rule_name="within_scope",
                 passed=in_scope,
-                message="Activity is within contract scope" if in_scope else "Activity may be out of scope",
+                message="Activity is within contract scope"
+                if in_scope
+                else "Activity may be out of scope",
                 severity="warning" if not in_scope else "info",
             )
         )
@@ -74,7 +75,9 @@ class BillabilityRuleEngine:
             RuleResult(
                 rule_name="not_excluded_activity",
                 passed=not excluded,
-                message="Activity not excluded" if not excluded else "Activity is on exclusion list",
+                message="Activity not excluded"
+                if not excluded
+                else "Activity is on exclusion list",
                 severity="error" if excluded else "info",
             )
         )
@@ -120,7 +123,8 @@ class BillabilityRuleEngine:
                     # Compare dates — support both str and date objects
                     if work_date is not None:
                         claim_date_obj = (
-                            claim_date if isinstance(claim_date, date)
+                            claim_date
+                            if isinstance(claim_date, date)
                             else date.fromisoformat(str(claim_date))
                         )
                         if claim_date_obj == work_date:
@@ -130,14 +134,20 @@ class BillabilityRuleEngine:
             RuleResult(
                 rule_name="duplicate_claim_check",
                 passed=not duplicate_found,
-                message="No duplicate claims" if not duplicate_found else "Duplicate claim detected",
+                message="No duplicate claims"
+                if not duplicate_found
+                else "Duplicate claim detected",
                 severity="error" if duplicate_found else "info",
             )
         )
 
         # Rule 6: expired rate check
         rate_expired = False
-        if matching_rate is not None and matching_rate.effective_to is not None and work_date is not None:
+        if (
+            matching_rate is not None
+            and matching_rate.effective_to is not None
+            and work_date is not None
+        ):
             if matching_rate.effective_to < work_date:
                 rate_expired = True
         results.append(
@@ -174,7 +184,9 @@ class BillabilityRuleEngine:
             rate_applied=rate_applied,
         )
 
-    def _find_matching_rate(self, activity: str, rate_card: list[RateCardEntry]) -> RateCardEntry | None:
+    def _find_matching_rate(
+        self, activity: str, rate_card: list[RateCardEntry]
+    ) -> RateCardEntry | None:
         activity_lower = activity.lower().replace(" ", "_")
         for rate in rate_card:
             if rate.activity.lower() == activity_lower:
@@ -244,7 +256,9 @@ class LeakageRuleEngine:
                 )
 
         # Rule 4: Penalty exposure
-        penalty_objects = [o for o in contract_objects if o.get("control_type") == "penalty_condition"]
+        penalty_objects = [
+            o for o in contract_objects if o.get("control_type") == "penalty_condition"
+        ]
         for penalty in penalty_objects:
             payload = penalty.get("payload", {})
             if payload.get("breach_detected"):
@@ -278,9 +292,7 @@ class LeakageRuleEngine:
         # Rule 6: Rate escalation missed — contract allows annual escalation but rates not updated
         for work in work_history:
             if work.get("escalation_due") and not work.get("escalation_applied"):
-                delta = (
-                    work.get("contract_rate", 0) * work.get("escalation_percentage", 0) / 100
-                )
+                delta = work.get("contract_rate", 0) * work.get("escalation_percentage", 0) / 100
                 triggers.append(
                     LeakageTrigger(
                         trigger_type="rate_escalation_missed",
@@ -295,10 +307,7 @@ class LeakageRuleEngine:
 
         # Rule 7: Abortive visit not claimed
         for work in work_history:
-            if (
-                work.get("abortive") is True
-                and not work.get("abortive_claimed")
-            ):
+            if work.get("abortive") is True and not work.get("abortive_claimed"):
                 triggers.append(
                     LeakageTrigger(
                         trigger_type="abortive_visit_not_claimed",
@@ -313,10 +322,7 @@ class LeakageRuleEngine:
 
         # Rule 8: Variation work without change order
         for work in work_history:
-            if (
-                work.get("is_variation") is True
-                and not work.get("variation_order_ref")
-            ):
+            if work.get("is_variation") is True and not work.get("variation_order_ref"):
                 triggers.append(
                     LeakageTrigger(
                         trigger_type="variation_work_no_change_order",
@@ -454,11 +460,7 @@ class LeakageRuleEngine:
         """Detect rework within warranty period billed as new work (should be non-billable)."""
         triggers: list[LeakageTrigger] = []
         for work in work_history:
-            if (
-                work.get("is_rework")
-                and work.get("within_warranty_period")
-                and work.get("billed")
-            ):
+            if work.get("is_rework") and work.get("within_warranty_period") and work.get("billed"):
                 triggers.append(
                     LeakageTrigger(
                         trigger_type="warranty_rework_billed",
@@ -467,7 +469,8 @@ class LeakageRuleEngine:
                             f"period billed as new work — should be non-billable"
                         ),
                         severity="error",
-                        estimated_impact_value=float(work.get("billed_rate", 0)) * work.get("hours", 1),
+                        estimated_impact_value=float(work.get("billed_rate", 0))
+                        * work.get("hours", 1),
                     )
                 )
         return triggers
@@ -496,40 +499,46 @@ class ScopeConflictDetector:
                 if activity_lower in boundary_activities or activity_lower in desc_lower:
                     matched = True
                     if boundary.scope_type == ScopeType.out_of_scope:
-                        conflicts.append({
-                            "activity": activity,
-                            "conflict_type": "out_of_scope",
-                            "severity": "error",
-                            "description": (
-                                f"Activity '{activity}' is explicitly out of scope: "
-                                f"{boundary.description}"
-                            ),
-                        })
+                        conflicts.append(
+                            {
+                                "activity": activity,
+                                "conflict_type": "out_of_scope",
+                                "severity": "error",
+                                "description": (
+                                    f"Activity '{activity}' is explicitly out of scope: "
+                                    f"{boundary.description}"
+                                ),
+                            }
+                        )
                     elif boundary.scope_type == ScopeType.conditional:
                         # Conditional scope — flag if conditions exist (caller must
                         # verify conditions are met externally; we flag as warning)
                         if boundary.conditions:
-                            conflicts.append({
-                                "activity": activity,
-                                "conflict_type": "conditional_unmet",
-                                "severity": "warning",
-                                "description": (
-                                    f"Activity '{activity}' is conditionally in scope. "
-                                    f"Conditions: {', '.join(boundary.conditions)}"
-                                ),
-                            })
+                            conflicts.append(
+                                {
+                                    "activity": activity,
+                                    "conflict_type": "conditional_unmet",
+                                    "severity": "warning",
+                                    "description": (
+                                        f"Activity '{activity}' is conditionally in scope. "
+                                        f"Conditions: {', '.join(boundary.conditions)}"
+                                    ),
+                                }
+                            )
                     # in_scope => no conflict
                     break  # stop checking further boundaries for this activity
 
             if not matched:
-                conflicts.append({
-                    "activity": activity,
-                    "conflict_type": "scope_gap",
-                    "severity": "warning",
-                    "description": (
-                        f"Activity '{activity}' not mentioned in any scope boundary"
-                    ),
-                })
+                conflicts.append(
+                    {
+                        "activity": activity,
+                        "conflict_type": "scope_gap",
+                        "severity": "warning",
+                        "description": (
+                            f"Activity '{activity}' not mentioned in any scope boundary"
+                        ),
+                    }
+                )
 
         return conflicts
 
@@ -697,13 +706,15 @@ class PenaltyExposureAnalyzer:
                     f"Condition '{condition.description}' breached but within "
                     f"{grace_days}-day grace period — remediate immediately"
                 )
-                breach_details.append({
-                    "clause_id": condition.clause_id,
-                    "description": condition.description,
-                    "breached": True,
-                    "within_grace_period": True,
-                    "financial_exposure": 0.0,
-                })
+                breach_details.append(
+                    {
+                        "clause_id": condition.clause_id,
+                        "description": condition.description,
+                        "breached": True,
+                        "within_grace_period": True,
+                        "financial_exposure": 0.0,
+                    }
+                )
                 continue
 
             # Calculate financial exposure
@@ -716,12 +727,22 @@ class PenaltyExposureAnalyzer:
                     exposure = 0.0
             elif condition.penalty_type == "fixed":
                 try:
-                    exposure = float(condition.penalty_amount.replace("£", "").replace("$", "").replace(",", "").strip())
+                    exposure = float(
+                        condition.penalty_amount.replace("£", "")
+                        .replace("$", "")
+                        .replace(",", "")
+                        .strip()
+                    )
                 except (ValueError, AttributeError):
                     exposure = 0.0
             elif condition.penalty_type == "per_breach":
                 try:
-                    per_breach = float(condition.penalty_amount.replace("£", "").replace("$", "").replace(",", "").strip())
+                    per_breach = float(
+                        condition.penalty_amount.replace("£", "")
+                        .replace("$", "")
+                        .replace(",", "")
+                        .strip()
+                    )
                     breach_count = sla_performance.get("breach_count", 1)
                     exposure = per_breach * breach_count
                 except (ValueError, AttributeError):
@@ -734,14 +755,16 @@ class PenaltyExposureAnalyzer:
             total_exposure += exposure
             active_breaches += 1
 
-            breach_details.append({
-                "clause_id": condition.clause_id,
-                "description": condition.description,
-                "breached": True,
-                "within_grace_period": False,
-                "financial_exposure": round(exposure, 2),
-                "penalty_type": condition.penalty_type,
-            })
+            breach_details.append(
+                {
+                    "clause_id": condition.clause_id,
+                    "description": condition.description,
+                    "breached": True,
+                    "within_grace_period": False,
+                    "financial_exposure": round(exposure, 2),
+                    "penalty_type": condition.penalty_type,
+                }
+            )
 
             mitigation_actions.append(
                 f"Remediate '{condition.description}' — exposure £{exposure:.2f}"
@@ -886,24 +909,28 @@ class SPENBillabilityEngine:
         # ------------------------------------------------------------------
         matching_rate = self._find_matching_rate(activity, work_category, rate_card)
         if matching_rate is None:
-            results.append(RuleResult(
-                rule_name="has_matching_rate",
-                passed=False,
-                message=f"No SPEN rate found for activity '{activity}' in category '{work_category}'",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="has_matching_rate",
+                    passed=False,
+                    message=f"No SPEN rate found for activity '{activity}' in category '{work_category}'",
+                    severity="error",
+                )
+            )
             billable = False
         else:
             applied_rate = matching_rate.base_rate
-            results.append(RuleResult(
-                rule_name="has_matching_rate",
-                passed=True,
-                message=(
-                    f"Rate matched: {matching_rate.activity_code} — "
-                    f"£{matching_rate.base_rate:.2f}/{matching_rate.unit}"
-                ),
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="has_matching_rate",
+                    passed=True,
+                    message=(
+                        f"Rate matched: {matching_rate.activity_code} — "
+                        f"£{matching_rate.base_rate:.2f}/{matching_rate.unit}"
+                    ),
+                    severity="info",
+                )
+            )
 
         # ------------------------------------------------------------------
         # Rule 2: All billing gates satisfied
@@ -912,20 +939,24 @@ class SPENBillabilityEngine:
         gates_ok = len(unsatisfied_gates) == 0
         if not gates_ok:
             gate_names = ", ".join(g.gate_type.value for g in unsatisfied_gates)
-            results.append(RuleResult(
-                rule_name="billing_gates_satisfied",
-                passed=False,
-                message=f"Unsatisfied billing gates: {gate_names}",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="billing_gates_satisfied",
+                    passed=False,
+                    message=f"Unsatisfied billing gates: {gate_names}",
+                    severity="error",
+                )
+            )
             billable = False
         else:
-            results.append(RuleResult(
-                rule_name="billing_gates_satisfied",
-                passed=True,
-                message="All billing gates satisfied",
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="billing_gates_satisfied",
+                    passed=True,
+                    message="All billing gates satisfied",
+                    severity="info",
+                )
+            )
 
         # ------------------------------------------------------------------
         # Rule 3: Re-attendance check
@@ -933,38 +964,46 @@ class SPENBillabilityEngine:
         if is_reattendance:
             reat_rule = self._find_reattendance_rule(reattendance_trigger)
             if reat_rule is None:
-                results.append(RuleResult(
-                    rule_name="reattendance_check",
-                    passed=False,
-                    message=f"Unknown re-attendance trigger: '{reattendance_trigger}'",
-                    severity="warning",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="reattendance_check",
+                        passed=False,
+                        message=f"Unknown re-attendance trigger: '{reattendance_trigger}'",
+                        severity="warning",
+                    )
+                )
                 billable = False
             elif not reat_rule.billable:
-                results.append(RuleResult(
-                    rule_name="reattendance_check",
-                    passed=False,
-                    message=f"Re-attendance non-billable: {reat_rule.description}",
-                    severity="error",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="reattendance_check",
+                        passed=False,
+                        message=f"Re-attendance non-billable: {reat_rule.description}",
+                        severity="error",
+                    )
+                )
                 billable = False
                 applied_rate = 0.0
             else:
                 if applied_rate is not None:
                     applied_rate *= reat_rule.rate_modifier
-                results.append(RuleResult(
+                results.append(
+                    RuleResult(
+                        rule_name="reattendance_check",
+                        passed=True,
+                        message=f"Re-attendance billable: {reat_rule.description}",
+                        severity="info",
+                    )
+                )
+        else:
+            results.append(
+                RuleResult(
                     rule_name="reattendance_check",
                     passed=True,
-                    message=f"Re-attendance billable: {reat_rule.description}",
+                    message="Not a re-attendance",
                     severity="info",
-                ))
-        else:
-            results.append(RuleResult(
-                rule_name="reattendance_check",
-                passed=True,
-                message="Not a re-attendance",
-                severity="info",
-            ))
+                )
+            )
 
         # ------------------------------------------------------------------
         # Rule 4: Time-of-day multiplier
@@ -972,22 +1011,26 @@ class SPENBillabilityEngine:
         if matching_rate is not None and applied_rate is not None and applied_rate > 0:
             multiplier = self._get_time_multiplier(time_of_day, matching_rate)
             applied_rate *= multiplier
-            results.append(RuleResult(
-                rule_name="time_of_day_modifier",
-                passed=True,
-                message=(
-                    f"Time-of-day modifier applied: {time_of_day} -> {multiplier}x "
-                    f"(effective rate £{applied_rate:.2f})"
-                ),
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="time_of_day_modifier",
+                    passed=True,
+                    message=(
+                        f"Time-of-day modifier applied: {time_of_day} -> {multiplier}x "
+                        f"(effective rate £{applied_rate:.2f})"
+                    ),
+                    severity="info",
+                )
+            )
         else:
-            results.append(RuleResult(
-                rule_name="time_of_day_modifier",
-                passed=True,
-                message="No time-of-day modifier applicable",
-                severity="info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="time_of_day_modifier",
+                    passed=True,
+                    message="No time-of-day modifier applicable",
+                    severity="info",
+                )
+            )
 
         # ------------------------------------------------------------------
         # Rule 5: Approval threshold
@@ -1003,30 +1046,36 @@ class SPENBillabilityEngine:
                 for g in billing_gates
             )
             if not has_approval:
-                results.append(RuleResult(
-                    rule_name="approval_threshold",
-                    passed=False,
-                    message=(
-                        f"Effective rate £{applied_rate:.2f} exceeds approval threshold "
-                        f"£{matching_rate.requires_approval_above:.2f} — prior approval required"
-                    ),
-                    severity="error",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="approval_threshold",
+                        passed=False,
+                        message=(
+                            f"Effective rate £{applied_rate:.2f} exceeds approval threshold "
+                            f"£{matching_rate.requires_approval_above:.2f} — prior approval required"
+                        ),
+                        severity="error",
+                    )
+                )
                 billable = False
             else:
-                results.append(RuleResult(
+                results.append(
+                    RuleResult(
+                        rule_name="approval_threshold",
+                        passed=True,
+                        message="Prior approval obtained for value above threshold",
+                        severity="info",
+                    )
+                )
+        else:
+            results.append(
+                RuleResult(
                     rule_name="approval_threshold",
                     passed=True,
-                    message="Prior approval obtained for value above threshold",
+                    message="No approval threshold applicable",
                     severity="info",
-                ))
-        else:
-            results.append(RuleResult(
-                rule_name="approval_threshold",
-                passed=True,
-                message="No approval threshold applicable",
-                severity="info",
-            ))
+                )
+            )
 
         # ------------------------------------------------------------------
         # Build decision
@@ -1038,8 +1087,12 @@ class SPENBillabilityEngine:
             confidence=confidence,
             reasons=[r.message for r in results if not r.passed],
             rate_applied=applied_rate,
-            category=BillableCategory.daywork if time_of_day == "normal" else BillableCategory.emergency_callout,
-            rule_results=[{"rule": r.rule_name, "passed": r.passed, "message": r.message} for r in results],
+            category=BillableCategory.daywork
+            if time_of_day == "normal"
+            else BillableCategory.emergency_callout,
+            rule_results=[
+                {"rule": r.rule_name, "passed": r.passed, "message": r.message} for r in results
+            ],
         )
 
     # -- helpers -----------------------------------------------------------
@@ -1130,16 +1183,18 @@ class ServiceCreditEngine:
         for rule in credit_rules:
             actual_value = sla_performance.get(rule.sla_metric)
             if actual_value is None:
-                results.append({
-                    "sla_metric": rule.sla_metric,
-                    "threshold": rule.threshold_value,
-                    "actual": None,
-                    "breached": False,
-                    "credit_percentage": 0.0,
-                    "credit_value": 0.0,
-                    "capped": False,
-                    "note": "No performance data available for this metric",
-                })
+                results.append(
+                    {
+                        "sla_metric": rule.sla_metric,
+                        "threshold": rule.threshold_value,
+                        "actual": None,
+                        "breached": False,
+                        "credit_percentage": 0.0,
+                        "credit_value": 0.0,
+                        "capped": False,
+                        "note": "No performance data available for this metric",
+                    }
+                )
                 continue
 
             # Determine breach: for time-based metrics, actual > threshold = breach;
@@ -1160,22 +1215,24 @@ class ServiceCreditEngine:
             if capped:
                 credit_value = cap_value
 
-            results.append({
-                "sla_metric": rule.sla_metric,
-                "threshold": rule.threshold_value,
-                "actual": actual_value,
-                "breached": breached,
-                "credit_percentage": credit_pct,
-                "credit_value": round(credit_value, 2),
-                "capped": capped,
-                "cap_percentage": rule.cap_percentage,
-                "measurement_period": rule.measurement_period,
-                "exclusions": rule.exclusions,
-                "note": (
-                    f"SLA breached: actual {actual_value} vs threshold {rule.threshold_value}"
-                    if breached
-                    else "SLA met"
-                ),
-            })
+            results.append(
+                {
+                    "sla_metric": rule.sla_metric,
+                    "threshold": rule.threshold_value,
+                    "actual": actual_value,
+                    "breached": breached,
+                    "credit_percentage": credit_pct,
+                    "credit_value": round(credit_value, 2),
+                    "capped": capped,
+                    "cap_percentage": rule.cap_percentage,
+                    "measurement_period": rule.measurement_period,
+                    "exclusions": rule.exclusions,
+                    "note": (
+                        f"SLA breached: actual {actual_value} vs threshold {rule.threshold_value}"
+                        if breached
+                        else "SLA met"
+                    ),
+                }
+            )
 
         return results

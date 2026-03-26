@@ -50,7 +50,12 @@ class InferenceGateway:
     async def classify(self, text: str, categories: list[str]) -> dict[str, Any]:
         """Classify text into one of the given categories."""
         result = await self.provider.classify(text, categories)
-        logger.info("Classified text as %s (%.2f): model=%s", result.get("category"), result.get("confidence", 0), result.get("model"))
+        logger.info(
+            "Classified text as %s (%.2f): model=%s",
+            result.get("category"),
+            result.get("confidence", 0),
+            result.get("model"),
+        )
         return result
 
     async def explain(self, text: str, context: str | None = None) -> dict[str, Any]:

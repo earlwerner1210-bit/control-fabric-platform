@@ -8,8 +8,17 @@ CONTRACT_MARGIN_EVAL_CASES = [
         "description": "Standard maintenance activity should be billable at contract rate",
         "input_payload": {
             "activity": "standard_maintenance",
-            "rate_card": [{"activity": "standard_maintenance", "rate": 125.0, "unit": "hour", "currency": "USD"}],
-            "obligations": [{"text": "Provider shall deliver all scheduled maintenance", "section": "3.1"}],
+            "rate_card": [
+                {
+                    "activity": "standard_maintenance",
+                    "rate": 125.0,
+                    "unit": "hour",
+                    "currency": "USD",
+                }
+            ],
+            "obligations": [
+                {"text": "Provider shall deliver all scheduled maintenance", "section": "3.1"}
+            ],
         },
         "expected_output": {
             "verdict": "billable",
@@ -23,7 +32,12 @@ CONTRACT_MARGIN_EVAL_CASES = [
         "description": "Completed work that was not billed should trigger leakage",
         "input_payload": {
             "work_history": [
-                {"activity": "emergency_repair", "status": "completed", "billed": False, "estimated_value": 750},
+                {
+                    "activity": "emergency_repair",
+                    "status": "completed",
+                    "billed": False,
+                    "estimated_value": 750,
+                },
             ],
         },
         "expected_output": {
@@ -38,7 +52,9 @@ CONTRACT_MARGIN_EVAL_CASES = [
         "description": "SLA breach should result in penalty risk verdict",
         "input_payload": {
             "sla_performance": {"sla_met": False, "breaches": 3},
-            "penalty_objects": [{"label": "SLA penalty", "payload": {"text": "Failure to meet SLA response times"}}],
+            "penalty_objects": [
+                {"label": "SLA penalty", "payload": {"text": "Failure to meet SLA response times"}}
+            ],
         },
         "expected_output": {
             "verdict": "penalty_risk",
@@ -51,8 +67,17 @@ CONTRACT_MARGIN_EVAL_CASES = [
         "description": "Out-of-scope activity without change order should be non-billable",
         "input_payload": {
             "activity": "custom_software_development",
-            "rate_card": [{"activity": "standard_maintenance", "rate": 125.0, "unit": "hour", "currency": "USD"}],
-            "obligations": [{"text": "Network maintenance and equipment installation", "section": "2.1"}],
+            "rate_card": [
+                {
+                    "activity": "standard_maintenance",
+                    "rate": 125.0,
+                    "unit": "hour",
+                    "currency": "USD",
+                }
+            ],
+            "obligations": [
+                {"text": "Network maintenance and equipment installation", "section": "2.1"}
+            ],
         },
         "expected_output": {
             "verdict": "non_billable",
@@ -82,7 +107,11 @@ CONTRACT_MARGIN_EVAL_CASES = [
             ],
             "billing_gates": [
                 {"gate_type": "purchase_order", "description": "PO raised", "satisfied": True},
-                {"gate_type": "completion_certificate", "description": "Completion cert signed", "satisfied": True},
+                {
+                    "gate_type": "completion_certificate",
+                    "description": "Completion cert signed",
+                    "satisfied": True,
+                },
             ],
             "is_reattendance": False,
             "time_of_day": "normal",
@@ -144,7 +173,11 @@ CONTRACT_MARGIN_EVAL_CASES = [
             ],
             "billing_gates": [
                 {"gate_type": "purchase_order", "description": "PO raised", "satisfied": True},
-                {"gate_type": "completion_certificate", "description": "Completion cert signed", "satisfied": True},
+                {
+                    "gate_type": "completion_certificate",
+                    "description": "Completion cert signed",
+                    "satisfied": True,
+                },
             ],
             "is_reattendance": True,
             "reattendance_trigger": "provider_fault",
@@ -284,10 +317,18 @@ CONTRACT_MARGIN_EVAL_CASES = [
         "input_payload": {
             "activity": "specialist_cable_installation",
             "rate_card": [
-                {"activity": "specialist_cable_installation", "rate": 7500.0, "unit": "each", "currency": "GBP"},
+                {
+                    "activity": "specialist_cable_installation",
+                    "rate": 7500.0,
+                    "unit": "each",
+                    "currency": "GBP",
+                },
             ],
             "obligations": [
-                {"text": "Provider shall perform specialist cable installation as required", "section": "4.2"},
+                {
+                    "text": "Provider shall perform specialist cable installation as required",
+                    "section": "4.2",
+                },
             ],
             "approval_threshold": 5000.0,
             "has_approval": False,
@@ -306,7 +347,12 @@ CONTRACT_MARGIN_EVAL_CASES = [
         "input_payload": {
             "activity": "standard_maintenance",
             "rate_card": [
-                {"activity": "standard_maintenance", "rate": 125.0, "unit": "hour", "currency": "USD"},
+                {
+                    "activity": "standard_maintenance",
+                    "rate": 125.0,
+                    "unit": "hour",
+                    "currency": "USD",
+                },
             ],
             "obligations": [
                 {"text": "Scheduled maintenance services", "section": "2.1"},

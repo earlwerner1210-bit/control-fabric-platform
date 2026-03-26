@@ -6,7 +6,7 @@ from sqlalchemy import Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, TimestampMixin, TenantMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, TenantMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class PromptTemplate(Base, UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin):

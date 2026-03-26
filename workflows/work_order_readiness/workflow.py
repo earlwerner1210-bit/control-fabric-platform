@@ -9,6 +9,7 @@ from typing import Any
 @dataclass
 class WorkOrderReadinessResult:
     """Result of a work order readiness check."""
+
     case_id: str
     work_order_id: str
     verdict: str = "ready"
@@ -64,11 +65,13 @@ class WorkOrderReadinessWorkflow:
 
         if self.validator:
             try:
-                self.validator.validate({
-                    "case_id": case_id,
-                    "work_order_id": work_order_id,
-                    "verdict": verdict,
-                })
+                self.validator.validate(
+                    {
+                        "case_id": case_id,
+                        "work_order_id": work_order_id,
+                        "verdict": verdict,
+                    }
+                )
             except Exception:
                 pass
 

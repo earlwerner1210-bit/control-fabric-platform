@@ -6,12 +6,13 @@ import json
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
 class InferenceRequest:
     """Request to the inference gateway."""
+
     prompt: str
     system_prompt: str | None = None
     model: str = "gpt-4"
@@ -24,6 +25,7 @@ class InferenceRequest:
 @dataclass
 class InferenceResponse:
     """Response from the inference gateway."""
+
     content: str
     model: str
     provider: str
@@ -131,9 +133,7 @@ class InferenceGateway:
         response.latency_ms = max(response.latency_ms, elapsed_ms)
         return response
 
-    async def generate_structured(
-        self, request: InferenceRequest
-    ) -> dict[str, Any]:
+    async def generate_structured(self, request: InferenceRequest) -> dict[str, Any]:
         """Generate a response and parse as JSON.
 
         Raises ValueError if the response is not valid JSON.

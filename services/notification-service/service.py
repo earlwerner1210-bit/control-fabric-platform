@@ -59,7 +59,13 @@ class NotificationService:
             logger.error("Failed to send %s notification to %s: %s", channel, recipient, exc)
 
         await self.db.flush()
-        logger.info("Notification %s (%s) to %s: %s", notification.id, channel, recipient, notification.status)
+        logger.info(
+            "Notification %s (%s) to %s: %s",
+            notification.id,
+            channel,
+            recipient,
+            notification.status,
+        )
         return notification
 
     @staticmethod

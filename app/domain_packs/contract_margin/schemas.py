@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import date, datetime
-from typing import Optional
+from datetime import date
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
+
 
 class ContractType(str, enum.Enum):
     master_services = "master_services"
@@ -149,6 +148,7 @@ class PenaltyType(str, enum.Enum):
 # Core extracted objects
 # ---------------------------------------------------------------------------
 
+
 class ExtractedClause(BaseModel):
     id: str
     type: ClauseType
@@ -159,6 +159,7 @@ class ExtractedClause(BaseModel):
 
 class ClauseSegment(BaseModel):
     """Fine-grained clause segment with positional offsets."""
+
     id: str
     clause_number: str
     heading: str = ""
@@ -230,8 +231,10 @@ class BillableEvent(BaseModel):
 # SPEN / Vodafone domain models
 # ---------------------------------------------------------------------------
 
+
 class BillingGate(BaseModel):
     """A billing prerequisite gate that must be satisfied before invoicing."""
+
     gate_type: BillingPrerequisite
     description: str
     satisfied: bool = False
@@ -240,6 +243,7 @@ class BillingGate(BaseModel):
 
 class SPENRateCard(BaseModel):
     """Rate card entry for SPEN electricity distribution managed services."""
+
     work_category: WorkCategory
     activity_code: str
     description: str
@@ -256,6 +260,7 @@ class SPENRateCard(BaseModel):
 
 class ReattendanceRule(BaseModel):
     """Rule governing whether a re-attendance visit is billable."""
+
     trigger: str  # "provider_fault", "customer_fault", "dno_fault", "third_party", "weather"
     billable: bool
     rate_modifier: float = 1.0
@@ -265,6 +270,7 @@ class ReattendanceRule(BaseModel):
 
 class ServiceCreditRule(BaseModel):
     """Service credit mechanism triggered by SLA breaches."""
+
     sla_metric: str  # "response_time", "resolution_time", "first_time_fix", "appointment_kept"
     threshold_value: float
     credit_percentage: float
@@ -277,8 +283,10 @@ class ServiceCreditRule(BaseModel):
 # Scope boundary
 # ---------------------------------------------------------------------------
 
+
 class ScopeBoundaryObject(BaseModel):
     """Defines whether a service/activity is in-scope, out-of-scope, or conditional."""
+
     scope_type: ScopeType
     description: str
     conditions: list[str] = Field(default_factory=list)
@@ -290,8 +298,10 @@ class ScopeBoundaryObject(BaseModel):
 # Recovery
 # ---------------------------------------------------------------------------
 
+
 class CommercialRecoveryRecommendation(BaseModel):
     """A recommended action to recover leaked margin."""
+
     recommendation_type: RecoveryType
     description: str
     estimated_recovery_value: float = 0.0
@@ -305,6 +315,7 @@ class CommercialRecoveryRecommendation(BaseModel):
 # ---------------------------------------------------------------------------
 # Parsed contract
 # ---------------------------------------------------------------------------
+
 
 class ParsedContract(BaseModel):
     document_type: str
@@ -327,6 +338,7 @@ class ParsedContract(BaseModel):
 # Billability
 # ---------------------------------------------------------------------------
 
+
 class BillabilityDecision(BaseModel):
     billable: bool
     confidence: float
@@ -340,6 +352,7 @@ class BillabilityDecision(BaseModel):
 # ---------------------------------------------------------------------------
 # Leakage
 # ---------------------------------------------------------------------------
+
 
 class LeakageTrigger(BaseModel):
     trigger_type: str
@@ -356,6 +369,7 @@ class LeakageTrigger(BaseModel):
 # Diagnosis
 # ---------------------------------------------------------------------------
 
+
 class MarginLeakageDiagnosis(BaseModel):
     verdict: str  # billable, non_billable, under_recovery, penalty_risk, unknown
     leakage_drivers: list[str] = Field(default_factory=list)
@@ -367,6 +381,7 @@ class MarginLeakageDiagnosis(BaseModel):
 
 class MarginDiagnosisResult(BaseModel):
     """Full margin diagnosis with typed recovery and penalty data."""
+
     verdict: str
     billability_assessment: BillabilityDecision | None = None
     leakage_triggers: list[LeakageTrigger] = Field(default_factory=list)
@@ -382,8 +397,10 @@ class MarginDiagnosisResult(BaseModel):
 # Obligation register
 # ---------------------------------------------------------------------------
 
+
 class ObligationRegister(BaseModel):
     """Aggregated view of all contractual obligations."""
+
     obligations: list[Obligation] = Field(default_factory=list)
     total_count: int = 0
     by_owner: dict[str, int] = Field(default_factory=dict)
@@ -395,8 +412,10 @@ class ObligationRegister(BaseModel):
 # Penalty exposure summary
 # ---------------------------------------------------------------------------
 
+
 class PenaltyExposureSummary(BaseModel):
     """Aggregated penalty exposure across a contract."""
+
     total_penalties: int = 0
     active_breaches: int = 0
     estimated_financial_exposure: float = 0.0
@@ -407,6 +426,7 @@ class PenaltyExposureSummary(BaseModel):
 # ---------------------------------------------------------------------------
 # Compile summary
 # ---------------------------------------------------------------------------
+
 
 class ContractCompileSummary(BaseModel):
     contract_title: str = ""

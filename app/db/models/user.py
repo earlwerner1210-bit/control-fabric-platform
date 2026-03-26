@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, String, Table, Column, text
+from sqlalchemy import Boolean, ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin, TenantMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, TenantMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class Role(Base, UUIDPrimaryKeyMixin, TimestampMixin):

@@ -5,9 +5,10 @@ Revises:
 Create Date: 2026-01-01 00:00:00.000000+00:00
 
 """
+
 from __future__ import annotations
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
@@ -15,9 +16,9 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "a1b2c3d4e5f6"
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -250,18 +251,14 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(
-            ["document_id"], ["documents.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["document_id"], ["documents.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_document_chunks_tenant_id", "document_chunks", ["tenant_id"])
     op.create_index("ix_document_chunks_document_id", "document_chunks", ["document_id"])
 
     # Add the pgvector embedding column (Vector type not directly supported by
     # Alembic's sa.Column, so we use raw SQL for the column + index).
-    op.execute(
-        "ALTER TABLE document_chunks ADD COLUMN embedding vector(1536)"
-    )
+    op.execute("ALTER TABLE document_chunks ADD COLUMN embedding vector(1536)")
 
     # ── canonical_entities ────────────────────────────────────────────
     op.create_table(
@@ -296,7 +293,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_canonical_entities_tenant_id", "canonical_entities", ["tenant_id"])
-    op.create_index("ix_canonical_entities_canonical_name", "canonical_entities", ["canonical_name"])
+    op.create_index(
+        "ix_canonical_entities_canonical_name", "canonical_entities", ["canonical_name"]
+    )
     op.create_index("ix_canonical_entities_entity_type", "canonical_entities", ["entity_type"])
 
     # ── control_objects ───────────────────────────────────────────────
@@ -341,7 +340,9 @@ def upgrade() -> None:
     op.create_index("ix_control_objects_tenant_id", "control_objects", ["tenant_id"])
     op.create_index("ix_control_objects_control_type", "control_objects", ["control_type"])
     op.create_index("ix_control_objects_domain", "control_objects", ["domain"])
-    op.create_index("ix_control_objects_source_document_id", "control_objects", ["source_document_id"])
+    op.create_index(
+        "ix_control_objects_source_document_id", "control_objects", ["source_document_id"]
+    )
     op.create_index("ix_control_objects_workflow_case_id", "control_objects", ["workflow_case_id"])
 
     # ── control_links ─────────────────────────────────────────────────
@@ -373,12 +374,8 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(
-            ["source_object_id"], ["control_objects.id"]
-        ),
-        sa.ForeignKeyConstraint(
-            ["target_object_id"], ["control_objects.id"]
-        ),
+        sa.ForeignKeyConstraint(["source_object_id"], ["control_objects.id"]),
+        sa.ForeignKeyConstraint(["target_object_id"], ["control_objects.id"]),
     )
     op.create_index("ix_control_links_tenant_id", "control_links", ["tenant_id"])
     op.create_index("ix_control_links_source_object_id", "control_links", ["source_object_id"])
@@ -456,12 +453,12 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(
-            ["workflow_case_id"], ["workflow_cases.id"]
-        ),
+        sa.ForeignKeyConstraint(["workflow_case_id"], ["workflow_cases.id"]),
     )
     op.create_index("ix_validation_results_tenant_id", "validation_results", ["tenant_id"])
-    op.create_index("ix_validation_results_workflow_case_id", "validation_results", ["workflow_case_id"])
+    op.create_index(
+        "ix_validation_results_workflow_case_id", "validation_results", ["workflow_case_id"]
+    )
 
     # ── prompt_templates ──────────────────────────────────────────────
     op.create_table(
@@ -709,7 +706,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_notification_events_tenant_id", "notification_events", ["tenant_id"])
-    op.create_index("ix_notification_events_workflow_case_id", "notification_events", ["workflow_case_id"])
+    op.create_index(
+        "ix_notification_events_workflow_case_id", "notification_events", ["workflow_case_id"]
+    )
 
 
 def downgrade() -> None:

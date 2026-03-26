@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from workflows.contract_compile.workflow import ContractCompileWorkflow, ContractCompileResult
+from workflows.contract_compile.workflow import ContractCompileResult, ContractCompileWorkflow
 
 
 class TestContractCompileWorkflow:

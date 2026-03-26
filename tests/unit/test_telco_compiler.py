@@ -6,7 +6,6 @@ import pytest
 
 from app.domain_packs.telco_ops.compiler import TelcoCompiler, TelcoCompileResult
 from app.domain_packs.telco_ops.schemas import (
-    EscalationLevel,
     ImpactLevel,
     IncidentSeverity,
     IncidentState,
@@ -15,7 +14,6 @@ from app.domain_packs.telco_ops.schemas import (
     ServiceState,
     ServiceStateObject,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -94,15 +92,11 @@ def sample_runbook() -> ParsedRunbook:
 class TestCompileP1Incident:
     """test_compile_p1_incident: P1 incident gets L3 escalation rules."""
 
-    def test_compile_returns_result(
-        self, compiler: TelcoCompiler, p1_incident: ParsedIncident
-    ):
+    def test_compile_returns_result(self, compiler: TelcoCompiler, p1_incident: ParsedIncident):
         result = compiler.compile(p1_incident)
         assert isinstance(result, TelcoCompileResult)
 
-    def test_incident_state_generated(
-        self, compiler: TelcoCompiler, p1_incident: ParsedIncident
-    ):
+    def test_incident_state_generated(self, compiler: TelcoCompiler, p1_incident: ParsedIncident):
         result = compiler.compile(p1_incident)
 
         assert result.incident_state["incident_id"] == "INC-001"
@@ -111,14 +105,11 @@ class TestCompileP1Incident:
         assert result.incident_state["is_active"] is True
         assert result.incident_state["requires_immediate_attention"] is True
 
-    def test_p1_gets_l3_escalation(
-        self, compiler: TelcoCompiler, p1_incident: ParsedIncident
-    ):
+    def test_p1_gets_l3_escalation(self, compiler: TelcoCompiler, p1_incident: ParsedIncident):
         result = compiler.compile(p1_incident)
 
         severity_rules = [
-            r for r in result.escalation_rules
-            if r["rule"] == "severity_based_escalation"
+            r for r in result.escalation_rules if r["rule"] == "severity_based_escalation"
         ]
         assert len(severity_rules) == 1
         assert severity_rules[0]["escalation_level"] == "l3"
@@ -131,23 +122,17 @@ class TestCompileP1Incident:
         result = compiler.compile(p1_incident)
 
         critical_rules = [
-            r for r in result.escalation_rules
-            if r["rule"] == "critical_service_escalation"
+            r for r in result.escalation_rules if r["rule"] == "critical_service_escalation"
         ]
         assert len(critical_rules) == 1
         assert critical_rules[0]["escalation_level"] == "l3"
         assert critical_rules[0]["auto"] is True
         assert "core_network" in critical_rules[0]["affected_services"]
 
-    def test_p1_ownership_is_on_call(
-        self, compiler: TelcoCompiler, p1_incident: ParsedIncident
-    ):
+    def test_p1_ownership_is_on_call(self, compiler: TelcoCompiler, p1_incident: ParsedIncident):
         result = compiler.compile(p1_incident)
 
-        default_ownership = [
-            r for r in result.ownership_rules
-            if r["rule"] == "default_ownership"
-        ]
+        default_ownership = [r for r in result.ownership_rules if r["rule"] == "default_ownership"]
         assert len(default_ownership) == 1
         assert default_ownership[0]["primary_owner"] == "on_call_engineer"
         assert default_ownership[0]["time_to_own_minutes"] == 5
@@ -168,7 +153,10 @@ class TestCompileWithServiceState:
     """test_compile_with_service_state: Service state objects generated."""
 
     def test_explicit_service_state_included(
-        self, compiler: TelcoCompiler, p1_incident: ParsedIncident, service_state_outage: ServiceStateObject
+        self,
+        compiler: TelcoCompiler,
+        p1_incident: ParsedIncident,
+        service_state_outage: ServiceStateObject,
     ):
         result = compiler.compile(p1_incident, service_state=service_state_outage)
 
@@ -183,7 +171,10 @@ class TestCompileWithServiceState:
         assert core_svc[0]["linked_incident"] == "INC-001"
 
     def test_unrepresented_services_get_placeholder(
-        self, compiler: TelcoCompiler, p1_incident: ParsedIncident, service_state_outage: ServiceStateObject
+        self,
+        compiler: TelcoCompiler,
+        p1_incident: ParsedIncident,
+        service_state_outage: ServiceStateObject,
     ):
         result = compiler.compile(p1_incident, service_state=service_state_outage)
 
@@ -202,14 +193,14 @@ class TestCompileWithServiceState:
             assert ss["state"] == "unknown"
 
     def test_service_states_in_control_objects(
-        self, compiler: TelcoCompiler, p1_incident: ParsedIncident, service_state_outage: ServiceStateObject
+        self,
+        compiler: TelcoCompiler,
+        p1_incident: ParsedIncident,
+        service_state_outage: ServiceStateObject,
     ):
         result = compiler.compile(p1_incident, service_state=service_state_outage)
 
-        svc_payloads = [
-            o for o in result.control_object_payloads
-            if o["type"] == "service_state"
-        ]
+        svc_payloads = [o for o in result.control_object_payloads if o["type"] == "service_state"]
         assert len(svc_payloads) >= 1
 
 
@@ -225,9 +216,7 @@ class TestCompileWithRunbook:
         assert result.next_action_context["runbook_id"] == "RB-NET-001"
         assert result.next_action_context["runbook_title"] == "Core Network Recovery Procedure"
 
-    def test_no_runbook_in_context(
-        self, compiler: TelcoCompiler, p1_incident: ParsedIncident
-    ):
+    def test_no_runbook_in_context(self, compiler: TelcoCompiler, p1_incident: ParsedIncident):
         result = compiler.compile(p1_incident)
 
         assert result.next_action_context["has_runbook"] is False
@@ -274,23 +263,15 @@ class TestCompileOwnershipUnassigned:
     ):
         result = compiler.compile(p3_incident_unassigned)
 
-        alert_rules = [
-            r for r in result.ownership_rules
-            if r["rule"] == "unassigned_alert"
-        ]
+        alert_rules = [r for r in result.ownership_rules if r["rule"] == "unassigned_alert"]
         assert len(alert_rules) == 1
         assert alert_rules[0]["alert"] is True
         assert "INC-003" in alert_rules[0]["message"]
 
-    def test_assigned_incident_no_alert(
-        self, compiler: TelcoCompiler, p1_incident: ParsedIncident
-    ):
+    def test_assigned_incident_no_alert(self, compiler: TelcoCompiler, p1_incident: ParsedIncident):
         result = compiler.compile(p1_incident)
 
-        alert_rules = [
-            r for r in result.ownership_rules
-            if r["rule"] == "unassigned_alert"
-        ]
+        alert_rules = [r for r in result.ownership_rules if r["rule"] == "unassigned_alert"]
         assert len(alert_rules) == 0
 
     def test_unassigned_next_action_context(
@@ -305,10 +286,7 @@ class TestCompileOwnershipUnassigned:
     ):
         result = compiler.compile(p3_incident_unassigned)
 
-        default_ownership = [
-            r for r in result.ownership_rules
-            if r["rule"] == "default_ownership"
-        ]
+        default_ownership = [r for r in result.ownership_rules if r["rule"] == "default_ownership"]
         assert len(default_ownership) == 1
         assert default_ownership[0]["primary_owner"] == "service_desk"
         assert default_ownership[0]["time_to_own_minutes"] == 15
@@ -323,8 +301,7 @@ class TestCompileCriticalService:
         result = compiler.compile(p1_incident)
 
         critical_rules = [
-            r for r in result.escalation_rules
-            if r["rule"] == "critical_service_escalation"
+            r for r in result.escalation_rules if r["rule"] == "critical_service_escalation"
         ]
         assert len(critical_rules) == 1
         assert critical_rules[0]["escalation_level"] == "l3"
@@ -340,8 +317,7 @@ class TestCompileCriticalService:
         result = compiler.compile(incident)
 
         critical_rules = [
-            r for r in result.escalation_rules
-            if r["rule"] == "critical_service_escalation"
+            r for r in result.escalation_rules if r["rule"] == "critical_service_escalation"
         ]
         assert len(critical_rules) == 1
 
@@ -356,8 +332,7 @@ class TestCompileCriticalService:
         result = compiler.compile(incident)
 
         critical_rules = [
-            r for r in result.escalation_rules
-            if r["rule"] == "critical_service_escalation"
+            r for r in result.escalation_rules if r["rule"] == "critical_service_escalation"
         ]
         assert len(critical_rules) == 0
 
@@ -373,8 +348,7 @@ class TestCompileCriticalService:
         result = compiler.compile(incident)
 
         stale_rules = [
-            r for r in result.escalation_rules
-            if r["rule"] == "stale_investigation_escalation"
+            r for r in result.escalation_rules if r["rule"] == "stale_investigation_escalation"
         ]
         assert len(stale_rules) == 1
         assert stale_rules[0]["threshold_minutes"] == 60  # P1 threshold

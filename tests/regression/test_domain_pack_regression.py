@@ -8,8 +8,6 @@ Parametrizes over eval cases from:
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from app.domain_packs.contract_margin.evals import CONTRACT_MARGIN_EVAL_CASES
@@ -17,8 +15,8 @@ from app.domain_packs.contract_margin.rules import (
     BillabilityRuleEngine,
     LeakageRuleEngine,
     PenaltyRuleEngine,
-    SPENBillabilityEngine,
     ServiceCreditEngine,
+    SPENBillabilityEngine,
 )
 from app.domain_packs.contract_margin.schemas import (
     BillingGate,
@@ -54,12 +52,10 @@ from app.domain_packs.utilities_field.rules import (
 )
 from app.domain_packs.utilities_field.schemas import (
     CompletionEvidence,
-    CompletionEvidenceType,
     EngineerProfile,
     ParsedWorkOrder,
     SPENReadinessGate,
 )
-
 
 # ---------------------------------------------------------------------------
 # Contract Margin eval cases
@@ -67,7 +63,9 @@ from app.domain_packs.utilities_field.schemas import (
 
 
 def _get_contract_margin_billability_cases() -> list[dict]:
-    return [c for c in CONTRACT_MARGIN_EVAL_CASES if c["expected_output"].get("billable") is not None]
+    return [
+        c for c in CONTRACT_MARGIN_EVAL_CASES if c["expected_output"].get("billable") is not None
+    ]
 
 
 def _get_contract_margin_leakage_cases() -> list[dict]:
@@ -75,11 +73,17 @@ def _get_contract_margin_leakage_cases() -> list[dict]:
 
 
 def _get_contract_margin_penalty_cases() -> list[dict]:
-    return [c for c in CONTRACT_MARGIN_EVAL_CASES if c["expected_output"].get("verdict") == "penalty_risk"]
+    return [
+        c
+        for c in CONTRACT_MARGIN_EVAL_CASES
+        if c["expected_output"].get("verdict") == "penalty_risk"
+    ]
 
 
 def _get_contract_margin_service_credit_cases() -> list[dict]:
-    return [c for c in CONTRACT_MARGIN_EVAL_CASES if c.get("workflow_type") == "spen_service_credit"]
+    return [
+        c for c in CONTRACT_MARGIN_EVAL_CASES if c.get("workflow_type") == "spen_service_credit"
+    ]
 
 
 class TestContractMarginRegression:
@@ -147,6 +151,7 @@ class TestContractMarginRegression:
             work_date = None
             if payload.get("work_date"):
                 from datetime import date as _date
+
                 work_date = _date.fromisoformat(payload["work_date"])
 
             result = billability_engine.evaluate(
@@ -165,7 +170,10 @@ class TestContractMarginRegression:
         )
 
         # If expected_output specifies rate_applied, verify it
-        if "rate_applied" in case["expected_output"] and case["expected_output"]["rate_applied"] is not None:
+        if (
+            "rate_applied" in case["expected_output"]
+            and case["expected_output"]["rate_applied"] is not None
+        ):
             expected_rate = case["expected_output"]["rate_applied"]
             assert result.rate_applied is not None, (
                 f"Case '{case['name']}': expected rate_applied={expected_rate}, got None"
@@ -255,8 +263,10 @@ class TestContractMarginRegression:
         # Check credit percentage if specified
         if "credit_percentage" in expected:
             matched = [
-                r for r in results
-                if r.get("breached") and abs(r.get("credit_percentage", 0) - expected["credit_percentage"]) < 0.01
+                r
+                for r in results
+                if r.get("breached")
+                and abs(r.get("credit_percentage", 0) - expected["credit_percentage"]) < 0.01
             ]
             assert len(matched) > 0, (
                 f"Case '{case['name']}': expected credit_percentage={expected['credit_percentage']} "
@@ -266,8 +276,10 @@ class TestContractMarginRegression:
         # Check credit value if specified
         if "credit_value" in expected:
             matched = [
-                r for r in results
-                if r.get("breached") and abs(r.get("credit_value", 0) - expected["credit_value"]) < 0.01
+                r
+                for r in results
+                if r.get("breached")
+                and abs(r.get("credit_value", 0) - expected["credit_value"]) < 0.01
             ]
             assert len(matched) > 0, (
                 f"Case '{case['name']}': expected credit_value={expected['credit_value']} "
@@ -281,7 +293,11 @@ class TestContractMarginRegression:
 
 
 def _get_utilities_field_generic_cases() -> list[dict]:
-    return [c for c in UTILITIES_FIELD_EVAL_CASES if c.get("workflow_type") not in ("spen_readiness", "spen_completion")]
+    return [
+        c
+        for c in UTILITIES_FIELD_EVAL_CASES
+        if c.get("workflow_type") not in ("spen_readiness", "spen_completion")
+    ]
 
 
 def _get_utilities_field_spen_readiness_cases() -> list[dict]:
@@ -446,11 +462,15 @@ class TestUtilitiesFieldRegression:
 
 
 def _get_telco_ops_generic_cases() -> list[dict]:
-    return [c for c in TELCO_OPS_EVAL_CASES if c.get("workflow_type") != "vodafone_managed_services"]
+    return [
+        c for c in TELCO_OPS_EVAL_CASES if c.get("workflow_type") != "vodafone_managed_services"
+    ]
 
 
 def _get_telco_ops_vodafone_cases() -> list[dict]:
-    return [c for c in TELCO_OPS_EVAL_CASES if c.get("workflow_type") == "vodafone_managed_services"]
+    return [
+        c for c in TELCO_OPS_EVAL_CASES if c.get("workflow_type") == "vodafone_managed_services"
+    ]
 
 
 def _build_parsed_incident(incident_data: dict) -> ParsedIncident:
@@ -576,13 +596,16 @@ class TestTelcoOpsRegression:
 
         # --- Escalation checks ---
         if "escalate" in expected or "escalation_level" in expected:
-            sla_status = payload.get("sla_status", {
-                "response_sla": "within",
-                "resolution_sla": "within",
-                "update_overdue": False,
-                "minutes_to_breach": 0,
-                "bridge_call_required": False,
-            })
+            sla_status = payload.get(
+                "sla_status",
+                {
+                    "response_sla": "within",
+                    "resolution_sla": "within",
+                    "update_overdue": False,
+                    "minutes_to_breach": 0,
+                    "bridge_call_required": False,
+                },
+            )
             service_domain = payload.get("service_domain", "")
             repeat_count = payload.get("repeat_count", 0)
 
@@ -621,9 +644,7 @@ class TestTelcoOpsRegression:
 
             major_incident_data = payload.get("major_incident")
             major_incident = (
-                MajorIncidentRecord(**major_incident_data)
-                if major_incident_data
-                else None
+                MajorIncidentRecord(**major_incident_data) if major_incident_data else None
             )
 
             closure_results = vodafone_closure_engine.validate_closure(
@@ -649,9 +670,8 @@ class TestTelcoOpsRegression:
                 failed_rule_names = [r.rule_name for r in failed_rules]
                 failed_messages = [r.message for r in failed_rules]
                 for blocker in expected["blocked_by"]:
-                    found = (
-                        any(blocker in rn for rn in failed_rule_names)
-                        or any(blocker in msg for msg in failed_messages)
+                    found = any(blocker in rn for rn in failed_rule_names) or any(
+                        blocker in msg for msg in failed_messages
                     )
                     assert found, (
                         f"Case '{case['name']}': expected blocker '{blocker}' "
@@ -711,16 +731,14 @@ class TestCrossDomainConsistency:
 
     def test_eval_cases_have_required_fields(self):
         """Each eval case should have name, domain, input_payload, expected_output."""
-        all_cases = (
-            CONTRACT_MARGIN_EVAL_CASES
-            + UTILITIES_FIELD_EVAL_CASES
-            + TELCO_OPS_EVAL_CASES
-        )
+        all_cases = CONTRACT_MARGIN_EVAL_CASES + UTILITIES_FIELD_EVAL_CASES + TELCO_OPS_EVAL_CASES
         for case in all_cases:
             assert "name" in case, f"Eval case missing 'name': {case}"
             assert "domain" in case, f"Eval case missing 'domain': {case.get('name')}"
             assert "input_payload" in case, f"Eval case missing 'input_payload': {case.get('name')}"
-            assert "expected_output" in case, f"Eval case missing 'expected_output': {case.get('name')}"
+            assert "expected_output" in case, (
+                f"Eval case missing 'expected_output': {case.get('name')}"
+            )
 
     def test_total_eval_case_count(self):
         """There should be at least 10 eval cases across all packs."""

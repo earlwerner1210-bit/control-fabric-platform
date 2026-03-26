@@ -55,7 +55,9 @@ class FakeEmbeddingProvider(EmbeddingProvider):
 class OpenAIEmbeddingProvider(EmbeddingProvider):
     """Calls the OpenAI embeddings API."""
 
-    def __init__(self, api_key: str, model: str = "text-embedding-3-small", dim: int = 1536) -> None:
+    def __init__(
+        self, api_key: str, model: str = "text-embedding-3-small", dim: int = 1536
+    ) -> None:
         self._api_key = api_key
         self._model = model
         self._dim = dim
@@ -111,7 +113,9 @@ class EmbeddingService:
     # ── Core operations ───────────────────────────────────────────────────
 
     def embed_chunks(
-        self, chunks: list[dict[str, Any]], model: str | None = None  # noqa: ARG002
+        self,
+        chunks: list[dict[str, Any]],
+        model: str | None = None,
     ) -> list[list[float]]:
         """Embed a list of chunk dicts (each must have a ``text`` key)."""
         texts = [c["text"] for c in chunks]
@@ -121,7 +125,7 @@ class EmbeddingService:
         logger.info("embedding.embed_chunks: %d chunks -> %d vectors", len(texts), len(vectors))
         return vectors
 
-    def embed_query(self, query: str, model: str | None = None) -> list[float]:  # noqa: ARG002
+    def embed_query(self, query: str, model: str | None = None) -> list[float]:
         """Embed a single query string and return the vector."""
         vectors = self._provider.embed([query])
         return vectors[0]
@@ -149,10 +153,7 @@ class EmbeddingService:
         *stored* is a list of ``(id_or_metadata, vector)`` tuples.
         Returns ``(id_or_metadata, similarity_score)`` sorted descending.
         """
-        scored = [
-            (item_id, self.cosine_similarity(query_vec, vec))
-            for item_id, vec in stored
-        ]
+        scored = [(item_id, self.cosine_similarity(query_vec, vec)) for item_id, vec in stored]
         scored.sort(key=lambda t: t[1], reverse=True)
         return scored[:top_k]
 

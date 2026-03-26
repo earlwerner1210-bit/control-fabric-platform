@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import time
-from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from apps.api.routes import admin, auth, cases, compile, documents, evals
 from shared.config import get_settings
 from shared.db.base import engine
-
-from apps.api.routes import admin, auth, cases, compile, documents, evals
-
 
 # ── Lifespan ──────────────────────────────────────────────────────────────
 
@@ -26,9 +24,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.settings = settings
     # Connection pool is created lazily by SQLAlchemy; we just verify here.
     async with engine.connect() as conn:
-        await conn.execute(
-            __import__("sqlalchemy").text("SELECT 1")
-        )
+        await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
     yield
     await engine.dispose()
 

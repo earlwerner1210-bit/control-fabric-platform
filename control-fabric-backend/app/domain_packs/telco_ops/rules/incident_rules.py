@@ -6,18 +6,17 @@ SLA compliance, escalation needs, and operational evidence.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from app.domain_packs.telco_ops.parsers.incident_parser import IncidentParser
 from app.domain_packs.telco_ops.schemas.telco_schemas import (
+    SLA_TARGETS,
     EscalationTier,
     IncidentObject,
     IncidentSeverity,
     IncidentStatus,
     ServiceStateObject,
-    SLA_TARGETS,
 )
-
 
 # ---------------------------------------------------------------------------
 # Valid state transitions (from -> set of valid targets)
@@ -37,6 +36,7 @@ _VALID_TRANSITIONS: dict[str, set[str]] = {
 # Incident Rule Engine
 # ---------------------------------------------------------------------------
 
+
 class IncidentRuleEngine:
     """Evaluates incident state, SLA compliance, and next-action
     recommendations for telco operations incidents.
@@ -45,7 +45,7 @@ class IncidentRuleEngine:
     def evaluate_next_action(
         self,
         incident: IncidentObject,
-        service_state: Optional[ServiceStateObject] = None,
+        service_state: ServiceStateObject | None = None,
     ) -> dict[str, Any]:
         """Determine the recommended next action for an incident.
 
@@ -68,9 +68,7 @@ class IncidentRuleEngine:
 
         # -- Escalation check ------------------------------------------------
         elapsed = self._minutes_since_reported(incident)
-        esc_required, esc_tier, esc_reason = self.check_escalation_required(
-            incident, elapsed
-        )
+        esc_required, esc_tier, esc_reason = self.check_escalation_required(incident, elapsed)
         details["escalation"] = {
             "required": esc_required,
             "tier": esc_tier,
@@ -88,7 +86,13 @@ class IncidentRuleEngine:
 
         # -- Determine recommended action ------------------------------------
         action, reason = self._determine_action(
-            status, sla_result, esc_required, esc_tier, owner_ok, evidence_ok, service_state,
+            status,
+            sla_result,
+            esc_required,
+            esc_tier,
+            owner_ok,
+            evidence_ok,
+            service_state,
         )
 
         return {
@@ -277,7 +281,7 @@ class IncidentRuleEngine:
         esc_tier: str,
         owner_ok: bool,
         evidence_ok: bool,
-        service_state: Optional[ServiceStateObject],
+        service_state: ServiceStateObject | None,
     ) -> tuple[str, str]:
         """Determine the single best next action based on collected signals."""
 
@@ -320,7 +324,10 @@ class IncidentRuleEngine:
 
         if status == IncidentStatus.resolved.value:
             if not evidence_ok:
-                return "add_evidence", "Incident resolved but missing root cause or resolution summary"
+                return (
+                    "add_evidence",
+                    "Incident resolved but missing root cause or resolution summary",
+                )
             return "close_incident", "Incident resolved with evidence - ready to close"
 
         if status == IncidentStatus.closed.value:

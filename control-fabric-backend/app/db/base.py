@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Text, text
+from sqlalchemy import Column, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base, declared_attr
 
@@ -42,7 +42,7 @@ class TenantMixin:
     """Provides a tenant_id foreign-key column."""
 
     @declared_attr
-    def tenant_id(cls) -> Column:  # noqa: N805
+    def tenant_id(cls) -> Column:
         return Column(
             UUID(as_uuid=True),
             ForeignKey("tenants.id", ondelete="CASCADE"),

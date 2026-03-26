@@ -52,13 +52,15 @@ class RetrievalService:
             query_lower = query.lower()
             occurrences = content_lower.count(query_lower)
             score = min(occurrences / max(len(content_lower.split()), 1), 1.0)
-            scored.append({
-                "chunk_id": row.id,
-                "document_id": row.document_id,
-                "chunk_index": row.chunk_index,
-                "text_snippet": row.content[:300],
-                "score": round(score, 4),
-            })
+            scored.append(
+                {
+                    "chunk_id": row.id,
+                    "document_id": row.document_id,
+                    "chunk_index": row.chunk_index,
+                    "text_snippet": row.content[:300],
+                    "score": round(score, 4),
+                }
+            )
         scored.sort(key=lambda x: x["score"], reverse=True)
         return scored[:top_k]
 

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any
 
 
 class ValidationSeverity(str, Enum):
@@ -23,6 +24,7 @@ class ValidationStatus(str, Enum):
 @dataclass
 class RuleCheckResult:
     """Result of a single rule check."""
+
     rule_name: str
     passed: bool
     message: str
@@ -33,6 +35,7 @@ class RuleCheckResult:
 @dataclass
 class ValidationOutcome:
     """Outcome of running all validation rules."""
+
     status: ValidationStatus
     rules_passed: int
     rules_warned: int
@@ -91,12 +94,15 @@ class ValidatorService:
 
         passed = sum(1 for r in results if r.passed)
         warned = sum(
-            1 for r in results
+            1
+            for r in results
             if not r.passed and r.severity in (ValidationSeverity.warning, ValidationSeverity.info)
         )
         blocked = sum(
-            1 for r in results
-            if not r.passed and r.severity in (ValidationSeverity.error, ValidationSeverity.critical)
+            1
+            for r in results
+            if not r.passed
+            and r.severity in (ValidationSeverity.error, ValidationSeverity.critical)
         )
 
         if blocked > 0:
@@ -117,8 +123,10 @@ class ValidatorService:
 
 # -- Built-in rules ---------------------------------------------------------
 
+
 def required_fields_rule(required: list[str]) -> RuleFunction:
     """Create a rule that checks for required fields."""
+
     def _check(payload: dict[str, Any]) -> RuleCheckResult:
         missing = [f for f in required if f not in payload or payload[f] is None]
         if missing:
@@ -133,11 +141,13 @@ def required_fields_rule(required: list[str]) -> RuleFunction:
             passed=True,
             message="All required fields present",
         )
+
     return _check
 
 
 def positive_amount_rule(field_name: str) -> RuleFunction:
     """Create a rule that validates a numeric field is positive."""
+
     def _check(payload: dict[str, Any]) -> RuleCheckResult:
         value = payload.get(field_name)
         if value is None:
@@ -158,11 +168,13 @@ def positive_amount_rule(field_name: str) -> RuleFunction:
             passed=True,
             message=f"Field '{field_name}' is valid ({value})",
         )
+
     return _check
 
 
 def confidence_threshold_rule(field_name: str, threshold: float = 0.7) -> RuleFunction:
     """Create a rule that warns if a confidence score is below threshold."""
+
     def _check(payload: dict[str, Any]) -> RuleCheckResult:
         value = payload.get(field_name)
         if value is None:
@@ -183,4 +195,5 @@ def confidence_threshold_rule(field_name: str, threshold: float = 0.7) -> RuleFu
             passed=True,
             message=f"Confidence {value:.2f} meets threshold",
         )
+
     return _check

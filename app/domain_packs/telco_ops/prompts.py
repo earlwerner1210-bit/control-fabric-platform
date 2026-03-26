@@ -7,18 +7,13 @@ Each builder produces a dict with ``system``, ``user``, and optionally
 from __future__ import annotations
 
 import json
-from typing import Any
 
 from app.domain_packs.telco_ops.schemas import (
     EscalationDecision,
     IncidentTimeline,
-    NextAction,
-    OpsRecommendation,
     ParsedIncident,
-    ReconciliationResult,
     ServiceStateObject,
 )
-
 
 # ---------------------------------------------------------------------------
 # Shared constants
@@ -98,7 +93,9 @@ class IncidentExplanationPromptBuilder:
                 user_parts.append(
                     f"- [{evt.timestamp}] **{evt.event_type}** by {evt.actor}: {evt.description}"
                 )
-            user_parts.append(f"\nTotal duration: {timeline.total_duration_minutes} min | SLA: {timeline.sla_status}")
+            user_parts.append(
+                f"\nTotal duration: {timeline.total_duration_minutes} min | SLA: {timeline.sla_status}"
+            )
 
         user_parts += [
             "",

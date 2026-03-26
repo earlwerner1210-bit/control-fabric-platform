@@ -2,23 +2,16 @@
 
 from __future__ import annotations
 
-import uuid
-from typing import Any
-
 import pytest
 
 from app.domain_packs.contract_margin.compiler import ContractCompiler
 from app.domain_packs.contract_margin.parsers import ContractParser
 from app.domain_packs.contract_margin.rules import (
     BillabilityRuleEngine,
-    LeakageRuleEngine,
 )
 from app.domain_packs.contract_margin.schemas import (
-    ClauseType,
-    ExtractedClause,
     ParsedContract,
     RateCardEntry,
-    SLAEntry,
 )
 from app.domain_packs.reconciliation import (
     CrossPlaneReconciler,
@@ -31,7 +24,6 @@ from app.domain_packs.telco_ops.rules import (
 )
 from app.domain_packs.telco_ops.schemas import (
     IncidentSeverity,
-    IncidentState,
     ParsedIncident,
     ServiceState,
 )
@@ -44,10 +36,7 @@ from app.domain_packs.utilities_field.schemas import (
     EngineerProfile,
     ParsedWorkOrder,
     ReadinessStatus,
-    SkillCategory,
-    SkillRecord,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -86,9 +75,24 @@ def sample_contract_data() -> dict:
         "title": "Integration Test MSA",
         "parties": ["TelcoCorp", "FieldServices Ltd"],
         "clauses": [
-            {"id": "CL-001", "type": "obligation", "text": "Provider shall deliver network maintenance", "section": "2.1"},
-            {"id": "CL-002", "type": "penalty", "text": "Failure to meet SLA shall result in 5% penalty", "section": "3.1"},
-            {"id": "CL-003", "type": "scope", "text": "Services include network maintenance and repair", "section": "2.2"},
+            {
+                "id": "CL-001",
+                "type": "obligation",
+                "text": "Provider shall deliver network maintenance",
+                "section": "2.1",
+            },
+            {
+                "id": "CL-002",
+                "type": "penalty",
+                "text": "Failure to meet SLA shall result in 5% penalty",
+                "section": "3.1",
+            },
+            {
+                "id": "CL-003",
+                "type": "scope",
+                "text": "Services include network maintenance and repair",
+                "section": "2.2",
+            },
         ],
         "sla_table": [
             {"priority": "P1", "response_time_hours": 1, "resolution_time_hours": 4},
@@ -198,21 +202,25 @@ class TestReadinessUsesFieldRules:
         eng_parser: EngineerProfileParser,
     ):
         """Readiness should be blocked when engineer lacks required skills."""
-        parsed_wo = wo_parser.parse_work_order({
-            "work_order_id": "WO-INT-002",
-            "work_order_type": "repair",
-            "required_skills": [
-                {"skill_name": "gas", "category": "gas"},
-                {"skill_name": "electrical", "category": "electrical"},
-            ],
-            "required_permits": [],
-        })
-        parsed_eng = eng_parser.parse_profile({
-            "engineer_id": "ENG-INT-002",
-            "name": "Fiber Specialist",
-            "skills": [{"skill_name": "fiber", "category": "fiber"}],
-            "accreditations": [{"name": "general_competency", "is_valid": True}],
-        })
+        parsed_wo = wo_parser.parse_work_order(
+            {
+                "work_order_id": "WO-INT-002",
+                "work_order_type": "repair",
+                "required_skills": [
+                    {"skill_name": "gas", "category": "gas"},
+                    {"skill_name": "electrical", "category": "electrical"},
+                ],
+                "required_permits": [],
+            }
+        )
+        parsed_eng = eng_parser.parse_profile(
+            {
+                "engineer_id": "ENG-INT-002",
+                "name": "Fiber Specialist",
+                "skills": [{"skill_name": "fiber", "category": "fiber"}],
+                "accreditations": [{"name": "general_competency", "is_valid": True}],
+            }
+        )
 
         engine = ReadinessRuleEngine()
         result = engine.evaluate(parsed_wo, parsed_eng)
@@ -261,11 +269,13 @@ class TestIncidentDispatchUsesTelcoRules:
 
     def test_resolved_incident_recommends_closure(self, inc_parser: IncidentParser):
         """Resolved incident should recommend closure."""
-        parsed = inc_parser.parse_incident({
-            "incident_id": "INC-INT-002",
-            "severity": "p4",
-            "state": "resolved",
-        })
+        parsed = inc_parser.parse_incident(
+            {
+                "incident_id": "INC-INT-002",
+                "severity": "p4",
+                "state": "resolved",
+            }
+        )
 
         action_engine = ActionRuleEngine()
         result = action_engine.evaluate(incident_state=parsed.state)
@@ -274,11 +284,13 @@ class TestIncidentDispatchUsesTelcoRules:
 
     def test_outage_triggers_escalation(self, inc_parser: IncidentParser):
         """Service outage should trigger escalation regardless of severity."""
-        parsed = inc_parser.parse_incident({
-            "incident_id": "INC-INT-003",
-            "severity": "p3",
-            "state": "investigating",
-        })
+        parsed = inc_parser.parse_incident(
+            {
+                "incident_id": "INC-INT-003",
+                "severity": "p3",
+                "state": "investigating",
+            }
+        )
 
         esc_engine = EscalationRuleEngine()
         result = esc_engine.evaluate(parsed, service_state=ServiceState.outage)
@@ -307,8 +319,12 @@ class TestMarginDiagnosisUsesCrossPack:
                 for rc in compiled.rate_card_entries
             ],
             "obligations": [
-                {"clause_id": ob["clause_id"], "description": ob["description"],
-                 "status": ob["status"], "due_type": ob["due_type"]}
+                {
+                    "clause_id": ob["clause_id"],
+                    "description": ob["description"],
+                    "status": ob["status"],
+                    "due_type": ob["due_type"],
+                }
                 for ob in compiled.obligations
             ],
             "scope_boundaries": [],
@@ -339,14 +355,23 @@ class TestMarginDiagnosisUsesCrossPack:
         assembler = MarginEvidenceAssembler()
 
         contract_objects = [
-            {"type": "rate_card", "activity": "maintenance", "rate": 100.0, "description": "maintenance"},
+            {
+                "type": "rate_card",
+                "activity": "maintenance",
+                "rate": 100.0,
+                "description": "maintenance",
+            },
         ]
         work_history = [
             {"work_order_id": "WO-001", "description": "Maintenance work", "billed": True},
             {"work_order_id": "WO-002", "description": "Extra work", "billed": False},
         ]
         leakage_triggers = [
-            {"trigger_type": "unbilled_work", "description": "WO-002 not billed", "severity": "error"},
+            {
+                "trigger_type": "unbilled_work",
+                "description": "WO-002 not billed",
+                "severity": "error",
+            },
         ]
 
         bundle = assembler.assemble(contract_objects, work_history, leakage_triggers)
@@ -362,7 +387,9 @@ class TestMarginDiagnosisUsesCrossPack:
 
         bundle = assembler.assemble(
             contract_objects=[{"type": "rate_card", "activity": "maintenance", "rate": 100.0}],
-            work_history=[{"work_order_id": "WO-CLEAN", "description": "Clean work", "billed": True}],
+            work_history=[
+                {"work_order_id": "WO-CLEAN", "description": "Clean work", "billed": True}
+            ],
             leakage_triggers=[],
         )
 

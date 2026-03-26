@@ -12,7 +12,6 @@ from app.domain_packs.reconciliation import (
     TicketClosureHandoverLinker,
 )
 
-
 # ---------------------------------------------------------------------------
 # FieldCompletionBillabilityLinker tests
 # ---------------------------------------------------------------------------
@@ -64,9 +63,7 @@ class TestFieldCompletionBillability:
         result = linker.evaluate(work_order, completion_evidence, billing_gates)
 
         assert result["billable"] is False
-        assert any(
-            b["rule"] == "missing_completion_evidence" for b in result["blockers"]
-        )
+        assert any(b["rule"] == "missing_completion_evidence" for b in result["blockers"])
         assert any(
             t["trigger_type"] == "incomplete_evidence_prevents_billing"
             for t in result["leakage_triggers"]
@@ -84,14 +81,10 @@ class TestFieldCompletionBillability:
         billing_gates = []
         reattendance_info = {"trigger": "provider_fault", "billed": True}
 
-        result = linker.evaluate(
-            work_order, completion_evidence, billing_gates, reattendance_info
-        )
+        result = linker.evaluate(work_order, completion_evidence, billing_gates, reattendance_info)
 
         assert result["billable"] is False
-        assert any(
-            b["rule"] == "reattendance_provider_fault" for b in result["blockers"]
-        )
+        assert any(b["rule"] == "reattendance_provider_fault" for b in result["blockers"])
         # When billed=True, it should flag a leakage trigger
         assert any(
             t["trigger_type"] == "reattendance_incorrectly_billed"
@@ -126,9 +119,7 @@ class TestTicketClosureHandover:
         result = linker.evaluate(incident, work_order, completion_evidence, closure_gates)
 
         assert result["can_close"] is False
-        assert any(
-            b["rule"] == "missing_completion_evidence" for b in result["blockers"]
-        )
+        assert any(b["rule"] == "missing_completion_evidence" for b in result["blockers"])
 
     def test_ticket_closure_open_permits(self):
         """Open NRSWA permit -> cannot close."""
@@ -261,7 +252,8 @@ class TestMarginLeakageReconciler:
         assert "emergency_billed_at_base_rate" in trigger_types
         # The difference should be 187.50 - 125.0 = 62.50
         emergency_trigger = next(
-            t for t in result["leakage_triggers"]
+            t
+            for t in result["leakage_triggers"]
             if t["trigger_type"] == "emergency_billed_at_base_rate"
         )
         assert emergency_trigger["at_risk_value"] == pytest.approx(62.50, abs=0.01)
@@ -383,7 +375,8 @@ class TestFullReconciliation:
 
         # WO-SPEN-CJ-001 is invoiced, so no field_completion_not_billed trigger
         billed_triggers = [
-            t for t in leakage_result["leakage_triggers"]
+            t
+            for t in leakage_result["leakage_triggers"]
             if t["trigger_type"] == "field_completion_not_billed"
         ]
         assert len(billed_triggers) == 0

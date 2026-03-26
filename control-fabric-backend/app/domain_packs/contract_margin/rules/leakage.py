@@ -9,7 +9,7 @@ pattern commonly found in telecom field-service contracts.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, Optional, Sequence
+from typing import Any
 
 from app.domain_packs.contract_margin.schemas.contract import (
     LeakageTrigger,
@@ -28,7 +28,7 @@ class LeakageRuleEngine:
         rate_card: list[RateCardEntry],
         work_orders: list[dict[str, Any]],
         obligations: list[Obligation],
-        incidents: Optional[list[dict[str, Any]]] = None,
+        incidents: list[dict[str, Any]] | None = None,
     ) -> list[LeakageTrigger]:
         """Run all leakage rules and return detected triggers.
 
@@ -84,7 +84,7 @@ class LeakageRuleEngine:
         work_orders: list[dict[str, Any]],
         obligations: list[Obligation],
         incidents: list[dict[str, Any]],
-    ) -> Optional[LeakageTrigger]:
+    ) -> LeakageTrigger | None:
         """Detect completed work orders that have not been billed."""
         unbilled_value = 0.0
         unbilled_refs: list[str] = []
@@ -110,7 +110,7 @@ class LeakageRuleEngine:
         work_orders: list[dict[str, Any]],
         obligations: list[Obligation],
         incidents: list[dict[str, Any]],
-    ) -> Optional[LeakageTrigger]:
+    ) -> LeakageTrigger | None:
         """Detect when billed rate is below the contracted rate."""
         activity_name = activity.get("name", "").lower().strip()
         billed_rate = float(activity.get("billed_rate", 0.0))
@@ -118,7 +118,10 @@ class LeakageRuleEngine:
             return None
 
         for entry in rate_card:
-            if entry.activity.lower().strip() == activity_name or activity_name in entry.activity.lower():
+            if (
+                entry.activity.lower().strip() == activity_name
+                or activity_name in entry.activity.lower()
+            ):
                 contract_rate = entry.rate
                 if billed_rate < contract_rate:
                     diff = contract_rate - billed_rate
@@ -145,7 +148,7 @@ class LeakageRuleEngine:
         work_orders: list[dict[str, Any]],
         obligations: list[Obligation],
         incidents: list[dict[str, Any]],
-    ) -> Optional[LeakageTrigger]:
+    ) -> LeakageTrigger | None:
         """Detect activities performed that have no matching rate card entry."""
         activity_name = activity.get("name", "").lower().strip()
         if not activity_name:
@@ -153,7 +156,11 @@ class LeakageRuleEngine:
 
         for entry in rate_card:
             entry_lower = entry.activity.lower().strip()
-            if activity_name == entry_lower or activity_name in entry_lower or entry_lower in activity_name:
+            if (
+                activity_name == entry_lower
+                or activity_name in entry_lower
+                or entry_lower in activity_name
+            ):
                 return None
 
         estimated = float(activity.get("value", 0.0)) or float(activity.get("hours", 0)) * 50.0
@@ -173,7 +180,7 @@ class LeakageRuleEngine:
         work_orders: list[dict[str, Any]],
         obligations: list[Obligation],
         incidents: list[dict[str, Any]],
-    ) -> Optional[LeakageTrigger]:
+    ) -> LeakageTrigger | None:
         """Detect obligations with evidence requirements that are unfulfilled."""
         activity_name = activity.get("name", "").lower()
         activity_evidence = set(e.lower() for e in activity.get("evidence", []))
@@ -204,7 +211,7 @@ class LeakageRuleEngine:
         work_orders: list[dict[str, Any]],
         obligations: list[Obligation],
         incidents: list[dict[str, Any]],
-    ) -> Optional[LeakageTrigger]:
+    ) -> LeakageTrigger | None:
         """Detect activities missing a daywork sheet when one is likely required."""
         has_daywork = activity.get("daywork_sheet", False)
         category = activity.get("category", "").lower()
@@ -214,7 +221,10 @@ class LeakageRuleEngine:
             hourly_rate = 0.0
             activity_name = activity.get("name", "").lower()
             for entry in rate_card:
-                if entry.activity.lower() in activity_name or activity_name in entry.activity.lower():
+                if (
+                    entry.activity.lower() in activity_name
+                    or activity_name in entry.activity.lower()
+                ):
                     hourly_rate = entry.rate
                     break
             impact = round(hours * hourly_rate, 2) if hourly_rate > 0 else 0.0
@@ -235,7 +245,7 @@ class LeakageRuleEngine:
         work_orders: list[dict[str, Any]],
         obligations: list[Obligation],
         incidents: list[dict[str, Any]],
-    ) -> Optional[LeakageTrigger]:
+    ) -> LeakageTrigger | None:
         """Detect time-based billing where hours exceed or don't align with the rate unit."""
         activity_name = activity.get("name", "").lower()
         hours = float(activity.get("hours", 0))
@@ -243,7 +253,10 @@ class LeakageRuleEngine:
             return None
 
         for entry in rate_card:
-            if entry.activity.lower() not in activity_name and activity_name not in entry.activity.lower():
+            if (
+                entry.activity.lower() not in activity_name
+                and activity_name not in entry.activity.lower()
+            ):
                 continue
             unit_lower = entry.unit.lower()
             if unit_lower in ("day", "days"):
@@ -272,7 +285,7 @@ class LeakageRuleEngine:
         work_orders: list[dict[str, Any]],
         obligations: list[Obligation],
         incidents: list[dict[str, Any]],
-    ) -> Optional[LeakageTrigger]:
+    ) -> LeakageTrigger | None:
         """Detect material costs not passed through to the client."""
         materials_cost = float(activity.get("materials_cost", 0.0))
         if materials_cost <= 0:
@@ -301,7 +314,7 @@ class LeakageRuleEngine:
         work_orders: list[dict[str, Any]],
         obligations: list[Obligation],
         incidents: list[dict[str, Any]],
-    ) -> Optional[LeakageTrigger]:
+    ) -> LeakageTrigger | None:
         """Detect subcontractor costs exceeding the billed rate (negative margin)."""
         subcontractor_cost = float(activity.get("subcontractor_cost", 0.0))
         if subcontractor_cost <= 0:
@@ -333,7 +346,7 @@ class LeakageRuleEngine:
         work_orders: list[dict[str, Any]],
         obligations: list[Obligation],
         incidents: list[dict[str, Any]],
-    ) -> Optional[LeakageTrigger]:
+    ) -> LeakageTrigger | None:
         """Detect when mobilisation was required but not charged."""
         mobilisation_charged = activity.get("mobilisation_charged", True)
         if mobilisation_charged:
@@ -366,7 +379,7 @@ class LeakageRuleEngine:
         work_orders: list[dict[str, Any]],
         obligations: list[Obligation],
         incidents: list[dict[str, Any]],
-    ) -> Optional[LeakageTrigger]:
+    ) -> LeakageTrigger | None:
         """Detect rework performed outside warranty period that should be billable."""
         warranty_expiry_raw = activity.get("warranty_expiry")
         if not warranty_expiry_raw:
@@ -377,6 +390,7 @@ class LeakageRuleEngine:
                 warranty_expiry = warranty_expiry_raw
             else:
                 from datetime import datetime as dt
+
                 warranty_expiry = dt.strptime(str(warranty_expiry_raw), "%Y-%m-%d").date()
         except (ValueError, TypeError):
             return None
@@ -387,6 +401,7 @@ class LeakageRuleEngine:
                 work_date = work_date_raw
             else:
                 from datetime import datetime as dt
+
                 work_date = dt.strptime(str(work_date_raw), "%Y-%m-%d").date()
         except (ValueError, TypeError):
             work_date = date.today()
@@ -396,7 +411,10 @@ class LeakageRuleEngine:
             activity_lower = activity_name.lower()
             rate_val = 0.0
             for entry in rate_card:
-                if entry.activity.lower() in activity_lower or activity_lower in entry.activity.lower():
+                if (
+                    entry.activity.lower() in activity_lower
+                    or activity_lower in entry.activity.lower()
+                ):
                     rate_val = entry.rate
                     break
             quantity = float(activity.get("quantity", 1))

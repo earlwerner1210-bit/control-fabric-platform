@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select, update
@@ -84,8 +83,7 @@ class NotificationService:
         """
         subject = f"Workflow alert: {alert_type}"
         body = (
-            f"Workflow {workflow_id} triggered alert '{alert_type}'. "
-            f"Details: {details or 'none'}"
+            f"Workflow {workflow_id} triggered alert '{alert_type}'. Details: {details or 'none'}"
         )
         return await self.send_notification(
             tenant_id=tenant_id,
@@ -138,10 +136,12 @@ class NotificationService:
     ) -> list[NotificationEvent]:
         """Return all notifications in ``pending`` status for a tenant."""
         result = await self.db.execute(
-            select(NotificationEvent).where(
+            select(NotificationEvent)
+            .where(
                 NotificationEvent.tenant_id == tenant_id,
                 NotificationEvent.status == "pending",
-            ).order_by(NotificationEvent.created_at.asc())
+            )
+            .order_by(NotificationEvent.created_at.asc())
         )
         return list(result.scalars().all())
 

@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
-
-import pytest
-
 from app.api.routes.reconciliation import (
     ContradictionCheckRequest,
     ContradictionResponse,

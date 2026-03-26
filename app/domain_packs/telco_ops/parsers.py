@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.domain_packs.telco_ops.schemas import (
     ClosureGate,
@@ -23,7 +23,6 @@ from app.domain_packs.telco_ops.schemas import (
     VodafoneIncidentCategory,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -32,33 +31,89 @@ _SEVERITY_ORDER = {"p1": 0, "p2": 1, "p3": 2, "p4": 3}
 
 _INCIDENT_CATEGORIES = {
     "network": [
-        "network", "latency", "packet loss", "dns", "bgp", "ospf", "routing",
-        "firewall", "switch", "router", "bandwidth", "connectivity", "link",
+        "network",
+        "latency",
+        "packet loss",
+        "dns",
+        "bgp",
+        "ospf",
+        "routing",
+        "firewall",
+        "switch",
+        "router",
+        "bandwidth",
+        "connectivity",
+        "link",
     ],
     "hardware": [
-        "hardware", "disk", "cpu", "memory", "power", "fan", "psu",
-        "motherboard", "nic", "raid", "drive", "chassis",
+        "hardware",
+        "disk",
+        "cpu",
+        "memory",
+        "power",
+        "fan",
+        "psu",
+        "motherboard",
+        "nic",
+        "raid",
+        "drive",
+        "chassis",
     ],
     "software": [
-        "software", "application", "crash", "bug", "exception", "error",
-        "timeout", "deadlock", "memory leak", "segfault", "core dump",
+        "software",
+        "application",
+        "crash",
+        "bug",
+        "exception",
+        "error",
+        "timeout",
+        "deadlock",
+        "memory leak",
+        "segfault",
+        "core dump",
     ],
     "config": [
-        "config", "configuration", "misconfigured", "policy", "acl",
-        "certificate", "cert", "ssl", "tls", "credential",
+        "config",
+        "configuration",
+        "misconfigured",
+        "policy",
+        "acl",
+        "certificate",
+        "cert",
+        "ssl",
+        "tls",
+        "credential",
     ],
     "security": [
-        "security", "breach", "intrusion", "ddos", "dos", "malware",
-        "ransomware", "unauthorized", "vulnerability", "exploit",
+        "security",
+        "breach",
+        "intrusion",
+        "ddos",
+        "dos",
+        "malware",
+        "ransomware",
+        "unauthorized",
+        "vulnerability",
+        "exploit",
     ],
     "capacity": [
-        "capacity", "utilization", "threshold", "saturation", "exhaustion",
-        "scaling", "overload", "congestion", "queue", "full",
+        "capacity",
+        "utilization",
+        "threshold",
+        "saturation",
+        "exhaustion",
+        "scaling",
+        "overload",
+        "congestion",
+        "queue",
+        "full",
     ],
 }
 
 _SYMPTOM_PATTERNS = [
-    re.compile(r"(?:experiencing|observing|reporting|seeing|noticed)\s+(.+?)(?:\.|$)", re.IGNORECASE),
+    re.compile(
+        r"(?:experiencing|observing|reporting|seeing|noticed)\s+(.+?)(?:\.|$)", re.IGNORECASE
+    ),
     re.compile(r"(?:symptom|issue|problem|failure):\s*(.+?)(?:\.|$)", re.IGNORECASE),
     re.compile(r"(?:unable to|cannot|can't|could not)\s+(.+?)(?:\.|$)", re.IGNORECASE),
     re.compile(r"(?:high|elevated|increased|abnormal|excessive)\s+(.+?)(?:\.|$)", re.IGNORECASE),
@@ -70,8 +125,8 @@ def _minutes_between(ts1: str, ts2: str) -> int:
     """Best-effort minute diff between two ISO-ish timestamps."""
     for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
         try:
-            dt1 = datetime.strptime(ts1, fmt).replace(tzinfo=timezone.utc)
-            dt2 = datetime.strptime(ts2, fmt).replace(tzinfo=timezone.utc)
+            dt1 = datetime.strptime(ts1, fmt).replace(tzinfo=UTC)
+            dt2 = datetime.strptime(ts2, fmt).replace(tzinfo=UTC)
             return max(0, int((dt2 - dt1).total_seconds() / 60))
         except (ValueError, TypeError):
             continue
@@ -100,7 +155,9 @@ class IncidentParser:
             incident_id=data.get("incident_id", data.get("id", "unknown")),
             title=data.get("title", ""),
             description=data.get("description", ""),
-            severity=IncidentSeverity(severity) if severity in IncidentSeverity.__members__ else IncidentSeverity.p3,
+            severity=IncidentSeverity(severity)
+            if severity in IncidentSeverity.__members__
+            else IncidentSeverity.p3,
             state=IncidentState(state) if state in IncidentState.__members__ else IncidentState.new,
             affected_services=data.get("affected_services", []),
             reported_by=data.get("reported_by", ""),
@@ -248,60 +305,155 @@ class IncidentParser:
 
     _VODAFONE_CATEGORY_KEYWORDS: dict[str, list[str]] = {
         VodafoneIncidentCategory.network_outage.value: [
-            "outage", "down", "unreachable", "total loss", "no service",
+            "outage",
+            "down",
+            "unreachable",
+            "total loss",
+            "no service",
         ],
         VodafoneIncidentCategory.network_degradation.value: [
-            "degradation", "degraded", "slow", "latency", "packet loss",
-            "intermittent", "jitter", "throughput",
+            "degradation",
+            "degraded",
+            "slow",
+            "latency",
+            "packet loss",
+            "intermittent",
+            "jitter",
+            "throughput",
         ],
         VodafoneIncidentCategory.capacity_breach.value: [
-            "capacity", "utilization", "threshold", "congestion",
-            "overload", "saturation", "exhaustion",
+            "capacity",
+            "utilization",
+            "threshold",
+            "congestion",
+            "overload",
+            "saturation",
+            "exhaustion",
         ],
         VodafoneIncidentCategory.config_error.value: [
-            "config", "misconfigured", "configuration", "acl", "policy",
-            "routing table", "bgp peer", "ospf",
+            "config",
+            "misconfigured",
+            "configuration",
+            "acl",
+            "policy",
+            "routing table",
+            "bgp peer",
+            "ospf",
         ],
         VodafoneIncidentCategory.hardware_failure.value: [
-            "hardware", "disk", "power supply", "psu", "fan", "chassis",
-            "nic", "card", "module", "rru", "antenna", "rectifier",
+            "hardware",
+            "disk",
+            "power supply",
+            "psu",
+            "fan",
+            "chassis",
+            "nic",
+            "card",
+            "module",
+            "rru",
+            "antenna",
+            "rectifier",
         ],
         VodafoneIncidentCategory.software_bug.value: [
-            "software", "bug", "crash", "exception", "core dump",
-            "segfault", "memory leak", "deadlock", "patch",
+            "software",
+            "bug",
+            "crash",
+            "exception",
+            "core dump",
+            "segfault",
+            "memory leak",
+            "deadlock",
+            "patch",
         ],
         VodafoneIncidentCategory.security_incident.value: [
-            "security", "breach", "intrusion", "ddos", "malware",
-            "ransomware", "unauthorized", "vulnerability",
+            "security",
+            "breach",
+            "intrusion",
+            "ddos",
+            "malware",
+            "ransomware",
+            "unauthorized",
+            "vulnerability",
         ],
         VodafoneIncidentCategory.planned_maintenance_overrun.value: [
-            "maintenance overrun", "maintenance window", "change overrun",
-            "planned work", "extended maintenance",
+            "maintenance overrun",
+            "maintenance window",
+            "change overrun",
+            "planned work",
+            "extended maintenance",
         ],
         VodafoneIncidentCategory.vendor_dependency.value: [
-            "vendor", "supplier", "third party", "3rd party",
-            "huawei", "ericsson", "nokia", "cisco",
+            "vendor",
+            "supplier",
+            "third party",
+            "3rd party",
+            "huawei",
+            "ericsson",
+            "nokia",
+            "cisco",
         ],
         VodafoneIncidentCategory.power_failure.value: [
-            "power", "ups", "generator", "mains", "battery",
-            "rectifier", "dc power",
+            "power",
+            "ups",
+            "generator",
+            "mains",
+            "battery",
+            "rectifier",
+            "dc power",
         ],
         VodafoneIncidentCategory.fibre_cut.value: [
-            "fibre cut", "fiber cut", "fibre break", "fiber break",
-            "cable cut", "nrswa", "duct damage",
+            "fibre cut",
+            "fiber cut",
+            "fibre break",
+            "fiber break",
+            "cable cut",
+            "nrswa",
+            "duct damage",
         ],
         VodafoneIncidentCategory.radio_interference.value: [
-            "interference", "pim", "passive intermod", "rssi",
-            "radio", "spectrum", "co-channel",
+            "interference",
+            "pim",
+            "passive intermod",
+            "rssi",
+            "radio",
+            "spectrum",
+            "co-channel",
         ],
     }
 
     _VODAFONE_DOMAIN_KEYWORDS: dict[str, list[str]] = {
         "core_network": ["msc", "hlr", "hss", "mme", "sgw", "pgw", "ggsn", "sgsn", "core"],
-        "ran_radio": ["ran", "enodeb", "gnodeb", "bsc", "bts", "rnc", "nodeb", "cell site", "sector", "antenna"],
-        "transport_network": ["transport", "mpls", "dwdm", "sdh", "microwave", "backhaul", "fronthaul"],
+        "ran_radio": [
+            "ran",
+            "enodeb",
+            "gnodeb",
+            "bsc",
+            "bts",
+            "rnc",
+            "nodeb",
+            "cell site",
+            "sector",
+            "antenna",
+        ],
+        "transport_network": [
+            "transport",
+            "mpls",
+            "dwdm",
+            "sdh",
+            "microwave",
+            "backhaul",
+            "fronthaul",
+        ],
         "vas_platforms": ["vas", "smsc", "mmsc", "ussd", "ringback", "value added"],
-        "it_infrastructure": ["server", "vm", "hypervisor", "storage", "san", "data centre", "data center"],
+        "it_infrastructure": [
+            "server",
+            "vm",
+            "hypervisor",
+            "storage",
+            "san",
+            "data centre",
+            "data center",
+        ],
         "billing_mediation": ["billing", "mediation", "cdr", "charging", "rating", "invoice"],
         "oss_bss": ["oss", "bss", "nms", "ems", "monitoring", "fault management"],
         "customer_facing": ["portal", "app", "self-service", "customer", "crm", "web"],
@@ -409,9 +561,7 @@ class VodafoneTicketParser:
                 else IncidentSeverity.p3
             ),
             state=(
-                IncidentState(state)
-                if state in IncidentState.__members__
-                else IncidentState.new
+                IncidentState(state) if state in IncidentState.__members__ else IncidentState.new
             ),
             affected_services=data.get("affected_services", []),
             reported_by=data.get("reported_by", ""),
@@ -436,12 +586,14 @@ class VodafoneTicketParser:
             for g in raw_gates:
                 prereq_str = g.get("prerequisite", "")
                 if prereq_str in ClosurePrerequisite.__members__:
-                    gates.append(ClosureGate(
-                        prerequisite=ClosurePrerequisite(prereq_str),
-                        satisfied=g.get("satisfied", False),
-                        evidence_ref=g.get("evidence_ref", ""),
-                        mandatory=g.get("mandatory", True),
-                    ))
+                    gates.append(
+                        ClosureGate(
+                            prerequisite=ClosurePrerequisite(prereq_str),
+                            satisfied=g.get("satisfied", False),
+                            evidence_ref=g.get("evidence_ref", ""),
+                            mandatory=g.get("mandatory", True),
+                        )
+                    )
             return gates
 
         # Infer default gates based on severity
@@ -451,14 +603,26 @@ class VodafoneTicketParser:
             ClosureGate(prerequisite=ClosurePrerequisite.customer_notified, mandatory=True),
         ]
         if severity in ("p1", "p2"):
-            default_gates.extend([
-                ClosureGate(prerequisite=ClosurePrerequisite.root_cause_identified, mandatory=True),
-                ClosureGate(prerequisite=ClosurePrerequisite.rca_submitted, mandatory=True),
-                ClosureGate(prerequisite=ClosurePrerequisite.problem_record_created, mandatory=True),
-                ClosureGate(prerequisite=ClosurePrerequisite.workaround_documented, mandatory=False),
-                ClosureGate(prerequisite=ClosurePrerequisite.permanent_fix_planned, mandatory=False),
-                ClosureGate(prerequisite=ClosurePrerequisite.change_request_raised, mandatory=False),
-            ])
+            default_gates.extend(
+                [
+                    ClosureGate(
+                        prerequisite=ClosurePrerequisite.root_cause_identified, mandatory=True
+                    ),
+                    ClosureGate(prerequisite=ClosurePrerequisite.rca_submitted, mandatory=True),
+                    ClosureGate(
+                        prerequisite=ClosurePrerequisite.problem_record_created, mandatory=True
+                    ),
+                    ClosureGate(
+                        prerequisite=ClosurePrerequisite.workaround_documented, mandatory=False
+                    ),
+                    ClosureGate(
+                        prerequisite=ClosurePrerequisite.permanent_fix_planned, mandatory=False
+                    ),
+                    ClosureGate(
+                        prerequisite=ClosurePrerequisite.change_request_raised, mandatory=False
+                    ),
+                ]
+            )
         return default_gates
 
 
@@ -537,7 +701,17 @@ class RunbookParser:
     def extract_automation_candidates(self, steps: list[RunbookStep]) -> list[RunbookStep]:
         """Return steps that are flagged or likely candidates for automation."""
         candidates: list[RunbookStep] = []
-        automation_keywords = {"restart", "reboot", "ping", "check", "verify", "run", "execute", "clear", "flush"}
+        automation_keywords = {
+            "restart",
+            "reboot",
+            "ping",
+            "check",
+            "verify",
+            "run",
+            "execute",
+            "clear",
+            "flush",
+        }
         for step in steps:
             if step.automated:
                 candidates.append(step)
@@ -577,10 +751,18 @@ class ServiceStateParser:
     def parse_service_state(self, data: dict) -> ServiceStateObject:
         """Build a ``ServiceStateObject`` from raw payload."""
         raw_state = data.get("state", data.get("status", "active")).lower()
-        state = ServiceState(raw_state) if raw_state in ServiceState.__members__ else ServiceState.active
+        state = (
+            ServiceState(raw_state)
+            if raw_state in ServiceState.__members__
+            else ServiceState.active
+        )
 
         raw_impact = data.get("impact_level", "negligible").lower()
-        impact = ImpactLevel(raw_impact) if raw_impact in ImpactLevel.__members__ else ImpactLevel.negligible
+        impact = (
+            ImpactLevel(raw_impact)
+            if raw_impact in ImpactLevel.__members__
+            else ImpactLevel.negligible
+        )
 
         return ServiceStateObject(
             service_id=data.get("service_id", data.get("id", "unknown")),
@@ -603,12 +785,14 @@ class ServiceStateParser:
         for entry in sorted(history, key=lambda e: e.get("timestamp", "")):
             current_state = entry.get("state", "")
             if prev_state is not None and current_state != prev_state:
-                transitions.append({
-                    "from_state": prev_state,
-                    "to_state": current_state,
-                    "timestamp": entry.get("timestamp", ""),
-                    "reason": entry.get("reason", ""),
-                })
+                transitions.append(
+                    {
+                        "from_state": prev_state,
+                        "to_state": current_state,
+                        "timestamp": entry.get("timestamp", ""),
+                        "reason": entry.get("reason", ""),
+                    }
+                )
             prev_state = current_state
         return transitions
 
@@ -631,13 +815,15 @@ class ServiceStateParser:
             for dep_name in svc.dependencies:
                 dep = state_map.get(dep_name)
                 if dep and dep.state in (ServiceState.outage, ServiceState.degraded):
-                    cascades.append({
-                        "affected_service": svc.service_name,
-                        "affected_state": svc.state.value,
-                        "dependency_service": dep.service_name,
-                        "dependency_state": dep.state.value,
-                        "impact_level": svc.impact_level.value,
-                    })
+                    cascades.append(
+                        {
+                            "affected_service": svc.service_name,
+                            "affected_state": svc.state.value,
+                            "dependency_service": dep.service_name,
+                            "dependency_state": dep.state.value,
+                            "impact_level": svc.impact_level.value,
+                        }
+                    )
         return cascades
 
 

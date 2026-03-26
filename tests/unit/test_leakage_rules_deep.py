@@ -16,6 +16,7 @@ def engine() -> LeakageRuleEngine:
 # _check_time_based_rate_mismatch (Rule 10)
 # ===================================================================
 
+
 class TestTimeBasedRateMismatch:
     """Tests for out-of-hours work billed at standard rate."""
 
@@ -23,14 +24,16 @@ class TestTimeBasedRateMismatch:
         """Overtime work billed at standard rate should trigger leakage."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "cable_repair",
-                "time_of_day": "overtime",
-                "billed_rate": 100.0,
-                "contract_rate": 100.0,
-                "expected_multiplier": 1.5,
-                "hours": 4,
-            }],
+            work_history=[
+                {
+                    "activity": "cable_repair",
+                    "time_of_day": "overtime",
+                    "billed_rate": 100.0,
+                    "contract_rate": 100.0,
+                    "expected_multiplier": 1.5,
+                    "hours": 4,
+                }
+            ],
         )
         time_triggers = [t for t in triggers if t.trigger_type == "time_rate_mismatch"]
         assert len(time_triggers) == 1
@@ -41,14 +44,16 @@ class TestTimeBasedRateMismatch:
         """Weekend work billed at standard rate should trigger leakage."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "substation_check",
-                "time_of_day": "weekend",
-                "billed_rate": 200.0,
-                "contract_rate": 200.0,
-                "expected_multiplier": 1.5,
-                "hours": 8,
-            }],
+            work_history=[
+                {
+                    "activity": "substation_check",
+                    "time_of_day": "weekend",
+                    "billed_rate": 200.0,
+                    "contract_rate": 200.0,
+                    "expected_multiplier": 1.5,
+                    "hours": 8,
+                }
+            ],
         )
         time_triggers = [t for t in triggers if t.trigger_type == "time_rate_mismatch"]
         assert len(time_triggers) == 1
@@ -59,13 +64,15 @@ class TestTimeBasedRateMismatch:
         """Normal hours work should not trigger time rate mismatch."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "cable_repair",
-                "time_of_day": "normal",
-                "billed_rate": 100.0,
-                "contract_rate": 100.0,
-                "hours": 4,
-            }],
+            work_history=[
+                {
+                    "activity": "cable_repair",
+                    "time_of_day": "normal",
+                    "billed_rate": 100.0,
+                    "contract_rate": 100.0,
+                    "hours": 4,
+                }
+            ],
         )
         time_triggers = [t for t in triggers if t.trigger_type == "time_rate_mismatch"]
         assert len(time_triggers) == 0
@@ -74,14 +81,16 @@ class TestTimeBasedRateMismatch:
         """Overtime work billed above contract rate should not trigger."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "cable_repair",
-                "time_of_day": "overtime",
-                "billed_rate": 150.0,
-                "contract_rate": 100.0,
-                "expected_multiplier": 1.5,
-                "hours": 4,
-            }],
+            work_history=[
+                {
+                    "activity": "cable_repair",
+                    "time_of_day": "overtime",
+                    "billed_rate": 150.0,
+                    "contract_rate": 100.0,
+                    "expected_multiplier": 1.5,
+                    "hours": 4,
+                }
+            ],
         )
         time_triggers = [t for t in triggers if t.trigger_type == "time_rate_mismatch"]
         assert len(time_triggers) == 0
@@ -91,6 +100,7 @@ class TestTimeBasedRateMismatch:
 # _check_material_cost_passthrough (Rule 11)
 # ===================================================================
 
+
 class TestMaterialCostPassthrough:
     """Tests for materials used but not billed."""
 
@@ -98,11 +108,13 @@ class TestMaterialCostPassthrough:
         """Materials used but not billed should trigger leakage."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "joint_replacement",
-                "material_cost": 350.0,
-                "material_billed": False,
-            }],
+            work_history=[
+                {
+                    "activity": "joint_replacement",
+                    "material_cost": 350.0,
+                    "material_billed": False,
+                }
+            ],
         )
         mat_triggers = [t for t in triggers if t.trigger_type == "material_cost_not_billed"]
         assert len(mat_triggers) == 1
@@ -112,11 +124,13 @@ class TestMaterialCostPassthrough:
         """Materials that were billed should not trigger."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "joint_replacement",
-                "material_cost": 350.0,
-                "material_billed": True,
-            }],
+            work_history=[
+                {
+                    "activity": "joint_replacement",
+                    "material_cost": 350.0,
+                    "material_billed": True,
+                }
+            ],
         )
         mat_triggers = [t for t in triggers if t.trigger_type == "material_cost_not_billed"]
         assert len(mat_triggers) == 0
@@ -125,9 +139,11 @@ class TestMaterialCostPassthrough:
         """Work without material cost should not trigger."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "inspection",
-            }],
+            work_history=[
+                {
+                    "activity": "inspection",
+                }
+            ],
         )
         mat_triggers = [t for t in triggers if t.trigger_type == "material_cost_not_billed"]
         assert len(mat_triggers) == 0
@@ -137,6 +153,7 @@ class TestMaterialCostPassthrough:
 # _check_subcontractor_margin_leak (Rule 12)
 # ===================================================================
 
+
 class TestSubcontractorMarginLeak:
     """Tests for subcontractor cost exceeding billed rate."""
 
@@ -144,12 +161,14 @@ class TestSubcontractorMarginLeak:
         """Subcontractor cost > billed rate should trigger."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "tree_cutting",
-                "subcontractor_cost": 800.0,
-                "billed_rate": 600.0,
-                "quantity": 1,
-            }],
+            work_history=[
+                {
+                    "activity": "tree_cutting",
+                    "subcontractor_cost": 800.0,
+                    "billed_rate": 600.0,
+                    "quantity": 1,
+                }
+            ],
         )
         sub_triggers = [t for t in triggers if t.trigger_type == "subcontractor_margin_leak"]
         assert len(sub_triggers) == 1
@@ -159,12 +178,14 @@ class TestSubcontractorMarginLeak:
         """Subcontractor cost < billed rate should not trigger."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "tree_cutting",
-                "subcontractor_cost": 400.0,
-                "billed_rate": 600.0,
-                "quantity": 1,
-            }],
+            work_history=[
+                {
+                    "activity": "tree_cutting",
+                    "subcontractor_cost": 400.0,
+                    "billed_rate": 600.0,
+                    "quantity": 1,
+                }
+            ],
         )
         sub_triggers = [t for t in triggers if t.trigger_type == "subcontractor_margin_leak"]
         assert len(sub_triggers) == 0
@@ -173,12 +194,14 @@ class TestSubcontractorMarginLeak:
         """Impact should be multiplied by quantity."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "tree_cutting",
-                "subcontractor_cost": 800.0,
-                "billed_rate": 600.0,
-                "quantity": 3,
-            }],
+            work_history=[
+                {
+                    "activity": "tree_cutting",
+                    "subcontractor_cost": 800.0,
+                    "billed_rate": 600.0,
+                    "quantity": 3,
+                }
+            ],
         )
         sub_triggers = [t for t in triggers if t.trigger_type == "subcontractor_margin_leak"]
         assert len(sub_triggers) == 1
@@ -190,6 +213,7 @@ class TestSubcontractorMarginLeak:
 # _check_mobilisation_not_charged (Rule 13)
 # ===================================================================
 
+
 class TestMobilisationNotCharged:
     """Tests for remote site mobilisation not billed."""
 
@@ -197,12 +221,14 @@ class TestMobilisationNotCharged:
         """Remote site mobilisation not billed should trigger."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "overhead_line_repair",
-                "remote_site": True,
-                "mobilisation_cost": 450.0,
-                "mobilisation_billed": False,
-            }],
+            work_history=[
+                {
+                    "activity": "overhead_line_repair",
+                    "remote_site": True,
+                    "mobilisation_cost": 450.0,
+                    "mobilisation_billed": False,
+                }
+            ],
         )
         mob_triggers = [t for t in triggers if t.trigger_type == "mobilisation_not_charged"]
         assert len(mob_triggers) == 1
@@ -212,12 +238,14 @@ class TestMobilisationNotCharged:
         """Remote site mobilisation that was billed should not trigger."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "overhead_line_repair",
-                "remote_site": True,
-                "mobilisation_cost": 450.0,
-                "mobilisation_billed": True,
-            }],
+            work_history=[
+                {
+                    "activity": "overhead_line_repair",
+                    "remote_site": True,
+                    "mobilisation_cost": 450.0,
+                    "mobilisation_billed": True,
+                }
+            ],
         )
         mob_triggers = [t for t in triggers if t.trigger_type == "mobilisation_not_charged"]
         assert len(mob_triggers) == 0
@@ -226,12 +254,14 @@ class TestMobilisationNotCharged:
         """Non-remote site work should not trigger mobilisation check."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "local_repair",
-                "remote_site": False,
-                "mobilisation_cost": 50.0,
-                "mobilisation_billed": False,
-            }],
+            work_history=[
+                {
+                    "activity": "local_repair",
+                    "remote_site": False,
+                    "mobilisation_cost": 50.0,
+                    "mobilisation_billed": False,
+                }
+            ],
         )
         mob_triggers = [t for t in triggers if t.trigger_type == "mobilisation_not_charged"]
         assert len(mob_triggers) == 0
@@ -241,6 +271,7 @@ class TestMobilisationNotCharged:
 # _check_warranty_period_rework (Rule 14)
 # ===================================================================
 
+
 class TestWarrantyPeriodRework:
     """Tests for rework within warranty period billed as new work."""
 
@@ -248,14 +279,16 @@ class TestWarrantyPeriodRework:
         """Rework within warranty billed as new should trigger."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "cable_joint_repair",
-                "is_rework": True,
-                "within_warranty_period": True,
-                "billed": True,
-                "billed_rate": 485.0,
-                "hours": 3,
-            }],
+            work_history=[
+                {
+                    "activity": "cable_joint_repair",
+                    "is_rework": True,
+                    "within_warranty_period": True,
+                    "billed": True,
+                    "billed_rate": 485.0,
+                    "hours": 3,
+                }
+            ],
         )
         war_triggers = [t for t in triggers if t.trigger_type == "warranty_rework_billed"]
         assert len(war_triggers) == 1
@@ -265,14 +298,16 @@ class TestWarrantyPeriodRework:
         """Rework within warranty that is not billed should not trigger."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "cable_joint_repair",
-                "is_rework": True,
-                "within_warranty_period": True,
-                "billed": False,
-                "billed_rate": 485.0,
-                "hours": 3,
-            }],
+            work_history=[
+                {
+                    "activity": "cable_joint_repair",
+                    "is_rework": True,
+                    "within_warranty_period": True,
+                    "billed": False,
+                    "billed_rate": 485.0,
+                    "hours": 3,
+                }
+            ],
         )
         war_triggers = [t for t in triggers if t.trigger_type == "warranty_rework_billed"]
         assert len(war_triggers) == 0
@@ -281,14 +316,16 @@ class TestWarrantyPeriodRework:
         """Rework outside warranty period should not trigger."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "cable_joint_repair",
-                "is_rework": True,
-                "within_warranty_period": False,
-                "billed": True,
-                "billed_rate": 485.0,
-                "hours": 3,
-            }],
+            work_history=[
+                {
+                    "activity": "cable_joint_repair",
+                    "is_rework": True,
+                    "within_warranty_period": False,
+                    "billed": True,
+                    "billed_rate": 485.0,
+                    "hours": 3,
+                }
+            ],
         )
         war_triggers = [t for t in triggers if t.trigger_type == "warranty_rework_billed"]
         assert len(war_triggers) == 0
@@ -297,14 +334,16 @@ class TestWarrantyPeriodRework:
         """Non-rework work should not trigger warranty check."""
         triggers = engine.evaluate(
             contract_objects=[],
-            work_history=[{
-                "activity": "cable_joint_repair",
-                "is_rework": False,
-                "within_warranty_period": True,
-                "billed": True,
-                "billed_rate": 485.0,
-                "hours": 3,
-            }],
+            work_history=[
+                {
+                    "activity": "cable_joint_repair",
+                    "is_rework": False,
+                    "within_warranty_period": True,
+                    "billed": True,
+                    "billed_rate": 485.0,
+                    "hours": 3,
+                }
+            ],
         )
         war_triggers = [t for t in triggers if t.trigger_type == "warranty_rework_billed"]
         assert len(war_triggers) == 0
@@ -313,6 +352,7 @@ class TestWarrantyPeriodRework:
 # ===================================================================
 # Integration: multiple new rules fire together
 # ===================================================================
+
 
 class TestMultipleNewLeakageRules:
     """Test that multiple new rules can fire simultaneously."""

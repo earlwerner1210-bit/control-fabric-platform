@@ -22,9 +22,7 @@ class IngestService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def upload_document(
-        self, file: UploadFile, tenant_id: uuid.UUID
-    ) -> Document:
+    async def upload_document(self, file: UploadFile, tenant_id: uuid.UUID) -> Document:
         """Save uploaded file, compute checksum, store metadata."""
         content = await file.read()
         checksum = hashlib.sha256(content).hexdigest()
@@ -43,7 +41,9 @@ class IngestService:
         )
         self.db.add(doc)
         await self.db.flush()
-        logger.info("Uploaded document %s (%d bytes) for tenant %s", doc_id, len(content), tenant_id)
+        logger.info(
+            "Uploaded document %s (%d bytes) for tenant %s", doc_id, len(content), tenant_id
+        )
         return doc
 
     async def parse_document(
@@ -69,7 +69,11 @@ class IngestService:
             "entities_found": [],
             "options_applied": options or {},
         }
-        doc.metadata_ = {**(doc.metadata_ or {}), "parsed_content": parsed_content, "document_type": doc_type}
+        doc.metadata_ = {
+            **(doc.metadata_ or {}),
+            "parsed_content": parsed_content,
+            "document_type": doc_type,
+        }
         doc.status = "parsed"
         await self.db.flush()
         logger.info("Parsed document %s with domain=%s", document_id, domain)

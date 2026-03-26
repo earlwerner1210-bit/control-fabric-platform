@@ -73,7 +73,12 @@ class AuditService:
         )
         self.db.add(run)
         await self.db.flush()
-        logger.info("Model run logged: %s/%s (%d tokens)", model_provider, model_name, input_tokens + output_tokens)
+        logger.info(
+            "Model run logged: %s/%s (%d tokens)",
+            model_provider,
+            model_name,
+            input_tokens + output_tokens,
+        )
         return run
 
     async def get_case_audit_trail(

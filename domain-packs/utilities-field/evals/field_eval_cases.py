@@ -30,7 +30,11 @@ FIELD_EVAL_CASES: list[dict] = [
             "engineer": {
                 "name": "Jane Smith",
                 "skills": [
-                    {"category": "fiber", "name": "Single-mode fibre splicing", "proficiency_level": "expert"},
+                    {
+                        "category": "fiber",
+                        "name": "Single-mode fibre splicing",
+                        "proficiency_level": "expert",
+                    },
                 ],
                 "accreditations": [],
                 "available": True,
@@ -66,7 +70,11 @@ FIELD_EVAL_CASES: list[dict] = [
             "engineer": {
                 "name": "Bob Jones",
                 "skills": [
-                    {"category": "plumbing", "name": "General plumbing", "proficiency_level": "competent"},
+                    {
+                        "category": "plumbing",
+                        "name": "General plumbing",
+                        "proficiency_level": "competent",
+                    },
                 ],
                 "accreditations": [],
                 "available": True,
@@ -103,8 +111,16 @@ FIELD_EVAL_CASES: list[dict] = [
             "engineer": {
                 "name": "Alice Chen",
                 "skills": [
-                    {"category": "fiber", "name": "Fibre splicing", "proficiency_level": "competent"},
-                    {"category": "electrical", "name": "Low voltage wiring", "proficiency_level": "competent"},
+                    {
+                        "category": "fiber",
+                        "name": "Fibre splicing",
+                        "proficiency_level": "competent",
+                    },
+                    {
+                        "category": "electrical",
+                        "name": "Low voltage wiring",
+                        "proficiency_level": "competent",
+                    },
                 ],
                 "accreditations": [],
                 "available": True,

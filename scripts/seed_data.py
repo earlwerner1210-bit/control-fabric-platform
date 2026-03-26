@@ -2,8 +2,8 @@
 Seed sample data into the Control Fabric Platform database.
 Run: poetry run python scripts/seed_data.py
 """
+
 import asyncio
-import os
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent.parent / "data"

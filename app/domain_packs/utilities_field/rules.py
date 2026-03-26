@@ -37,45 +37,53 @@ class ReadinessRuleEngine:
         if not skill_fit.fit:
             for ms in skill_fit.missing_skills:
                 missing.append(f"Missing skill: {ms}")
-                blockers.append(ComplianceBlocker(
-                    blocker_type="skill",
-                    description=f"Engineer missing required skill: {ms}",
-                    severity="error",
-                    resolution=f"Assign engineer with {ms} qualification",
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="skill",
+                        description=f"Engineer missing required skill: {ms}",
+                        severity="error",
+                        resolution=f"Assign engineer with {ms} qualification",
+                    )
+                )
 
         # Permit checks
         for permit in work_order.required_permits:
             if permit.required and not permit.obtained:
                 missing.append(f"Missing permit: {permit.permit_type.value}")
-                blockers.append(ComplianceBlocker(
-                    blocker_type="permit",
-                    description=f"Required permit not obtained: {permit.permit_type.value}",
-                    severity="error",
-                    resolution=f"Obtain {permit.permit_type.value} permit before dispatch",
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="permit",
+                        description=f"Required permit not obtained: {permit.permit_type.value}",
+                        severity="error",
+                        resolution=f"Obtain {permit.permit_type.value} permit before dispatch",
+                    )
+                )
 
         # Safety rules
         safety_results = SafetyRuleEngine().evaluate(work_order, engineer)
         for sr in safety_results:
             if not sr.passed:
-                blockers.append(ComplianceBlocker(
-                    blocker_type="safety",
-                    description=sr.message,
-                    severity=sr.severity,
-                    resolution="Ensure safety requirements are met",
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="safety",
+                        description=sr.message,
+                        severity=sr.severity,
+                        resolution="Ensure safety requirements are met",
+                    )
+                )
                 missing.append(sr.message)
 
         # Accreditation checks
         accred_results = self._check_accreditations(work_order, engineer)
         for ar in accred_results:
             if not ar.passed:
-                blockers.append(ComplianceBlocker(
-                    blocker_type="accreditation",
-                    description=ar.message,
-                    severity=ar.severity,
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="accreditation",
+                        description=ar.message,
+                        severity=ar.severity,
+                    )
+                )
                 missing.append(ar.message)
 
         # Determine status
@@ -110,12 +118,14 @@ class ReadinessRuleEngine:
 
         for required in required_accreds:
             has_it = required.lower() in engineer_accreds
-            results.append(RuleResult(
-                rule_name=f"accreditation_{required}",
-                passed=has_it,
-                message=f"Has {required}" if has_it else f"Missing accreditation: {required}",
-                severity="error" if not has_it else "info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name=f"accreditation_{required}",
+                    passed=has_it,
+                    message=f"Has {required}" if has_it else f"Missing accreditation: {required}",
+                    severity="error" if not has_it else "info",
+                )
+            )
         return results
 
     def _get_required_accreditations(self, work_order: ParsedWorkOrder) -> list[str]:
@@ -144,35 +154,48 @@ class SafetyRuleEngine:
                 has_cert = any(
                     "confined" in a.name.lower() for a in engineer.accreditations if a.is_valid
                 )
-                results.append(RuleResult(
-                    rule_name="confined_space_certified",
-                    passed=has_cert,
-                    message="Confined space certified" if has_cert else "Missing confined space certification",
-                    severity="error" if not has_cert else "info",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="confined_space_certified",
+                        passed=has_cert,
+                        message="Confined space certified"
+                        if has_cert
+                        else "Missing confined space certification",
+                        severity="error" if not has_cert else "info",
+                    )
+                )
 
             if pt == "height_works":
                 has_cert = any(
                     "height" in a.name.lower() or "working at height" in a.name.lower()
-                    for a in engineer.accreditations if a.is_valid
+                    for a in engineer.accreditations
+                    if a.is_valid
                 )
-                results.append(RuleResult(
-                    rule_name="height_works_certified",
-                    passed=has_cert,
-                    message="Height works certified" if has_cert else "Missing height works certification",
-                    severity="error" if not has_cert else "info",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="height_works_certified",
+                        passed=has_cert,
+                        message="Height works certified"
+                        if has_cert
+                        else "Missing height works certification",
+                        severity="error" if not has_cert else "info",
+                    )
+                )
 
             if pt == "hot_works":
                 has_cert = any(
                     "hot work" in a.name.lower() for a in engineer.accreditations if a.is_valid
                 )
-                results.append(RuleResult(
-                    rule_name="hot_works_certified",
-                    passed=has_cert,
-                    message="Hot works certified" if has_cert else "Missing hot works certification",
-                    severity="error" if not has_cert else "info",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="hot_works_certified",
+                        passed=has_cert,
+                        message="Hot works certified"
+                        if has_cert
+                        else "Missing hot works certification",
+                        severity="error" if not has_cert else "info",
+                    )
+                )
 
         # Gas safety check for gas-related skills
         needs_gas = any(s.category.value == "gas" for s in work_order.required_skills)
@@ -180,12 +203,14 @@ class SafetyRuleEngine:
             has_gas = any(
                 "gas safe" in a.name.lower() for a in engineer.accreditations if a.is_valid
             )
-            results.append(RuleResult(
-                rule_name="gas_safe_registered",
-                passed=has_gas,
-                message="Gas Safe registered" if has_gas else "Missing Gas Safe registration",
-                severity="error" if not has_gas else "info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="gas_safe_registered",
+                    passed=has_gas,
+                    message="Gas Safe registered" if has_gas else "Missing Gas Safe registration",
+                    severity="error" if not has_gas else "info",
+                )
+            )
 
         return results
 
@@ -444,96 +469,112 @@ class SPENReadinessEngine:
         for ar in accred_results:
             if not ar.passed:
                 missing.append(ar.message)
-                blockers.append(ComplianceBlocker(
-                    blocker_type="accreditation",
-                    description=ar.message,
-                    severity=ar.severity,
-                    resolution=f"Engineer must obtain {ar.rule_name.replace('spen_accred_', '')} accreditation",
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="accreditation",
+                        description=ar.message,
+                        severity=ar.severity,
+                        resolution=f"Engineer must obtain {ar.rule_name.replace('spen_accred_', '')} accreditation",
+                    )
+                )
 
         # 2. Crew size check
         crew_results = self._crew_size_check(work_category, crew_size)
         for cr in crew_results:
             if not cr.passed:
                 missing.append(cr.message)
-                blockers.append(ComplianceBlocker(
-                    blocker_type="safety",
-                    description=cr.message,
-                    severity=cr.severity,
-                    resolution="Assign additional crew members before dispatch",
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="safety",
+                        description=cr.message,
+                        severity=cr.severity,
+                        resolution="Assign additional crew members before dispatch",
+                    )
+                )
 
         # 3. Permit check
         permit_results = self._permit_check(work_order, work_category)
         for pr in permit_results:
             if not pr.passed:
                 missing.append(pr.message)
-                blockers.append(ComplianceBlocker(
-                    blocker_type="permit",
-                    description=pr.message,
-                    severity=pr.severity,
-                    resolution="Obtain required permit before dispatch",
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="permit",
+                        description=pr.message,
+                        severity=pr.severity,
+                        resolution="Obtain required permit before dispatch",
+                    )
+                )
 
         # 4. Design approval check
         design_results = self._design_approval_check(work_order, work_category)
         for dr in design_results:
             if not dr.passed:
                 missing.append(dr.message)
-                blockers.append(ComplianceBlocker(
-                    blocker_type="access",
-                    description=dr.message,
-                    severity=dr.severity,
-                    resolution="Obtain approved scheme design before dispatch",
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="access",
+                        description=dr.message,
+                        severity=dr.severity,
+                        resolution="Obtain approved scheme design before dispatch",
+                    )
+                )
 
         # 5. Customer notification check
         notif_results = self._customer_notification_check(work_order, work_category)
         for nr in notif_results:
             if not nr.passed:
                 missing.append(nr.message)
-                blockers.append(ComplianceBlocker(
-                    blocker_type="safety",
-                    description=nr.message,
-                    severity=nr.severity,
-                    resolution="Send customer planned outage notification",
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="safety",
+                        description=nr.message,
+                        severity=nr.severity,
+                        resolution="Send customer planned outage notification",
+                    )
+                )
 
         # 6. Materials check
         mat_results = self._materials_check(work_order)
         for mr in mat_results:
             if not mr.passed:
                 missing.append(mr.message)
-                blockers.append(ComplianceBlocker(
-                    blocker_type="safety",
-                    description=mr.message,
-                    severity=mr.severity,
-                    resolution="Ensure all materials are on-van or pre-staged at site",
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="safety",
+                        description=mr.message,
+                        severity=mr.severity,
+                        resolution="Ensure all materials are on-van or pre-staged at site",
+                    )
+                )
 
         # 7. Traffic management check
         tm_results = self._traffic_management_check(work_order, work_category)
         for tr in tm_results:
             if not tr.passed:
                 missing.append(tr.message)
-                blockers.append(ComplianceBlocker(
-                    blocker_type="permit",
-                    description=tr.message,
-                    severity=tr.severity,
-                    resolution="Submit traffic management plan for approval",
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="permit",
+                        description=tr.message,
+                        severity=tr.severity,
+                        resolution="Submit traffic management plan for approval",
+                    )
+                )
 
         # 8. Gate check
         gate_results = self._gate_check(effective_gates)
         for gr in gate_results:
             if not gr.passed:
                 missing.append(gr.message)
-                blockers.append(ComplianceBlocker(
-                    blocker_type="safety",
-                    description=gr.message,
-                    severity=gr.severity,
-                    resolution="Satisfy readiness gate before dispatch",
-                ))
+                blockers.append(
+                    ComplianceBlocker(
+                        blocker_type="safety",
+                        description=gr.message,
+                        severity=gr.severity,
+                        resolution="Satisfy readiness gate before dispatch",
+                    )
+                )
 
         # Determine status
         has_errors = any(b.severity == "error" for b in blockers)
@@ -559,7 +600,9 @@ class SPENReadinessEngine:
 
     # ----- Individual checks --------------------------------------------------
 
-    def _accreditation_check(self, engineer: EngineerProfile, work_category: str) -> list[RuleResult]:
+    def _accreditation_check(
+        self, engineer: EngineerProfile, work_category: str
+    ) -> list[RuleResult]:
         """Check engineer holds all required UK accreditations for the work category."""
         results: list[RuleResult] = []
         required = _WORK_CATEGORY_ACCREDITATION_MAP.get(work_category, [])
@@ -567,12 +610,16 @@ class SPENReadinessEngine:
 
         for accred in required:
             has_it = accred.value.lower() in engineer_accreds
-            results.append(RuleResult(
-                rule_name=f"spen_accred_{accred.value}",
-                passed=has_it,
-                message=f"Has {accred.value}" if has_it else f"Missing required accreditation: {accred.value}",
-                severity="error" if not has_it else "info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name=f"spen_accred_{accred.value}",
+                    passed=has_it,
+                    message=f"Has {accred.value}"
+                    if has_it
+                    else f"Missing required accreditation: {accred.value}",
+                    severity="error" if not has_it else "info",
+                )
+            )
         return results
 
     def _crew_size_check(self, work_category: str, crew_size: int = 0) -> list[RuleResult]:
@@ -589,12 +636,14 @@ class SPENReadinessEngine:
             min_size = crew_req.minimum_crew_size if crew_req else 2
 
             if crew_size > 0 and crew_size < min_size:
-                results.append(RuleResult(
-                    rule_name="spen_crew_size",
-                    passed=False,
-                    message=f"{work_category} requires minimum {min_size}-person crew but only {crew_size} assigned",
-                    severity="error",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name="spen_crew_size",
+                        passed=False,
+                        message=f"{work_category} requires minimum {min_size}-person crew but only {crew_size} assigned",
+                        severity="error",
+                    )
+                )
             elif crew_size == 0:
                 # Crew size unknown — no block, but leave for dispatch to verify
                 pass
@@ -609,12 +658,16 @@ class SPENReadinessEngine:
                 p.permit_type.value == "street_works" and p.obtained
                 for p in work_order.required_permits
             )
-            results.append(RuleResult(
-                rule_name="spen_nrswa_permit",
-                passed=has_nrswa,
-                message="NRSWA street works permit obtained" if has_nrswa else "Missing NRSWA street works permit for street works category",
-                severity="error" if not has_nrswa else "info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="spen_nrswa_permit",
+                    passed=has_nrswa,
+                    message="NRSWA street works permit obtained"
+                    if has_nrswa
+                    else "Missing NRSWA street works permit for street works category",
+                    severity="error" if not has_nrswa else "info",
+                )
+            )
 
         # Confined space permit for substation work
         if work_category == SPENWorkCategory.substation_maintenance:
@@ -622,55 +675,75 @@ class SPENReadinessEngine:
                 p.permit_type.value == "confined_space" and p.obtained
                 for p in work_order.required_permits
             )
-            results.append(RuleResult(
-                rule_name="spen_confined_space_permit",
-                passed=has_confined,
-                message="Confined space permit obtained" if has_confined else "Missing confined space permit for substation maintenance",
-                severity="warning" if not has_confined else "info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="spen_confined_space_permit",
+                    passed=has_confined,
+                    message="Confined space permit obtained"
+                    if has_confined
+                    else "Missing confined space permit for substation maintenance",
+                    severity="warning" if not has_confined else "info",
+                )
+            )
 
         # General check: any explicitly declared required permit that is not obtained
         for p in work_order.required_permits:
             if p.required and not p.obtained:
-                results.append(RuleResult(
-                    rule_name=f"spen_required_permit_{p.permit_type.value}",
-                    passed=False,
-                    message=f"Required permit not obtained: {p.permit_type.value}",
-                    severity="error",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name=f"spen_required_permit_{p.permit_type.value}",
+                        passed=False,
+                        message=f"Required permit not obtained: {p.permit_type.value}",
+                        severity="error",
+                    )
+                )
 
         return results
 
-    def _design_approval_check(self, work_order: ParsedWorkOrder, work_category: str) -> list[RuleResult]:
+    def _design_approval_check(
+        self, work_order: ParsedWorkOrder, work_category: str
+    ) -> list[RuleResult]:
         """Check that design/scheme has been approved for applicable categories."""
         results: list[RuleResult] = []
         if work_category in _DESIGN_APPROVAL_CATEGORIES:
             # Look for a design approval in dependencies or prerequisites
             has_design = any(
-                d.get("type") == "design" and d.get("status") in ("approved", "completed", "resolved")
+                d.get("type") == "design"
+                and d.get("status") in ("approved", "completed", "resolved")
                 for d in work_order.dependencies
             ) or any(
-                p.get("type") == "design" and p.get("status") in ("approved", "completed", "resolved")
+                p.get("type") == "design"
+                and p.get("status") in ("approved", "completed", "resolved")
                 for p in work_order.prerequisites
             )
-            results.append(RuleResult(
-                rule_name="spen_design_approval",
-                passed=has_design,
-                message="Scheme design approved" if has_design else "Scheme design not approved — required for new connections and service alterations",
-                severity="error" if not has_design else "info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="spen_design_approval",
+                    passed=has_design,
+                    message="Scheme design approved"
+                    if has_design
+                    else "Scheme design not approved — required for new connections and service alterations",
+                    severity="error" if not has_design else "info",
+                )
+            )
         return results
 
-    def _customer_notification_check(self, work_order: ParsedWorkOrder, work_category: str) -> list[RuleResult]:
+    def _customer_notification_check(
+        self, work_order: ParsedWorkOrder, work_category: str
+    ) -> list[RuleResult]:
         """Check customer has been notified for planned outage categories."""
         results: list[RuleResult] = []
         if work_category in _OUTAGE_NOTIFICATION_CATEGORIES:
-            results.append(RuleResult(
-                rule_name="spen_customer_notification",
-                passed=work_order.customer_confirmed,
-                message="Customer notified of planned outage" if work_order.customer_confirmed else "Customer not notified of planned outage",
-                severity="error" if not work_order.customer_confirmed else "info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="spen_customer_notification",
+                    passed=work_order.customer_confirmed,
+                    message="Customer notified of planned outage"
+                    if work_order.customer_confirmed
+                    else "Customer not notified of planned outage",
+                    severity="error" if not work_order.customer_confirmed else "info",
+                )
+            )
         return results
 
     def _materials_check(self, work_order: ParsedWorkOrder) -> list[RuleResult]:
@@ -682,32 +755,36 @@ class SPENReadinessEngine:
             if not m.get("available", True)
         ]
         if unavailable:
-            results.append(RuleResult(
-                rule_name="spen_materials_available",
-                passed=False,
-                message=f"Materials not on-van or pre-staged: {', '.join(unavailable)}",
-                severity="error",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name="spen_materials_available",
+                    passed=False,
+                    message=f"Materials not on-van or pre-staged: {', '.join(unavailable)}",
+                    severity="error",
+                )
+            )
         return results
 
-    def _traffic_management_check(self, work_order: ParsedWorkOrder, work_category: str) -> list[RuleResult]:
+    def _traffic_management_check(
+        self, work_order: ParsedWorkOrder, work_category: str
+    ) -> list[RuleResult]:
         """Check traffic management plan exists for street works categories."""
         results: list[RuleResult] = []
         if work_category in _STREET_WORKS_CATEGORIES:
             # Check for traffic management in special instructions or prerequisites
-            has_tm = (
-                "traffic management" in work_order.special_instructions.lower()
-                or any(
-                    "traffic" in str(p.get("description", "")).lower()
-                    for p in work_order.prerequisites
+            has_tm = "traffic management" in work_order.special_instructions.lower() or any(
+                "traffic" in str(p.get("description", "")).lower() for p in work_order.prerequisites
+            )
+            results.append(
+                RuleResult(
+                    rule_name="spen_traffic_management",
+                    passed=has_tm,
+                    message="Traffic management plan in place"
+                    if has_tm
+                    else "Missing traffic management plan for street works",
+                    severity="warning" if not has_tm else "info",
                 )
             )
-            results.append(RuleResult(
-                rule_name="spen_traffic_management",
-                passed=has_tm,
-                message="Traffic management plan in place" if has_tm else "Missing traffic management plan for street works",
-                severity="warning" if not has_tm else "info",
-            ))
         return results
 
     def _gate_check(self, gates: list[SPENReadinessGate]) -> list[RuleResult]:
@@ -715,12 +792,16 @@ class SPENReadinessEngine:
         results: list[RuleResult] = []
         for gate in gates:
             if gate.required and not gate.satisfied:
-                results.append(RuleResult(
-                    rule_name=f"spen_gate_{gate.gate_name}",
-                    passed=False,
-                    message=f"Readiness gate not satisfied: {gate.gate_name} — {gate.description}" if gate.description else f"Readiness gate not satisfied: {gate.gate_name}",
-                    severity="error" if gate.blocking else "warning",
-                ))
+                results.append(
+                    RuleResult(
+                        rule_name=f"spen_gate_{gate.gate_name}",
+                        passed=False,
+                        message=f"Readiness gate not satisfied: {gate.gate_name} — {gate.description}"
+                        if gate.description
+                        else f"Readiness gate not satisfied: {gate.gate_name}",
+                        severity="error" if gate.blocking else "warning",
+                    )
+                )
         return results
 
 
@@ -776,11 +857,15 @@ class CompletionValidator:
         # Check each required evidence type
         for req_type in sorted(required, key=lambda x: x.value):
             has_it = req_type in provided_types
-            results.append(RuleResult(
-                rule_name=f"spen_evidence_{req_type.value}",
-                passed=has_it,
-                message=f"Evidence provided: {req_type.value}" if has_it else f"Missing completion evidence: {req_type.value}",
-                severity="error" if not has_it else "info",
-            ))
+            results.append(
+                RuleResult(
+                    rule_name=f"spen_evidence_{req_type.value}",
+                    passed=has_it,
+                    message=f"Evidence provided: {req_type.value}"
+                    if has_it
+                    else f"Missing completion evidence: {req_type.value}",
+                    severity="error" if not has_it else "info",
+                )
+            )
 
         return results

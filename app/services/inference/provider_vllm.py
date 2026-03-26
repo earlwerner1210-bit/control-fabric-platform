@@ -18,7 +18,9 @@ logger = get_logger("inference.vllm")
 class VLLMProvider(BaseInferenceProvider):
     provider_name = "vllm"
 
-    def __init__(self, base_url: str | None = None, model: str | None = None, api_key: str | None = None) -> None:
+    def __init__(
+        self, base_url: str | None = None, model: str | None = None, api_key: str | None = None
+    ) -> None:
         settings = get_settings()
         self.base_url = base_url or settings.VLLM_BASE_URL
         self.model = model or settings.VLLM_MODEL
@@ -74,7 +76,9 @@ class VLLMProvider(BaseInferenceProvider):
             return {"raw_response": content}
 
     async def summarize(self, text: str, system_prompt: str | None = None) -> str:
-        sys_prompt = system_prompt or "You are an expert summarizer. Provide a concise, accurate summary."
+        sys_prompt = (
+            system_prompt or "You are an expert summarizer. Provide a concise, accurate summary."
+        )
         messages = [
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": f"Summarize the following:\n\n{text}"},
@@ -85,13 +89,18 @@ class VLLMProvider(BaseInferenceProvider):
     async def classify(
         self, text: str, categories: list[str], system_prompt: str | None = None
     ) -> dict[str, Any]:
-        sys_prompt = system_prompt or "Classify the text into exactly one category. Return JSON with 'category' and 'confidence' fields."
+        sys_prompt = (
+            system_prompt
+            or "Classify the text into exactly one category. Return JSON with 'category' and 'confidence' fields."
+        )
         cat_list = ", ".join(categories)
         messages = [
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": f"Categories: {cat_list}\n\nText: {text}"},
         ]
-        result = await self._chat_completion(messages, max_tokens=256, temperature=0.1, response_format={"type": "json_object"})
+        result = await self._chat_completion(
+            messages, max_tokens=256, temperature=0.1, response_format={"type": "json_object"}
+        )
         content = result["choices"][0]["message"]["content"]
         try:
             return json.loads(content)
@@ -99,7 +108,9 @@ class VLLMProvider(BaseInferenceProvider):
             return {"category": "unknown", "confidence": 0.0, "raw": content}
 
     async def explain(self, context: str, question: str, system_prompt: str | None = None) -> str:
-        sys_prompt = system_prompt or "Provide an evidence-backed explanation based on the given context."
+        sys_prompt = (
+            system_prompt or "Provide an evidence-backed explanation based on the given context."
+        )
         messages = [
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -27,7 +27,7 @@ _SECTION_TYPE_MAP: dict[str, ControlObjectTypeEnum] = {
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class _ControlObjectStore:
@@ -69,7 +69,12 @@ class CompilerService:
                 continue
 
             for item in items:
-                label = item.get("label") or item.get("name") or item.get("title") or str(control_type.value)
+                label = (
+                    item.get("label")
+                    or item.get("name")
+                    or item.get("title")
+                    or str(control_type.value)
+                )
                 obj: dict[str, Any] = {
                     "id": uuid4(),
                     "tenant_id": tenant_id,
@@ -98,7 +103,7 @@ class CompilerService:
 
     def persist_control_objects(
         self,
-        tenant_id: UUID,  # noqa: ARG002
+        tenant_id: UUID,
         objects: list[dict[str, Any]],
         workflow_case_id: UUID | None = None,
     ) -> list[UUID]:

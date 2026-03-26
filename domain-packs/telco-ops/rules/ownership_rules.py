@@ -7,13 +7,11 @@ escalation level, and team capacity.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
-from ..schemas.telco_schemas import ParsedIncident, ServiceStateMapping
+from ..schemas.telco_schemas import ParsedIncident
 from ..taxonomy.telco_taxonomy import (
     EscalationLevel,
     IncidentSeverity,
-    ServiceState,
 )
 
 
@@ -39,11 +37,11 @@ class TeamMember:
 class OwnershipDecision:
     """Result of ownership assignment evaluation."""
 
-    assigned_owner: Optional[str]
+    assigned_owner: str | None
     team: str
     reason: str
     reassignment: bool = False
-    previous_owner: Optional[str] = None
+    previous_owner: str | None = None
     escalation_level: EscalationLevel = EscalationLevel.l1
 
 
@@ -101,7 +99,8 @@ class OwnershipRuleEngine:
 
         # Find best available team member
         candidates = [
-            m for m in available_team
+            m
+            for m in available_team
             if m.has_capacity
             and m.level.numeric_level >= required_level.numeric_level
             and (m.team == target_team or not target_team)
@@ -110,9 +109,9 @@ class OwnershipRuleEngine:
         # If no candidates in target team, broaden search
         if not candidates:
             candidates = [
-                m for m in available_team
-                if m.has_capacity
-                and m.level.numeric_level >= required_level.numeric_level
+                m
+                for m in available_team
+                if m.has_capacity and m.level.numeric_level >= required_level.numeric_level
             ]
 
         # Sort by: exact team match, then lowest load, then highest level
@@ -126,10 +125,7 @@ class OwnershipRuleEngine:
 
         if candidates:
             best = candidates[0]
-            is_reassignment = (
-                incident.assigned_to is not None
-                and incident.assigned_to != best.name
-            )
+            is_reassignment = incident.assigned_to is not None and incident.assigned_to != best.name
             return OwnershipDecision(
                 assigned_owner=best.name,
                 team=best.team,
@@ -154,7 +150,7 @@ class OwnershipRuleEngine:
             escalation_level=required_level,
         )
 
-    def _route_to_team(self, incident: ParsedIncident) -> Optional[str]:
+    def _route_to_team(self, incident: ParsedIncident) -> str | None:
         """Determine the target team based on affected services."""
         for service in incident.affected_services:
             service_lower = service.service_name.lower()

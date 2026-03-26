@@ -9,6 +9,7 @@ from typing import Any
 @dataclass
 class MarginDiagnosisResult:
     """Result of a margin diagnosis workflow run."""
+
     case_id: str
     billing_record_id: str
     verdict: str = "healthy"

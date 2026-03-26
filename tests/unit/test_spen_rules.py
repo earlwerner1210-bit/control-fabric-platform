@@ -2,30 +2,21 @@
 
 from __future__ import annotations
 
-import pytest
-
-from app.domain_packs.contract_margin.rules import BillabilityRuleEngine, LeakageRuleEngine
-from app.domain_packs.contract_margin.schemas import RateCardEntry, BillingGate, BillingPrerequisite
+from app.domain_packs.contract_margin.rules import BillabilityRuleEngine
+from app.domain_packs.contract_margin.schemas import RateCardEntry
+from app.domain_packs.reconciliation import FieldCompletionBillabilityLinker
 from app.domain_packs.utilities_field.rules import ReadinessRuleEngine, SkillMatchEngine
 from app.domain_packs.utilities_field.schemas import (
     Accreditation,
-    CompletionEvidence,
-    CompletionEvidenceType,
     CrewRequirement,
     EngineerProfile,
     ParsedWorkOrder,
-    PermitRequirement,
-    PermitType,
     ReadinessStatus,
     SkillCategory,
     SkillRecord,
     SPENReadinessGate,
-    SPENWorkCategory,
-    UKAccreditation,
     WorkOrderType,
 )
-from app.domain_packs.reconciliation import FieldCompletionBillabilityLinker
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -122,9 +113,7 @@ class TestSPENBillability:
         billing_gates = []
         reattendance_info = {"trigger": "provider_fault", "billed": False}
 
-        result = linker.evaluate(
-            work_order, completion_evidence, billing_gates, reattendance_info
-        )
+        result = linker.evaluate(work_order, completion_evidence, billing_gates, reattendance_info)
 
         assert result["billable"] is False
         blocker_rules = [b["rule"] for b in result["blockers"]]
@@ -142,9 +131,7 @@ class TestSPENBillability:
         billing_gates = []
         reattendance_info = {"trigger": "customer_no_access"}
 
-        result = linker.evaluate(
-            work_order, completion_evidence, billing_gates, reattendance_info
-        )
+        result = linker.evaluate(work_order, completion_evidence, billing_gates, reattendance_info)
 
         assert result["billable"] is True
         assert result["category"] == "abortive_visit"
@@ -197,11 +184,13 @@ class TestSPENReadiness:
 
         # The readiness engine should flag missing HV authorization as blocker
         # At minimum the accreditation check should notice missing HV auth
-        assert decision.status in (ReadinessStatus.ready, ReadinessStatus.blocked, ReadinessStatus.conditional)
-        # The real check: engineer must have hv_authorized_person
-        hv_auth = any(
-            a.name.lower() == "hv_authorized_person" for a in engineer.accreditations
+        assert decision.status in (
+            ReadinessStatus.ready,
+            ReadinessStatus.blocked,
+            ReadinessStatus.conditional,
         )
+        # The real check: engineer must have hv_authorized_person
+        hv_auth = any(a.name.lower() == "hv_authorized_person" for a in engineer.accreditations)
         assert hv_auth is False, "Engineer should NOT have HV auth for this test"
 
     def test_spen_cable_jointing_requires_jointer_cert(self):
@@ -266,8 +255,7 @@ class TestSPENReadiness:
         assert fit.fit is True  # skill match ok
         # But accreditation check would catch it in the real flow
         has_18th = any(
-            a.name == "eighteen_edition" and a.is_valid
-            for a in engineer_without.accreditations
+            a.name == "eighteen_edition" and a.is_valid for a in engineer_without.accreditations
         )
         assert has_18th is False
 

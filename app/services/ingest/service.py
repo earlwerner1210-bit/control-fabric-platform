@@ -215,8 +215,7 @@ class IngestService:
             return f"[PDF text extraction stub – {len(file_bytes)} bytes]"
 
         if content_type == (
-            "application/vnd.openxmlformats-officedocument"
-            ".wordprocessingml.document"
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         ):
             # Stub: real implementation would use python-docx
             return f"[DOCX text extraction stub – {len(file_bytes)} bytes]"
@@ -257,7 +256,11 @@ class IngestService:
             select(__import__("sqlalchemy").func.count()).select_from(stmt.subquery())
         )
         total = count_result.scalar() or 0
-        stmt = stmt.offset((page - 1) * page_size).limit(page_size).order_by(Document.created_at.desc())
+        stmt = (
+            stmt.offset((page - 1) * page_size)
+            .limit(page_size)
+            .order_by(Document.created_at.desc())
+        )
         result = await self.db.execute(stmt)
         return list(result.scalars().all()), total
 

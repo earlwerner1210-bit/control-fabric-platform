@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import uuid
-from datetime import datetime, timezone
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -154,13 +153,13 @@ async def async_client(auth_headers: dict[str, str]) -> AsyncGenerator[AsyncClie
     - Auth dependency to return the test user
     - Lifespan to skip DB connectivity check
     """
-    from contextlib import asynccontextmanager
     from collections.abc import AsyncGenerator as AG
+    from contextlib import asynccontextmanager
 
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
 
-    from apps.api.routes import auth, cases, compile, documents, evals, admin
+    from apps.api.routes import admin, auth, cases, compile, documents, evals
 
     # Build a minimal test app without lifespan DB check
     @asynccontextmanager
@@ -189,17 +188,21 @@ async def async_client(auth_headers: dict[str, str]) -> AsyncGenerator[AsyncClie
         return {"status": "ok"}
 
     # Override dependencies
-    from apps.api.dependencies import get_db, get_current_user, get_tenant_context
+    from apps.api.dependencies import get_current_user, get_db, get_tenant_context
 
     mock_db = AsyncMock()
-    mock_db.execute = AsyncMock(return_value=MagicMock(
-        mappings=MagicMock(return_value=MagicMock(
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(
+            mappings=MagicMock(
+                return_value=MagicMock(
+                    first=MagicMock(return_value=None),
+                    all=MagicMock(return_value=[]),
+                )
+            ),
+            scalar=MagicMock(return_value=0),
             first=MagicMock(return_value=None),
-            all=MagicMock(return_value=[]),
-        )),
-        scalar=MagicMock(return_value=0),
-        first=MagicMock(return_value=None),
-    ))
+        )
+    )
     mock_db.commit = AsyncMock()
     mock_db.rollback = AsyncMock()
 

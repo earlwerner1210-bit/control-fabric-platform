@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +15,6 @@ from app.api.routes import auth, cases, contracts, documents, evals, health
 from app.core.config import get_settings
 from app.core.exceptions import AppError
 from app.core.logging import setup_logging
-
 
 # ---------------------------------------------------------------------------
 # Lifespan

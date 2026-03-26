@@ -12,13 +12,13 @@ from pathlib import Path
 
 import pytest
 
-from app.domain_packs.contract_margin.parsers import ContractParser, SPENRateCardParser
 from app.domain_packs.contract_margin.compiler import ContractCompiler
+from app.domain_packs.contract_margin.parsers import ContractParser, SPENRateCardParser
 from app.domain_packs.contract_margin.rules import (
     BillabilityRuleEngine,
     LeakageRuleEngine,
-    ScopeConflictDetector,
     RecoveryRecommendationEngine,
+    ScopeConflictDetector,
 )
 from app.domain_packs.contract_margin.schemas import (
     ClauseType,
@@ -28,8 +28,8 @@ from app.domain_packs.contract_margin.schemas import (
 )
 from app.domain_packs.reconciliation import (
     ContractWorkOrderLinker,
-    WorkOrderIncidentLinker,
     MarginEvidenceAssembler,
+    WorkOrderIncidentLinker,
 )
 
 # ---------------------------------------------------------------------------
@@ -173,9 +173,7 @@ class TestWave1ContractCompile:
         penalty_descs = [p["description"].lower() for p in result.penalties]
         assert any("sla" in d or "failure" in d for d in penalty_descs)
 
-    def test_fixture_contract_parse(
-        self, parser: ContractParser, wave1_contract_margin: dict
-    ):
+    def test_fixture_contract_parse(self, parser: ContractParser, wave1_contract_margin: dict):
         """Parse the fixture contract and verify clause types."""
         parsed = parser.parse_contract(wave1_contract_margin["contract"])
         clause_types = {c.type for c in parsed.clauses}
@@ -266,12 +264,21 @@ class TestWave1Billability:
     ):
         """Emergency call-out gets 1.5x multiplier from SPEN rate card."""
         rate_parser = SPENRateCardParser()
-        spen_rates = rate_parser.parse_rate_card([
-            {"work_category": "hv_switching", "activity_code": "SPEN-RC-HV-001",
-             "description": "HV switching", "unit": "each", "base_rate": 320.00,
-             "emergency_multiplier": 1.5, "overtime_multiplier": 1.3,
-             "weekend_multiplier": 1.5, "currency": "GBP"}
-        ])
+        spen_rates = rate_parser.parse_rate_card(
+            [
+                {
+                    "work_category": "hv_switching",
+                    "activity_code": "SPEN-RC-HV-001",
+                    "description": "HV switching",
+                    "unit": "each",
+                    "base_rate": 320.00,
+                    "emergency_multiplier": 1.5,
+                    "overtime_multiplier": 1.3,
+                    "weekend_multiplier": 1.5,
+                    "currency": "GBP",
+                }
+            ]
+        )
         assert len(spen_rates) == 1
         assert spen_rates[0].emergency_multiplier == 1.5
         assert spen_rates[0].base_rate * spen_rates[0].emergency_multiplier == pytest.approx(480.00)
@@ -416,9 +423,7 @@ class TestWave1MarginLeakage:
         self, leakage_engine: LeakageRuleEngine, wave1_margin_leakage: dict
     ):
         """Load the full leakage fixture and verify all patterns detected."""
-        triggers = leakage_engine.evaluate(
-            [], work_history=wave1_margin_leakage["work_history"]
-        )
+        triggers = leakage_engine.evaluate([], work_history=wave1_margin_leakage["work_history"])
         trigger_types = [t.trigger_type for t in triggers]
         expected = wave1_margin_leakage["expected_outcomes"]["trigger_types"]
         for expected_type in set(expected):
@@ -428,9 +433,7 @@ class TestWave1MarginLeakage:
         self, leakage_engine: LeakageRuleEngine, wave1_margin_leakage: dict
     ):
         """Verify recovery recommendations generated from leakage triggers."""
-        triggers = leakage_engine.evaluate(
-            [], work_history=wave1_margin_leakage["work_history"]
-        )
+        triggers = leakage_engine.evaluate([], work_history=wave1_margin_leakage["work_history"])
         recovery_engine = RecoveryRecommendationEngine()
         recommendations = recovery_engine.build_recommendations(
             leakage_triggers=triggers,
@@ -491,14 +494,18 @@ class TestWave1CrossPackReconciliation:
             "work_order_type": wo["work_order_type"],
             "scheduled_date": "2026-03-20",
         }
-        incidents = [{
-            "incident_id": wave1_contract_margin["incidents"][0]["incident_id"],
-            "title": wave1_contract_margin["incidents"][0]["title"],
-            "description": wave1_contract_margin["incidents"][0]["title"],
-            "affected_services": wave1_contract_margin["incidents"][0].get("affected_services", []),
-            "created_at": "2026-03-20T14:30:00Z",
-            "location": "15 Byres Road Glasgow",
-        }]
+        incidents = [
+            {
+                "incident_id": wave1_contract_margin["incidents"][0]["incident_id"],
+                "title": wave1_contract_margin["incidents"][0]["title"],
+                "description": wave1_contract_margin["incidents"][0]["title"],
+                "affected_services": wave1_contract_margin["incidents"][0].get(
+                    "affected_services", []
+                ),
+                "created_at": "2026-03-20T14:30:00Z",
+                "location": "15 Byres Road Glasgow",
+            }
+        ]
         links = linker.link(wo_data, incidents)
         # The description similarity + time window should create at least one link
         # If no link is made, that's OK -- the matching requires at least 2 signals
@@ -520,15 +527,19 @@ class TestWave1CrossPackReconciliation:
         for wo in wave1_contract_margin["work_orders"]:
             evidence = wo.get("completion_evidence", {})
             for item in wo.get("billable_items", []):
-                work_history.append({
-                    "work_order_id": wo["work_order_id"],
-                    "activity": item["description"].lower().replace(" ", "_"),
-                    "status": wo.get("status", "completed"),
-                    "billed": evidence.get("daywork_sheet_signed", False),
-                    "category": "daywork" if not evidence.get("daywork_sheet_signed", True) else "standard",
-                    "daywork_sheet_signed": evidence.get("daywork_sheet_signed", False),
-                    "estimated_value": str(item["rate"] * item["quantity"]),
-                })
+                work_history.append(
+                    {
+                        "work_order_id": wo["work_order_id"],
+                        "activity": item["description"].lower().replace(" ", "_"),
+                        "status": wo.get("status", "completed"),
+                        "billed": evidence.get("daywork_sheet_signed", False),
+                        "category": "daywork"
+                        if not evidence.get("daywork_sheet_signed", True)
+                        else "standard",
+                        "daywork_sheet_signed": evidence.get("daywork_sheet_signed", False),
+                        "estimated_value": str(item["rate"] * item["quantity"]),
+                    }
+                )
 
         triggers = leakage_engine.evaluate(contract_objects, work_history=work_history)
 
@@ -579,7 +590,9 @@ class TestWave1CrossPackReconciliation:
 
         # Calculate uncapped penalty
         total_pct = sum(b["penalty_percentage"] for b in breaches if b["breach"])
-        assert total_pct == wave1_penalty_scenario["expected_outcomes"]["uncapped_penalty_percentage"]
+        assert (
+            total_pct == wave1_penalty_scenario["expected_outcomes"]["uncapped_penalty_percentage"]
+        )
 
         # Apply the 30% cap
         capped_pct = min(total_pct, wave1_penalty_scenario["expected_outcomes"]["cap_percentage"])

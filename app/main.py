@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +12,16 @@ from fastapi.responses import JSONResponse
 from app.api.middleware.rate_limit import RateLimitMiddleware
 from app.api.middleware.request_id import RequestIdMiddleware
 from app.api.middleware.tenant_context import TenantContextMiddleware
-from app.api.routes import admin, auth, cases, compile, diagnostics, documents, evals, reconciliation
+from app.api.routes import (
+    admin,
+    auth,
+    cases,
+    compile,
+    diagnostics,
+    documents,
+    evals,
+    reconciliation,
+)
 from app.core.config import get_settings
 from app.core.exceptions import AppError
 from app.core.logging import get_logger, setup_logging
@@ -57,7 +66,7 @@ def create_app() -> FastAPI:
             content={
                 "detail": exc.detail,
                 "code": exc.code,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 

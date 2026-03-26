@@ -16,7 +16,13 @@ class DocumentUploadResponse(BaseSchema):
 
     id: UUID
     filename: str
-    content_type: str = Field(..., examples=["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"])
+    content_type: str = Field(
+        ...,
+        examples=[
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ],
+    )
     file_size_bytes: int = Field(..., ge=0)
     checksum_sha256: str = Field(..., min_length=64, max_length=64)
     status: str = Field(default="uploaded", examples=["uploaded", "parsing", "parsed", "failed"])
@@ -36,7 +42,9 @@ class ParseResponse(BaseSchema):
     """Result of parsing a document."""
 
     document_id: UUID
-    document_type: str = Field(..., examples=["contract", "sla", "rate_card", "work_order", "incident_report"])
+    document_type: str = Field(
+        ..., examples=["contract", "sla", "rate_card", "work_order", "incident_report"]
+    )
     status: str = Field(..., examples=["parsed", "failed"])
     parsed_payload: dict[str, Any] = Field(
         default_factory=dict,

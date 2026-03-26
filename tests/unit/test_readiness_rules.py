@@ -8,7 +8,6 @@ import pytest
 
 from services.readiness_engine import (
     ReadinessRuleEngine,
-    ReadinessResult,
 )
 
 
@@ -20,7 +19,9 @@ def engine() -> ReadinessRuleEngine:
 class TestReadinessRuleEngine:
     """Tests for the ReadinessRuleEngine."""
 
-    def test_ready_all_checks_pass(self, engine: ReadinessRuleEngine, sample_work_order: dict[str, Any]):
+    def test_ready_all_checks_pass(
+        self, engine: ReadinessRuleEngine, sample_work_order: dict[str, Any]
+    ):
         """Work order with all requirements met should be ready (except pending permit)."""
         # Modify work order to have all permits approved
         wo = {**sample_work_order}
@@ -45,7 +46,9 @@ class TestReadinessRuleEngine:
         assert result.verdict == "ready"
         assert len(result.blockers) == 0
 
-    def test_blocked_by_pending_permit(self, engine: ReadinessRuleEngine, sample_work_order: dict[str, Any]):
+    def test_blocked_by_pending_permit(
+        self, engine: ReadinessRuleEngine, sample_work_order: dict[str, Any]
+    ):
         """Work order with pending permit should be blocked."""
         # The sample work order has a pending building_access permit
         result = engine.evaluate(sample_work_order)

@@ -3,6 +3,7 @@
 from .parsers.incident_parser import IncidentParser
 from .rules.incident_rules import IncidentRuleEngine
 from .schemas.telco_schemas import (
+    SLA_TARGETS,
     EscalationRuleObject,
     EscalationTier,
     IncidentObject,
@@ -11,10 +12,10 @@ from .schemas.telco_schemas import (
     IncidentStatus,
     ServiceImpact,
     ServiceStateObject,
-    SLA_TARGETS,
 )
 
 __all__ = [
+    "SLA_TARGETS",
     "EscalationRuleObject",
     "EscalationTier",
     "IncidentObject",
@@ -25,5 +26,4 @@ __all__ = [
     "IncidentStatus",
     "ServiceImpact",
     "ServiceStateObject",
-    "SLA_TARGETS",
 ]

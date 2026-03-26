@@ -8,23 +8,28 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Shared link model
 # ---------------------------------------------------------------------------
+
 
 class CrossPlaneLink(BaseModel):
     """A link between two objects in different domain planes."""
 
     source_id: str = Field(..., description="Identifier of the source object")
     target_id: str = Field(..., description="Identifier of the target object")
-    source_domain: str = Field(..., description="Domain the source belongs to (e.g. contract, field, telco)")
+    source_domain: str = Field(
+        ..., description="Domain the source belongs to (e.g. contract, field, telco)"
+    )
     target_domain: str = Field(..., description="Domain the target belongs to")
-    link_type: str = Field(..., description="Nature of the link (activity_match, rate_card, ref_match, timeline_overlap, description_similarity)")
+    link_type: str = Field(
+        ...,
+        description="Nature of the link (activity_match, rate_card, ref_match, timeline_overlap, description_similarity)",
+    )
     confidence: float = Field(0.0, ge=0.0, le=1.0, description="Confidence score 0-1")
     evidence: str = Field("", description="Human-readable evidence for why the link was created")
 
@@ -34,10 +39,31 @@ class CrossPlaneLink(BaseModel):
 # ---------------------------------------------------------------------------
 
 _SPLIT_PATTERN = re.compile(r"[_\-\s/,;:]+")
-_STOP_WORDS = frozenset({
-    "the", "a", "an", "and", "or", "of", "for", "to", "in", "on", "at",
-    "is", "it", "by", "with", "from", "as", "be", "was", "were", "been",
-})
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "of",
+        "for",
+        "to",
+        "in",
+        "on",
+        "at",
+        "is",
+        "it",
+        "by",
+        "with",
+        "from",
+        "as",
+        "be",
+        "was",
+        "were",
+        "been",
+    }
+)
 
 
 def _tokenize(text: str) -> set[str]:
@@ -60,6 +86,7 @@ def _token_similarity(a: set[str], b: set[str]) -> float:
 # ---------------------------------------------------------------------------
 # Contract <-> Work Order Linker
 # ---------------------------------------------------------------------------
+
 
 class ContractWorkOrderLinker:
     """Links contract objects to work orders using activity names,
@@ -92,15 +119,17 @@ class ContractWorkOrderLinker:
 
             # Strategy 1: direct contract_ref match
             if wo_contract_ref and wo_contract_ref == co_id:
-                links.append(CrossPlaneLink(
-                    source_id=co_id,
-                    target_id=wo_id,
-                    source_domain="contract",
-                    target_domain="field",
-                    link_type="ref_match",
-                    confidence=1.0,
-                    evidence=f"Work order contract_ref '{wo_contract_ref}' matches contract id",
-                ))
+                links.append(
+                    CrossPlaneLink(
+                        source_id=co_id,
+                        target_id=wo_id,
+                        source_domain="contract",
+                        target_domain="field",
+                        link_type="ref_match",
+                        confidence=1.0,
+                        evidence=f"Work order contract_ref '{wo_contract_ref}' matches contract id",
+                    )
+                )
                 continue  # strong match, no need for fuzzy
 
             # Strategy 2: activity / description similarity
@@ -111,42 +140,50 @@ class ContractWorkOrderLinker:
             # Activity-level overlap
             activity_overlap = wo_activities & co_activities
             if activity_overlap:
-                confidence = min(1.0, len(activity_overlap) / max(len(wo_activities), 1) * 0.8 + 0.2)
-                links.append(CrossPlaneLink(
-                    source_id=co_id,
-                    target_id=wo_id,
-                    source_domain="contract",
-                    target_domain="field",
-                    link_type="activity_match",
-                    confidence=round(confidence, 3),
-                    evidence=f"Matching activities: {', '.join(sorted(activity_overlap))}",
-                ))
-            else:
-                # Fall back to general token similarity
-                sim = _token_similarity(wo_tokens, co_tokens)
-                if sim >= 0.25:
-                    links.append(CrossPlaneLink(
+                confidence = min(
+                    1.0, len(activity_overlap) / max(len(wo_activities), 1) * 0.8 + 0.2
+                )
+                links.append(
+                    CrossPlaneLink(
                         source_id=co_id,
                         target_id=wo_id,
                         source_domain="contract",
                         target_domain="field",
-                        link_type="description_similarity",
-                        confidence=round(sim, 3),
-                        evidence=f"Description token similarity: {sim:.2%}",
-                    ))
+                        link_type="activity_match",
+                        confidence=round(confidence, 3),
+                        evidence=f"Matching activities: {', '.join(sorted(activity_overlap))}",
+                    )
+                )
+            else:
+                # Fall back to general token similarity
+                sim = _token_similarity(wo_tokens, co_tokens)
+                if sim >= 0.25:
+                    links.append(
+                        CrossPlaneLink(
+                            source_id=co_id,
+                            target_id=wo_id,
+                            source_domain="contract",
+                            target_domain="field",
+                            link_type="description_similarity",
+                            confidence=round(sim, 3),
+                            evidence=f"Description token similarity: {sim:.2%}",
+                        )
+                    )
 
             # Strategy 3: rate card reference
             co_rate_ref = co.get("rate_card_ref", co.get("rate_ref", ""))
             if wo_rate_ref and co_rate_ref and wo_rate_ref.lower() == co_rate_ref.lower():
-                links.append(CrossPlaneLink(
-                    source_id=co_id,
-                    target_id=wo_id,
-                    source_domain="contract",
-                    target_domain="field",
-                    link_type="rate_card",
-                    confidence=0.9,
-                    evidence=f"Matching rate card reference: {wo_rate_ref}",
-                ))
+                links.append(
+                    CrossPlaneLink(
+                        source_id=co_id,
+                        target_id=wo_id,
+                        source_domain="contract",
+                        target_domain="field",
+                        link_type="rate_card",
+                        confidence=0.9,
+                        evidence=f"Matching rate card reference: {wo_rate_ref}",
+                    )
+                )
 
             # Strategy 4: obligation reference match
             co_obligations = co.get("obligation_refs", co.get("obligations", []))
@@ -156,15 +193,17 @@ class ContractWorkOrderLinker:
                 wo_obl_set = {str(o).lower() for o in wo_obligations}
                 overlap = co_obl_set & wo_obl_set
                 if overlap:
-                    links.append(CrossPlaneLink(
-                        source_id=co_id,
-                        target_id=wo_id,
-                        source_domain="contract",
-                        target_domain="field",
-                        link_type="obligation_match",
-                        confidence=0.85,
-                        evidence=f"Matching obligation refs: {', '.join(sorted(overlap))}",
-                    ))
+                    links.append(
+                        CrossPlaneLink(
+                            source_id=co_id,
+                            target_id=wo_id,
+                            source_domain="contract",
+                            target_domain="field",
+                            link_type="obligation_match",
+                            confidence=0.85,
+                            evidence=f"Matching obligation refs: {', '.join(sorted(overlap))}",
+                        )
+                    )
 
         return links
 
@@ -181,6 +220,7 @@ class ContractWorkOrderLinker:
 # ---------------------------------------------------------------------------
 # Work Order <-> Incident Linker
 # ---------------------------------------------------------------------------
+
 
 class WorkOrderIncidentLinker:
     """Links work orders to incidents using reference matching,
@@ -211,15 +251,17 @@ class WorkOrderIncidentLinker:
             # Strategy 1: direct reference match
             wo_refs = inc.get("work_order_refs", [])
             if isinstance(wo_refs, list) and wo_id in [str(r) for r in wo_refs]:
-                links.append(CrossPlaneLink(
-                    source_id=wo_id,
-                    target_id=inc_id,
-                    source_domain="field",
-                    target_domain="telco",
-                    link_type="ref_match",
-                    confidence=1.0,
-                    evidence=f"Incident references work order '{wo_id}' directly",
-                ))
+                links.append(
+                    CrossPlaneLink(
+                        source_id=wo_id,
+                        target_id=inc_id,
+                        source_domain="field",
+                        target_domain="telco",
+                        link_type="ref_match",
+                        confidence=1.0,
+                        evidence=f"Incident references work order '{wo_id}' directly",
+                    )
+                )
                 continue
 
             scored_links: list[CrossPlaneLink] = []
@@ -228,15 +270,17 @@ class WorkOrderIncidentLinker:
             inc_tokens = _tokenize(inc.get("description", "") + " " + inc.get("title", ""))
             sim = _token_similarity(wo_tokens, inc_tokens)
             if sim >= 0.2:
-                scored_links.append(CrossPlaneLink(
-                    source_id=wo_id,
-                    target_id=inc_id,
-                    source_domain="field",
-                    target_domain="telco",
-                    link_type="description_similarity",
-                    confidence=round(sim, 3),
-                    evidence=f"Description token similarity: {sim:.2%}",
-                ))
+                scored_links.append(
+                    CrossPlaneLink(
+                        source_id=wo_id,
+                        target_id=inc_id,
+                        source_domain="field",
+                        target_domain="telco",
+                        link_type="description_similarity",
+                        confidence=round(sim, 3),
+                        evidence=f"Description token similarity: {sim:.2%}",
+                    )
+                )
 
             # Strategy 3: timeline overlap
             inc_reported = _parse_dt(inc.get("reported_at"))
@@ -244,18 +288,23 @@ class WorkOrderIncidentLinker:
 
             if wo_scheduled and inc_reported:
                 overlap_conf = self._timeline_overlap_confidence(
-                    wo_scheduled, wo_completed, inc_reported, inc_resolved,
+                    wo_scheduled,
+                    wo_completed,
+                    inc_reported,
+                    inc_resolved,
                 )
                 if overlap_conf > 0.0:
-                    scored_links.append(CrossPlaneLink(
-                        source_id=wo_id,
-                        target_id=inc_id,
-                        source_domain="field",
-                        target_domain="telco",
-                        link_type="timeline_overlap",
-                        confidence=round(overlap_conf, 3),
-                        evidence="Work order and incident timelines overlap",
-                    ))
+                    scored_links.append(
+                        CrossPlaneLink(
+                            source_id=wo_id,
+                            target_id=inc_id,
+                            source_domain="field",
+                            target_domain="telco",
+                            link_type="timeline_overlap",
+                            confidence=round(overlap_conf, 3),
+                            evidence="Work order and incident timelines overlap",
+                        )
+                    )
 
             # Only keep the best scoring link per incident
             if scored_links:
@@ -267,9 +316,9 @@ class WorkOrderIncidentLinker:
     @staticmethod
     def _timeline_overlap_confidence(
         wo_start: datetime,
-        wo_end: Optional[datetime],
+        wo_end: datetime | None,
         inc_start: datetime,
-        inc_end: Optional[datetime],
+        inc_end: datetime | None,
     ) -> float:
         """Calculate a 0-1 confidence score based on timeline overlap.
 
@@ -296,7 +345,8 @@ class WorkOrderIncidentLinker:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _parse_dt(value: Any) -> Optional[datetime]:
+
+def _parse_dt(value: Any) -> datetime | None:
     """Best-effort datetime parsing."""
     if value is None:
         return None

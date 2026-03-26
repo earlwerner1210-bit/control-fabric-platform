@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class _CaseStore:
@@ -92,7 +92,7 @@ class ReportingService:
         In the stub implementation this returns skeleton metrics; the production
         version queries the database for real aggregates.
         """
-        start = date_range[0] if date_range else datetime(2020, 1, 1, tzinfo=timezone.utc)
+        start = date_range[0] if date_range else datetime(2020, 1, 1, tzinfo=UTC)
         end = date_range[1] if date_range else _now()
 
         # Stub aggregates

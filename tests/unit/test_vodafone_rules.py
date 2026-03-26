@@ -2,28 +2,24 @@
 
 from __future__ import annotations
 
-import pytest
-
+from app.domain_packs.reconciliation import TicketClosureHandoverLinker
 from app.domain_packs.telco_ops.rules import (
     ActionRuleEngine,
     DispatchNeedEngine,
     EscalationRuleEngine,
 )
 from app.domain_packs.telco_ops.schemas import (
+    VODAFONE_SLA_DEFINITIONS,
     ClosureGate,
     ClosurePrerequisite,
     EscalationLevel,
+    ImpactLevel,
     IncidentSeverity,
     IncidentState,
     ParsedIncident,
     ServiceState,
     ServiceStateObject,
-    ImpactLevel,
-    VodafoneServiceDomain,
-    VODAFONE_SLA_DEFINITIONS,
 )
-from app.domain_packs.reconciliation import TicketClosureHandoverLinker
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -73,10 +69,7 @@ class TestVodafoneEscalation:
         assert "P1" in decision.reason
 
         # Verify SLA definition requires bridge call for P1
-        p1_sla = next(
-            s for s in VODAFONE_SLA_DEFINITIONS
-            if s.severity == IncidentSeverity.p1
-        )
+        p1_sla = next(s for s in VODAFONE_SLA_DEFINITIONS if s.severity == IncidentSeverity.p1)
         assert p1_sla.bridge_call_required is True
 
     def test_vodafone_p2_with_outage_l3(self):
@@ -231,7 +224,9 @@ class TestVodafoneDispatch:
             severity=IncidentSeverity.p1,
             state=IncidentState.investigating,
         )
-        svc_state = _make_service_state(state=ServiceState.outage, impact_level=ImpactLevel.critical)
+        svc_state = _make_service_state(
+            state=ServiceState.outage, impact_level=ImpactLevel.critical
+        )
         engine = DispatchNeedEngine()
         result = engine.determine_dispatch_need(incident, service_state=svc_state)
 

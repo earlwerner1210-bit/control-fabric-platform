@@ -15,15 +15,15 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+# Importing the models package triggers all per-file model registrations.
+import app.db.models  # noqa: F401
+
 # ---------------------------------------------------------------------------
 # Target metadata – import the declarative Base used by every ORM model and
 # then force-import the model package so that all table definitions are
 # registered on ``Base.metadata`` before Alembic inspects it.
 # ---------------------------------------------------------------------------
 from app.db.base import Base
-
-# Importing the models package triggers all per-file model registrations.
-import app.db.models  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Alembic Config object – provides access to values in alembic.ini.
@@ -40,6 +40,7 @@ target_metadata = Base.metadata
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_url() -> str:
     """Return the async database URL.
@@ -59,6 +60,7 @@ def _get_url() -> str:
     # 2. Application settings
     try:
         from app.core.config import get_settings
+
         settings = get_settings()
         return settings.DATABASE_URL
     except Exception:
@@ -71,6 +73,7 @@ def _get_url() -> str:
 # ---------------------------------------------------------------------------
 # Offline migrations (emit SQL to stdout)
 # ---------------------------------------------------------------------------
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -96,6 +99,7 @@ def run_migrations_offline() -> None:
 # ---------------------------------------------------------------------------
 # Online (async) migrations
 # ---------------------------------------------------------------------------
+
 
 def do_run_migrations(connection) -> None:  # noqa: ANN001
     """Synchronous callback executed inside ``run_sync``."""

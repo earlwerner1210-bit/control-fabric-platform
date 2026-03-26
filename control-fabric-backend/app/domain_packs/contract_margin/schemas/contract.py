@@ -8,19 +8,20 @@ assessment, leakage detection, penalty analysis, and recovery recommendations.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import date
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
-
 
 # ---------------------------------------------------------------------------
 # Enumerations
 # ---------------------------------------------------------------------------
 
+
 class ClauseType(str, Enum):
     """Classification of contract clause types."""
+
     obligation = "obligation"
     sla = "sla"
     penalty = "penalty"
@@ -38,6 +39,7 @@ class ClauseType(str, Enum):
 
 class ContractType(str, Enum):
     """Type of contract document."""
+
     master_services = "master_services"
     statement_of_work = "statement_of_work"
     change_order = "change_order"
@@ -47,6 +49,7 @@ class ContractType(str, Enum):
 
 class ScopeType(str, Enum):
     """Scope classification for activities."""
+
     in_scope = "in_scope"
     out_of_scope = "out_of_scope"
     conditional = "conditional"
@@ -54,6 +57,7 @@ class ScopeType(str, Enum):
 
 class BillableCategory(str, Enum):
     """Category of billable work."""
+
     standard = "standard"
     emergency = "emergency"
     overtime = "overtime"
@@ -64,6 +68,7 @@ class BillableCategory(str, Enum):
 
 class RecoveryType(str, Enum):
     """Type of commercial recovery action."""
+
     backbill = "backbill"
     rate_adjustment = "rate_adjustment"
     penalty_waiver = "penalty_waiver"
@@ -74,6 +79,7 @@ class RecoveryType(str, Enum):
 
 class PriorityLevel(str, Enum):
     """Priority level for SLAs and obligations."""
+
     critical = "critical"
     high = "high"
     medium = "medium"
@@ -84,8 +90,10 @@ class PriorityLevel(str, Enum):
 # Clause / Segment Models
 # ---------------------------------------------------------------------------
 
+
 class ClauseSegment(BaseModel):
     """A segment within a clause, representing a parsed portion of text."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     clause_id: str = Field(..., description="Parent clause identifier")
     text: str = Field(..., min_length=1, description="Segment text content")
@@ -108,6 +116,7 @@ class ClauseSegment(BaseModel):
 
 class ExtractedClause(BaseModel):
     """A clause extracted from a contract document."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     type: ClauseType = Field(..., description="Classification of clause type")
     text: str = Field(..., min_length=1, description="Full clause text")
@@ -125,17 +134,23 @@ class ExtractedClause(BaseModel):
 # SLA & Rate Card
 # ---------------------------------------------------------------------------
 
+
 class SLAEntry(BaseModel):
     """A single SLA row defining response/resolution targets."""
+
     priority: PriorityLevel = Field(..., description="SLA priority level")
     response_time_hours: float = Field(..., gt=0, description="Max response time in hours")
     resolution_time_hours: float = Field(..., gt=0, description="Max resolution time in hours")
     availability: float = Field(
-        default=99.5, ge=0.0, le=100.0,
+        default=99.5,
+        ge=0.0,
+        le=100.0,
         description="Service availability percentage target",
     )
     penalty_percentage: float = Field(
-        default=0.0, ge=0.0, le=100.0,
+        default=0.0,
+        ge=0.0,
+        le=100.0,
         description="Penalty as percentage of monthly invoice for breach",
     )
     measurement_window: str = Field(
@@ -154,12 +169,13 @@ class SLAEntry(BaseModel):
 
 class RateCardEntry(BaseModel):
     """A single rate card entry for a billable activity."""
+
     activity: str = Field(..., min_length=1, description="Activity name or code")
     unit: str = Field(default="each", description="Unit of measure: each, hour, metre, day")
     rate: float = Field(..., ge=0.0, description="Rate value")
     currency: str = Field(default="GBP", description="ISO 4217 currency code")
-    effective_from: Optional[date] = Field(default=None, description="Rate effective from date")
-    effective_to: Optional[date] = Field(default=None, description="Rate effective to date")
+    effective_from: date | None = Field(default=None, description="Rate effective from date")
+    effective_to: date | None = Field(default=None, description="Rate effective to date")
     multipliers: dict[str, float] = Field(
         default_factory=dict,
         description="Rate multipliers, e.g. {'overtime': 1.5, 'weekend': 2.0}",
@@ -172,7 +188,7 @@ class RateCardEntry(BaseModel):
             raise ValueError("currency must be a 3-letter ISO 4217 code")
         return v.upper()
 
-    def is_active(self, check_date: Optional[date] = None) -> bool:
+    def is_active(self, check_date: date | None = None) -> bool:
         """Check whether this rate card entry is active on the given date."""
         ref = check_date or date.today()
         if self.effective_from and ref < self.effective_from:
@@ -191,8 +207,10 @@ class RateCardEntry(BaseModel):
 # Scope, Obligation, Penalty
 # ---------------------------------------------------------------------------
 
+
 class ScopeBoundary(BaseModel):
     """Defines a scope boundary for contract activities."""
+
     scope_type: ScopeType = Field(..., description="In-scope, out-of-scope, or conditional")
     description: str = Field(default="", description="Human-readable scope description")
     activities: list[str] = Field(default_factory=list, description="Activity names covered")
@@ -204,6 +222,7 @@ class ScopeBoundary(BaseModel):
 
 class Obligation(BaseModel):
     """A contractual obligation extracted from a clause."""
+
     clause_id: str = Field(..., description="Source clause identifier")
     description: str = Field(..., min_length=1, description="Obligation description")
     frequency: str = Field(
@@ -216,13 +235,15 @@ class Obligation(BaseModel):
         description="List of evidence types required to prove fulfilment",
     )
     deadline_days: int = Field(
-        default=30, ge=0,
+        default=30,
+        ge=0,
         description="Number of days from trigger to complete obligation",
     )
 
 
 class PenaltyCondition(BaseModel):
     """A penalty condition extracted from a contract clause."""
+
     clause_id: str = Field(..., description="Source clause identifier")
     description: str = Field(..., min_length=1, description="Penalty description")
     trigger: str = Field(..., description="Condition that triggers the penalty")
@@ -231,8 +252,10 @@ class PenaltyCondition(BaseModel):
         description="Type: percentage, fixed, service_credit, liquidated_damages",
     )
     penalty_amount: float = Field(default=0.0, ge=0.0, description="Penalty amount or percentage")
-    cap: Optional[float] = Field(default=None, ge=0.0, description="Maximum penalty cap")
-    grace_period_days: int = Field(default=0, ge=0, description="Grace period before penalty applies")
+    cap: float | None = Field(default=None, ge=0.0, description="Maximum penalty cap")
+    grace_period_days: int = Field(
+        default=0, ge=0, description="Grace period before penalty applies"
+    )
     cure_period_days: int = Field(default=0, ge=0, description="Cure period to rectify breach")
 
 
@@ -240,8 +263,10 @@ class PenaltyCondition(BaseModel):
 # Billability & Leakage
 # ---------------------------------------------------------------------------
 
+
 class BillableEvent(BaseModel):
     """Defines a billable event with its prerequisites and evidence."""
+
     activity: str = Field(..., min_length=1, description="Activity name")
     category: BillableCategory = Field(default=BillableCategory.standard)
     rate: float = Field(..., ge=0.0, description="Applicable rate")
@@ -258,6 +283,7 @@ class BillableEvent(BaseModel):
 
 class LeakageTrigger(BaseModel):
     """A detected revenue leakage trigger."""
+
     trigger_type: str = Field(..., description="Type of leakage trigger")
     description: str = Field(..., min_length=1, description="Human-readable description")
     severity: PriorityLevel = Field(default=PriorityLevel.medium)
@@ -268,6 +294,7 @@ class LeakageTrigger(BaseModel):
 
 class BillabilityDecision(BaseModel):
     """Result of a billability assessment for a work activity."""
+
     billable: bool = Field(..., description="Whether the activity is billable")
     category: BillableCategory = Field(default=BillableCategory.standard)
     rate_applied: float = Field(default=0.0, ge=0.0, description="Rate applied for billing")
@@ -287,12 +314,14 @@ class BillabilityDecision(BaseModel):
 # Parsed Contract (aggregate)
 # ---------------------------------------------------------------------------
 
+
 class ParsedContract(BaseModel):
     """Full parsed representation of a contract document."""
+
     document_type: str = Field(default="contract", description="Document type identifier")
     title: str = Field(default="", description="Contract title")
-    effective_date: Optional[date] = Field(default=None)
-    expiry_date: Optional[date] = Field(default=None)
+    effective_date: date | None = Field(default=None)
+    expiry_date: date | None = Field(default=None)
     parties: list[str] = Field(default_factory=list, description="Contracting parties")
     contract_type: ContractType = Field(default=ContractType.master_services)
     governing_law: str = Field(default="England and Wales")
@@ -305,7 +334,7 @@ class ParsedContract(BaseModel):
     penalties: list[PenaltyCondition] = Field(default_factory=list)
     billable_events: list[BillableEvent] = Field(default_factory=list)
 
-    def is_active(self, check_date: Optional[date] = None) -> bool:
+    def is_active(self, check_date: date | None = None) -> bool:
         """Return True if the contract is active on the given date."""
         ref = check_date or date.today()
         if self.effective_date and ref < self.effective_date:
@@ -319,12 +348,14 @@ class ParsedContract(BaseModel):
 # Summary & Diagnosis
 # ---------------------------------------------------------------------------
 
+
 class ContractCompileSummary(BaseModel):
     """High-level summary of a parsed contract for dashboards and reports."""
+
     contract_title: str = Field(default="")
     parties: list[str] = Field(default_factory=list)
-    effective_date: Optional[date] = Field(default=None)
-    expiry_date: Optional[date] = Field(default=None)
+    effective_date: date | None = Field(default=None)
+    expiry_date: date | None = Field(default=None)
     clause_count: int = Field(default=0, ge=0)
     obligation_count: int = Field(default=0, ge=0)
     penalty_count: int = Field(default=0, ge=0)
@@ -337,7 +368,7 @@ class ContractCompileSummary(BaseModel):
     )
 
     @classmethod
-    def from_parsed_contract(cls, pc: ParsedContract) -> "ContractCompileSummary":
+    def from_parsed_contract(cls, pc: ParsedContract) -> ContractCompileSummary:
         """Build a summary from a fully parsed contract."""
         risk_counts: dict[str, int] = {}
         for clause in pc.clauses:
@@ -360,6 +391,7 @@ class ContractCompileSummary(BaseModel):
 
 class CommercialRecoveryRecommendation(BaseModel):
     """A recommendation for recovering leaked revenue."""
+
     recommendation_type: RecoveryType = Field(..., description="Type of recovery action")
     description: str = Field(..., min_length=1)
     estimated_recovery_value: float = Field(default=0.0, ge=0.0)
@@ -370,6 +402,7 @@ class CommercialRecoveryRecommendation(BaseModel):
 
 class CommercialEvidenceBundle(BaseModel):
     """Aggregated evidence bundle supporting a margin diagnosis."""
+
     contract_evidence: list[str] = Field(default_factory=list)
     work_order_evidence: list[str] = Field(default_factory=list)
     execution_evidence: list[str] = Field(default_factory=list)
@@ -395,7 +428,10 @@ class CommercialEvidenceBundle(BaseModel):
 
 class MarginDiagnosisResult(BaseModel):
     """Complete result of a margin diagnosis for a work activity or contract."""
-    verdict: str = Field(..., description="Overall verdict: billable, non_billable, partial, review")
+
+    verdict: str = Field(
+        ..., description="Overall verdict: billable, non_billable, partial, review"
+    )
     billability: BillabilityDecision = Field(...)
     leakage_triggers: list[LeakageTrigger] = Field(default_factory=list)
     penalty_exposure: float = Field(default=0.0, ge=0.0, description="Total penalty exposure GBP")

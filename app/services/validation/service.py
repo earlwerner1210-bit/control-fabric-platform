@@ -153,7 +153,8 @@ class ValidationService:
 
         if has_rules:
             critical_failures = [
-                r for r in rule_results_raw
+                r
+                for r in rule_results_raw
                 if r.get("severity") == "critical" and not r.get("passed", False)
             ]
             results.append(
@@ -297,7 +298,8 @@ class ValidationService:
         if verdict == "billable":
             leakage_triggers = diagnosis.get("leakage_triggers", [])
             critical_triggers = [
-                t for t in leakage_triggers
+                t
+                for t in leakage_triggers
                 if isinstance(t, dict) and t.get("severity") == "critical"
             ]
             no_critical = len(critical_triggers) == 0
@@ -551,7 +553,9 @@ class ValidationService:
                 RuleResult(
                     rule_name=f"schema_{field}_present",
                     passed=field in output and output[field] is not None,
-                    message=f"Field '{field}' is present" if field in output else f"Required field '{field}' is missing",
+                    message=f"Field '{field}' is present"
+                    if field in output
+                    else f"Required field '{field}' is missing",
                     severity="error" if field not in output else "info",
                 )
             )
@@ -564,7 +568,9 @@ class ValidationService:
             RuleResult(
                 rule_name="evidence_present",
                 passed=len(evidence_ids) > 0,
-                message=f"{len(evidence_ids)} evidence references found" if evidence_ids else "No evidence references provided",
+                message=f"{len(evidence_ids)} evidence references found"
+                if evidence_ids
+                else "No evidence references provided",
                 severity="warning" if not evidence_ids else "info",
             )
         )
@@ -590,7 +596,9 @@ class ValidationService:
             RuleResult(
                 rule_name="valid_margin_verdict",
                 passed=verdict in valid_verdicts,
-                message=f"Verdict '{verdict}' is valid" if verdict in valid_verdicts else f"Unsupported verdict: '{verdict}'",
+                message=f"Verdict '{verdict}' is valid"
+                if verdict in valid_verdicts
+                else f"Unsupported verdict: '{verdict}'",
                 severity="error" if verdict not in valid_verdicts else "info",
             )
         )
@@ -616,7 +624,9 @@ class ValidationService:
             RuleResult(
                 rule_name="valid_readiness_verdict",
                 passed=verdict in valid_verdicts,
-                message=f"Readiness verdict '{verdict}' is valid" if verdict in valid_verdicts else f"Unsupported: '{verdict}'",
+                message=f"Readiness verdict '{verdict}' is valid"
+                if verdict in valid_verdicts
+                else f"Unsupported: '{verdict}'",
                 severity="error" if verdict not in valid_verdicts else "info",
             )
         )
@@ -627,7 +637,9 @@ class ValidationService:
                 RuleResult(
                     rule_name="ready_no_missing_prereqs",
                     passed=len(missing) == 0,
-                    message="No missing prerequisites for ready verdict" if not missing else f"Ready verdict contradicts {len(missing)} missing prerequisites",
+                    message="No missing prerequisites for ready verdict"
+                    if not missing
+                    else f"Ready verdict contradicts {len(missing)} missing prerequisites",
                     severity="error" if missing else "info",
                 )
             )
@@ -638,15 +650,24 @@ class ValidationService:
         results: list[RuleResult] = []
         next_action = output.get("next_action", "")
         valid_actions = {
-            "investigate", "escalate", "dispatch", "resolve", "monitor",
-            "contact_customer", "assign_engineer", "close", "reopen",
+            "investigate",
+            "escalate",
+            "dispatch",
+            "resolve",
+            "monitor",
+            "contact_customer",
+            "assign_engineer",
+            "close",
+            "reopen",
         }
 
         results.append(
             RuleResult(
                 rule_name="valid_next_action",
                 passed=next_action in valid_actions,
-                message=f"Action '{next_action}' is valid" if next_action in valid_actions else f"Invalid action: '{next_action}'",
+                message=f"Action '{next_action}' is valid"
+                if next_action in valid_actions
+                else f"Invalid action: '{next_action}'",
                 severity="error" if next_action not in valid_actions else "info",
             )
         )
@@ -658,7 +679,9 @@ class ValidationService:
                 RuleResult(
                     rule_name="valid_escalation_level",
                     passed=level in valid_levels,
-                    message=f"Escalation level '{level}' is valid" if level in valid_levels else f"Unsupported: '{level}'",
+                    message=f"Escalation level '{level}' is valid"
+                    if level in valid_levels
+                    else f"Unsupported: '{level}'",
                     severity="error" if level not in valid_levels else "info",
                 )
             )
@@ -671,7 +694,9 @@ class ValidationService:
             RuleResult(
                 rule_name="confidence_threshold",
                 passed=confidence >= threshold,
-                message=f"Confidence {confidence:.2f} meets threshold {threshold}" if confidence >= threshold else f"Confidence {confidence:.2f} below threshold {threshold}",
+                message=f"Confidence {confidence:.2f} meets threshold {threshold}"
+                if confidence >= threshold
+                else f"Confidence {confidence:.2f} below threshold {threshold}",
                 severity="warning" if confidence < threshold else "info",
             )
         ]

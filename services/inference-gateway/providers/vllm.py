@@ -76,18 +76,21 @@ class VLLMProvider(BaseInferenceProvider):
 
     async def summarize(self, text: str, max_length: int = 200) -> dict[str, Any]:
         prompt = f"Summarize the following text in at most {max_length} words:\n\n{text}"
-        result = await self.generate(prompt, system_prompt="You are a concise summarizer.", max_tokens=max_length * 2)
+        result = await self.generate(
+            prompt, system_prompt="You are a concise summarizer.", max_tokens=max_length * 2
+        )
         return {"summary": result["output"], "model": result["model"]}
 
     async def classify(self, text: str, categories: list[str]) -> dict[str, Any]:
         cats = ", ".join(categories)
         prompt = (
-            f'Classify the following text into one of these categories: {cats}.\n\n'
-            f'Text: {text}\n\n'
+            f"Classify the following text into one of these categories: {cats}.\n\n"
+            f"Text: {text}\n\n"
             f'Respond with JSON: {{"category": "<chosen>", "confidence": <0.0-1.0>}}'
         )
         result = await self.generate(prompt, response_format="json", temperature=0.1)
         import json
+
         try:
             parsed = json.loads(result["output"])
             return {

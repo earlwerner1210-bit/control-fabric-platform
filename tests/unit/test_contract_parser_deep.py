@@ -10,10 +10,10 @@ from app.domain_packs.contract_margin.schemas import (
     ScopeType,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def parser() -> ContractParser:

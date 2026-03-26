@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.domain_packs.contract_margin.schemas import ContractCompileSummary, ParsedContract
+from app.domain_packs.contract_margin.schemas import ParsedContract
 
 
 class ContractSummaryTemplate:
@@ -85,14 +85,20 @@ class MarginReportTemplate:
             recovery_by_priority[pri] = recovery_by_priority.get(pri, 0) + 1
 
         # --- Evidence chain ---
-        evidence_types = ["contract", "invoice", "completion_cert", "daywork_sheet",
-                          "approval", "site_report", "as_built"]
+        evidence_types = [
+            "contract",
+            "invoice",
+            "completion_cert",
+            "daywork_sheet",
+            "approval",
+            "site_report",
+            "as_built",
+        ]
         evidence_chain: dict[str, str] = {}
         provided_evidence = {str(e) for e in evidence_ids}
         for etype in evidence_types:
             evidence_chain[etype] = (
-                "present" if any(etype in str(e) for e in provided_evidence)
-                else "missing"
+                "present" if any(etype in str(e) for e in provided_evidence) else "missing"
             )
 
         # --- Reconciliation findings ---
@@ -109,12 +115,14 @@ class MarginReportTemplate:
         audit_trail: list[dict] = []
         if audit_events:
             for event in audit_events:
-                audit_trail.append({
-                    "timestamp": event.get("timestamp", ""),
-                    "event_type": event.get("event_type", ""),
-                    "description": event.get("description", ""),
-                    "actor": event.get("actor", ""),
-                })
+                audit_trail.append(
+                    {
+                        "timestamp": event.get("timestamp", ""),
+                        "event_type": event.get("event_type", ""),
+                        "description": event.get("description", ""),
+                        "actor": event.get("actor", ""),
+                    }
+                )
 
         return {
             "report_type": "margin_diagnosis",

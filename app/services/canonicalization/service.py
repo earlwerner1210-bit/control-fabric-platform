@@ -95,12 +95,12 @@ class CanonicalizationService:
     async def merge_entities(
         self, source_id: uuid.UUID, target_id: uuid.UUID, tenant_id: uuid.UUID
     ) -> CanonicalEntity:
-        source = (await self.db.execute(
-            select(CanonicalEntity).where(CanonicalEntity.id == source_id)
-        )).scalar_one()
-        target = (await self.db.execute(
-            select(CanonicalEntity).where(CanonicalEntity.id == target_id)
-        )).scalar_one()
+        source = (
+            await self.db.execute(select(CanonicalEntity).where(CanonicalEntity.id == source_id))
+        ).scalar_one()
+        target = (
+            await self.db.execute(select(CanonicalEntity).where(CanonicalEntity.id == target_id))
+        ).scalar_one()
 
         # Merge aliases
         target_aliases = target.aliases or []

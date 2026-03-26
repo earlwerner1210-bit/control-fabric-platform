@@ -13,7 +13,11 @@ from app.schemas.common import BaseSchema
 class EvalRunRequest(BaseSchema):
     """Request to execute an evaluation suite."""
 
-    suite: str = Field(..., description="Name of the eval suite to run", examples=["contract_compile_v1", "margin_basic"])
+    suite: str = Field(
+        ...,
+        description="Name of the eval suite to run",
+        examples=["contract_compile_v1", "margin_basic"],
+    )
     tags: list[str] = Field(
         default_factory=list,
         description="Optional tags to filter which cases within the suite to run",

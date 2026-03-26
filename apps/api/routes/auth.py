@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
-from sqlalchemy import select, text
+from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.dependencies import get_current_user, get_db
@@ -51,7 +51,9 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)) -> Token
     """Authenticate a user and return a JWT access token."""
     # Look up user by email — using raw SQL for simplicity until ORM models exist
     result = await db.execute(
-        text("SELECT id, email, full_name, role, tenant_id, password_hash FROM users WHERE email = :email"),
+        text(
+            "SELECT id, email, full_name, role, tenant_id, password_hash FROM users WHERE email = :email"
+        ),
         {"email": body.email},
     )
     row = result.mappings().first()

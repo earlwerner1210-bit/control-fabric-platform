@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.db.models import ControlObject, WorkflowCase, ValidationResult, AuditEvent
+from app.db.models import AuditEvent, ControlObject, ValidationResult, WorkflowCase
 
 logger = get_logger("reporting")
 
@@ -22,27 +22,45 @@ class ReportingService:
         self, case_id: uuid.UUID, tenant_id: uuid.UUID
     ) -> dict[str, Any]:
         """Generate a structured summary for a workflow case."""
-        case = (await self.db.execute(
-            select(WorkflowCase).where(WorkflowCase.id == case_id, WorkflowCase.tenant_id == tenant_id)
-        )).scalar_one_or_none()
+        case = (
+            await self.db.execute(
+                select(WorkflowCase).where(
+                    WorkflowCase.id == case_id, WorkflowCase.tenant_id == tenant_id
+                )
+            )
+        ).scalar_one_or_none()
 
         if not case:
             return {"error": "Case not found"}
 
         # Get control objects
-        objects = (await self.db.execute(
-            select(ControlObject).where(ControlObject.workflow_case_id == case_id)
-        )).scalars().all()
+        objects = (
+            (
+                await self.db.execute(
+                    select(ControlObject).where(ControlObject.workflow_case_id == case_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         # Get validations
-        validations = (await self.db.execute(
-            select(ValidationResult).where(ValidationResult.workflow_case_id == case_id)
-        )).scalars().all()
+        validations = (
+            (
+                await self.db.execute(
+                    select(ValidationResult).where(ValidationResult.workflow_case_id == case_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         # Get audit trail count
-        audit_count = (await self.db.execute(
-            select(func.count()).where(AuditEvent.workflow_case_id == case_id)
-        )).scalar() or 0
+        audit_count = (
+            await self.db.execute(
+                select(func.count()).where(AuditEvent.workflow_case_id == case_id)
+            )
+        ).scalar() or 0
 
         object_summary: dict[str, int] = {}
         for obj in objects:
@@ -52,8 +70,10 @@ class ReportingService:
         return {
             "case_id": str(case.id),
             "workflow_type": case.workflow_type,
-            "status": case.status.value if hasattr(case.status, 'value') else str(case.status),
-            "verdict": case.verdict.value if case.verdict and hasattr(case.verdict, 'value') else str(case.verdict),
+            "status": case.status.value if hasattr(case.status, "value") else str(case.status),
+            "verdict": case.verdict.value
+            if case.verdict and hasattr(case.verdict, "value")
+            else str(case.verdict),
             "control_objects": {
                 "total": len(list(objects)),
                 "by_type": object_summary,
@@ -61,7 +81,7 @@ class ReportingService:
             "validations": [
                 {
                     "validator": v.validator_name,
-                    "status": v.status.value if hasattr(v.status, 'value') else str(v.status),
+                    "status": v.status.value if hasattr(v.status, "value") else str(v.status),
                     "summary": v.summary,
                 }
                 for v in validations
@@ -85,11 +105,13 @@ class ReportingService:
         - Audit timeline
         - Executive summary
         """
-        case = (await self.db.execute(
-            select(WorkflowCase).where(
-                WorkflowCase.id == case_id, WorkflowCase.tenant_id == tenant_id
+        case = (
+            await self.db.execute(
+                select(WorkflowCase).where(
+                    WorkflowCase.id == case_id, WorkflowCase.tenant_id == tenant_id
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
 
         if not case:
             return {"error": "Case not found"}
@@ -97,44 +119,68 @@ class ReportingService:
         output = case.output_payload or {}
 
         # Get control objects
-        objects = (await self.db.execute(
-            select(ControlObject).where(ControlObject.workflow_case_id == case_id)
-        )).scalars().all()
+        objects = (
+            (
+                await self.db.execute(
+                    select(ControlObject).where(ControlObject.workflow_case_id == case_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         # Get validations
-        validations = (await self.db.execute(
-            select(ValidationResult).where(ValidationResult.workflow_case_id == case_id)
-        )).scalars().all()
+        validations = (
+            (
+                await self.db.execute(
+                    select(ValidationResult).where(ValidationResult.workflow_case_id == case_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         # Get audit events
-        audit_events = (await self.db.execute(
-            select(AuditEvent)
-            .where(AuditEvent.workflow_case_id == case_id)
-            .order_by(AuditEvent.created_at.asc())
-        )).scalars().all()
+        audit_events = (
+            (
+                await self.db.execute(
+                    select(AuditEvent)
+                    .where(AuditEvent.workflow_case_id == case_id)
+                    .order_by(AuditEvent.created_at.asc())
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         # Build leakage triggers from control objects
         leakage_triggers = []
         for obj in objects:
             if obj.control_type.value == "leakage_trigger":
-                leakage_triggers.append({
-                    "id": str(obj.id),
-                    "label": obj.label,
-                    "severity": obj.payload.get("severity", "unknown") if obj.payload else "unknown",
-                    "description": obj.description,
-                })
+                leakage_triggers.append(
+                    {
+                        "id": str(obj.id),
+                        "label": obj.label,
+                        "severity": obj.payload.get("severity", "unknown")
+                        if obj.payload
+                        else "unknown",
+                        "description": obj.description,
+                    }
+                )
 
         # Build validation details
         validation_details = []
         overall_validation_status = "passed"
         for v in validations:
             v_status = v.status.value if hasattr(v.status, "value") else str(v.status)
-            validation_details.append({
-                "validator": v.validator_name,
-                "status": v_status,
-                "summary": v.summary,
-                "rule_results": v.rule_results,
-            })
+            validation_details.append(
+                {
+                    "validator": v.validator_name,
+                    "status": v_status,
+                    "summary": v.summary,
+                    "rule_results": v.rule_results,
+                }
+            )
             if v_status in ("blocked", "escalated"):
                 overall_validation_status = v_status
 
@@ -142,12 +188,14 @@ class ReportingService:
         audit_timeline = []
         for event in audit_events:
             payload = event.payload or {}
-            audit_timeline.append({
-                "timestamp": event.created_at.isoformat() if event.created_at else None,
-                "event_type": event.event_type,
-                "stage": payload.get("stage", ""),
-                "detail": event.detail or "",
-            })
+            audit_timeline.append(
+                {
+                    "timestamp": event.created_at.isoformat() if event.created_at else None,
+                    "event_type": event.event_type,
+                    "stage": payload.get("stage", ""),
+                    "detail": event.detail or "",
+                }
+            )
 
         # Evidence chain status
         evidence_ids = output.get("evidence_object_ids", [])
@@ -179,11 +227,13 @@ class ReportingService:
         self, tenant_id: uuid.UUID, case_id: uuid.UUID
     ) -> dict[str, Any]:
         """Generate a cross-pack reconciliation report."""
-        case = (await self.db.execute(
-            select(WorkflowCase).where(
-                WorkflowCase.id == case_id, WorkflowCase.tenant_id == tenant_id
+        case = (
+            await self.db.execute(
+                select(WorkflowCase).where(
+                    WorkflowCase.id == case_id, WorkflowCase.tenant_id == tenant_id
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
 
         if not case:
             return {"error": "Case not found"}
@@ -191,17 +241,29 @@ class ReportingService:
         output = case.output_payload or {}
 
         # Get control objects
-        objects = (await self.db.execute(
-            select(ControlObject).where(ControlObject.workflow_case_id == case_id)
-        )).scalars().all()
+        objects = (
+            (
+                await self.db.execute(
+                    select(ControlObject).where(ControlObject.workflow_case_id == case_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         # Get validations
-        validations = (await self.db.execute(
-            select(ValidationResult).where(
-                ValidationResult.workflow_case_id == case_id,
-                ValidationResult.domain == "cross_pack",
+        validations = (
+            (
+                await self.db.execute(
+                    select(ValidationResult).where(
+                        ValidationResult.workflow_case_id == case_id,
+                        ValidationResult.domain == "cross_pack",
+                    )
+                )
             )
-        )).scalars().all()
+            .scalars()
+            .all()
+        )
 
         # Derive reconciliation data from output
         links = output.get("links", [])
@@ -214,11 +276,13 @@ class ReportingService:
 
         validation_details = []
         for v in validations:
-            validation_details.append({
-                "validator": v.validator_name,
-                "status": v.status.value if hasattr(v.status, "value") else str(v.status),
-                "summary": v.summary,
-            })
+            validation_details.append(
+                {
+                    "validator": v.validator_name,
+                    "status": v.status.value if hasattr(v.status, "value") else str(v.status),
+                    "summary": v.summary,
+                }
+            )
 
         return {
             "case_id": str(case.id),
@@ -235,19 +299,19 @@ class ReportingService:
             "validation_details": validation_details,
         }
 
-    async def generate_management_summary(
-        self, tenant_id: uuid.UUID
-    ) -> dict[str, Any]:
+    async def generate_management_summary(self, tenant_id: uuid.UUID) -> dict[str, Any]:
         """Aggregate summary across all cases."""
-        cases = (await self.db.execute(
-            select(WorkflowCase).where(WorkflowCase.tenant_id == tenant_id)
-        )).scalars().all()
+        cases = (
+            (await self.db.execute(select(WorkflowCase).where(WorkflowCase.tenant_id == tenant_id)))
+            .scalars()
+            .all()
+        )
 
         by_type: dict[str, int] = {}
         by_status: dict[str, int] = {}
         for case in cases:
             by_type[case.workflow_type] = by_type.get(case.workflow_type, 0) + 1
-            status_val = case.status.value if hasattr(case.status, 'value') else str(case.status)
+            status_val = case.status.value if hasattr(case.status, "value") else str(case.status)
             by_status[status_val] = by_status.get(status_val, 0) + 1
 
         return {

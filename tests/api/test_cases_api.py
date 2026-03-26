@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 from httpx import AsyncClient
 
@@ -12,7 +10,9 @@ class TestCasesAPI:
     """Tests for /api/v1/cases endpoints."""
 
     @pytest.mark.asyncio
-    async def test_get_case_not_found(self, async_client: AsyncClient, auth_headers: dict[str, str]):
+    async def test_get_case_not_found(
+        self, async_client: AsyncClient, auth_headers: dict[str, str]
+    ):
         """GET /cases/{id} should return 404 for non-existent case."""
         response = await async_client.get(
             "/api/v1/cases/fake-id",
@@ -33,7 +33,9 @@ class TestCasesAPI:
         assert data["total"] == 0
 
     @pytest.mark.asyncio
-    async def test_get_audit_trail_empty(self, async_client: AsyncClient, auth_headers: dict[str, str]):
+    async def test_get_audit_trail_empty(
+        self, async_client: AsyncClient, auth_headers: dict[str, str]
+    ):
         """GET /cases/{id}/audit should return empty list."""
         response = await async_client.get(
             "/api/v1/cases/fake-id/audit",
@@ -45,7 +47,9 @@ class TestCasesAPI:
         assert len(data) == 0
 
     @pytest.mark.asyncio
-    async def test_get_validations_empty(self, async_client: AsyncClient, auth_headers: dict[str, str]):
+    async def test_get_validations_empty(
+        self, async_client: AsyncClient, auth_headers: dict[str, str]
+    ):
         """GET /cases/{id}/validations should return empty list."""
         response = await async_client.get(
             "/api/v1/cases/fake-id/validations",
@@ -56,7 +60,9 @@ class TestCasesAPI:
         assert isinstance(data, list)
 
     @pytest.mark.asyncio
-    async def test_list_cases_with_filter(self, async_client: AsyncClient, auth_headers: dict[str, str]):
+    async def test_list_cases_with_filter(
+        self, async_client: AsyncClient, auth_headers: dict[str, str]
+    ):
         """GET /cases?workflow_type=contract_compile should filter."""
         response = await async_client.get(
             "/api/v1/cases",
@@ -66,7 +72,9 @@ class TestCasesAPI:
         assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_list_cases_pagination(self, async_client: AsyncClient, auth_headers: dict[str, str]):
+    async def test_list_cases_pagination(
+        self, async_client: AsyncClient, auth_headers: dict[str, str]
+    ):
         """GET /cases with pagination params should work."""
         response = await async_client.get(
             "/api/v1/cases",

@@ -9,7 +9,7 @@ Tests at least 10 eval cases across all domain packs:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +37,6 @@ from domain_packs.contract_margin.taxonomy.contract_taxonomy import (
 )
 from services.escalation_engine import EscalationRuleEngine
 from services.readiness_engine import ReadinessRuleEngine
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -117,7 +116,10 @@ class TestContractMarginBillabilityEvals:
         assert len(eval_cases) >= 2
 
     def test_billable_standard_maintenance(
-        self, engine: BillabilityRuleEngine, reference_contract: ParsedContract, eval_cases: list[dict[str, Any]]
+        self,
+        engine: BillabilityRuleEngine,
+        reference_contract: ParsedContract,
+        eval_cases: list[dict[str, Any]],
     ):
         """eval-cm-001: Standard maintenance should be billable."""
         case = next(c for c in eval_cases if c["id"] == "eval-cm-001")
@@ -128,7 +130,10 @@ class TestContractMarginBillabilityEvals:
             assert result.confidence >= case["expected"]["confidence_min"]
 
     def test_not_billable_excluded(
-        self, engine: BillabilityRuleEngine, reference_contract: ParsedContract, eval_cases: list[dict[str, Any]]
+        self,
+        engine: BillabilityRuleEngine,
+        reference_contract: ParsedContract,
+        eval_cases: list[dict[str, Any]],
     ):
         """eval-cm-002: Travel should not be billable."""
         case = next(c for c in eval_cases if c["id"] == "eval-cm-002")
@@ -159,7 +164,10 @@ class TestContractMarginLeakageEvals:
         assert len(eval_cases) >= 2
 
     def test_unbilled_work_leakage(
-        self, engine: LeakageRuleEngine, reference_contract: ParsedContract, eval_cases: list[dict[str, Any]]
+        self,
+        engine: LeakageRuleEngine,
+        reference_contract: ParsedContract,
+        eval_cases: list[dict[str, Any]],
     ):
         """eval-cm-003: Unbilled work should produce leakage."""
         case = next(c for c in eval_cases if c["id"] == "eval-cm-003")
@@ -170,7 +178,10 @@ class TestContractMarginLeakageEvals:
         assert case["expected"]["driver"] in drivers
 
     def test_rate_erosion_leakage(
-        self, engine: LeakageRuleEngine, reference_contract: ParsedContract, eval_cases: list[dict[str, Any]]
+        self,
+        engine: LeakageRuleEngine,
+        reference_contract: ParsedContract,
+        eval_cases: list[dict[str, Any]],
     ):
         """eval-cm-004: Rate erosion should produce leakage."""
         case = next(c for c in eval_cases if c["id"] == "eval-cm-004")
@@ -208,14 +219,18 @@ class TestUtilitiesFieldReadinessEvals:
         assert result.verdict == case["expected"]["verdict"]
         assert result.ready == case["expected"]["ready"]
 
-    def test_blocked_missing_permit(self, engine: ReadinessRuleEngine, eval_cases: list[dict[str, Any]]):
+    def test_blocked_missing_permit(
+        self, engine: ReadinessRuleEngine, eval_cases: list[dict[str, Any]]
+    ):
         """eval-uf-002: Missing permit should block."""
         case = next(c for c in eval_cases if c["id"] == "eval-uf-002")
         result = engine.evaluate(case["input"])
         assert result.verdict == case["expected"]["verdict"]
         assert result.ready == case["expected"]["ready"]
 
-    def test_blocked_missing_skill(self, engine: ReadinessRuleEngine, eval_cases: list[dict[str, Any]]):
+    def test_blocked_missing_skill(
+        self, engine: ReadinessRuleEngine, eval_cases: list[dict[str, Any]]
+    ):
         """eval-uf-003: Missing skill should block."""
         case = next(c for c in eval_cases if c["id"] == "eval-uf-003")
         result = engine.evaluate(case["input"])
@@ -246,7 +261,7 @@ class TestTelcoOpsEscalationEvals:
     def test_p1_auto_escalate(self, engine: EscalationRuleEngine, eval_cases: list[dict[str, Any]]):
         """eval-to-001: P1 should auto-escalate."""
         case = next(c for c in eval_cases if c["id"] == "eval-to-001")
-        now = datetime(2024, 3, 14, 14, 10, tzinfo=timezone.utc)
+        now = datetime(2024, 3, 14, 14, 10, tzinfo=UTC)
         result = engine.evaluate(case["input"], current_time=now)
         assert result.should_escalate == case["expected"]["should_escalate"]
         if "recommended_level_min" in case["expected"]:
@@ -255,11 +270,13 @@ class TestTelcoOpsEscalationEvals:
     def test_p3_no_escalation(self, engine: EscalationRuleEngine, eval_cases: list[dict[str, Any]]):
         """eval-to-002: P3 should not escalate early."""
         case = next(c for c in eval_cases if c["id"] == "eval-to-002")
-        now = datetime(2024, 3, 14, 14, 15, tzinfo=timezone.utc)
+        now = datetime(2024, 3, 14, 14, 15, tzinfo=UTC)
         result = engine.evaluate(case["input"], current_time=now)
         assert result.should_escalate == case["expected"]["should_escalate"]
 
-    def test_sla_breach_escalation(self, engine: EscalationRuleEngine, eval_cases: list[dict[str, Any]]):
+    def test_sla_breach_escalation(
+        self, engine: EscalationRuleEngine, eval_cases: list[dict[str, Any]]
+    ):
         """eval-to-003: SLA breach should trigger escalation."""
         case = next(c for c in eval_cases if c["id"] == "eval-to-003")
         test_time = case["input"].pop("_test_current_time", "2024-03-14T14:30:00Z")

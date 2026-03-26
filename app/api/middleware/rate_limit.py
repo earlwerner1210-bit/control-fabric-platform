@@ -59,13 +59,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Identify tenant from header or IP
-        tenant_key = request.headers.get("X-Tenant-ID", request.client.host if request.client else "unknown")
+        tenant_key = request.headers.get(
+            "X-Tenant-ID", request.client.host if request.client else "unknown"
+        )
         bucket = self._buckets[tenant_key]
 
         if not bucket.consume():
             return JSONResponse(
                 status_code=429,
-                content={"detail": "Rate limit exceeded", "retry_after_seconds": 1.0 / self.refill_rate},
+                content={
+                    "detail": "Rate limit exceeded",
+                    "retry_after_seconds": 1.0 / self.refill_rate,
+                },
                 headers={"Retry-After": str(int(1.0 / self.refill_rate) + 1)},
             )
 

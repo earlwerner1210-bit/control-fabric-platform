@@ -6,14 +6,12 @@ including confined spaces, height works, hot works, and gas work.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
-from typing import Optional
 
 from ..schemas.field_schemas import (
     ComplianceBlocker,
     EngineerProfile,
-    FieldJob,
     ParsedWorkOrder,
 )
 from ..taxonomy.field_taxonomy import PermitType
@@ -218,9 +216,7 @@ class SafetyRuleEngine:
         engineer: EngineerProfile,
     ) -> SafetyCheckResult:
         """Check Gas Safe Register status for gas-related work."""
-        requires_gas = any(
-            s.value == "gas" for s in work_order.required_skills
-        )
+        requires_gas = any(s.value == "gas" for s in work_order.required_skills)
         requires_gas = requires_gas or self._jobs_mention_hazard(
             work_order, ["gas", "boiler", "flue", "combustion"]
         )
@@ -263,9 +259,7 @@ class SafetyRuleEngine:
         permit_type: PermitType,
     ) -> bool:
         """Check if work order has a required permit of the given type."""
-        return any(
-            p.permit_type == permit_type for p in work_order.required_permits
-        )
+        return any(p.permit_type == permit_type for p in work_order.required_permits)
 
     def _jobs_mention_hazard(
         self,

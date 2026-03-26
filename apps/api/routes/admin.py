@@ -113,7 +113,9 @@ async def update_prompt(
     )
     row = result.mappings().first()
     if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prompt template not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Prompt template not found"
+        )
 
     new_version = row["version"] + 1
     variables = body.variables if body.variables is not None else row["variables"]

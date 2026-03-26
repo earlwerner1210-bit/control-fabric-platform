@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.workflows.temporal_workflows import (
     ContractCompileWorkflow,
     IncidentDispatchWorkflow,
     MarginDiagnosisWorkflow,
-    WorkOrderReadinessWorkflow,
     WorkflowInput,
     WorkflowOutput,
+    WorkOrderReadinessWorkflow,
 )
 
 
@@ -76,10 +74,12 @@ class TestWorkerModule:
     """Test worker module imports."""
 
     def test_worker_imports(self):
-        from app.workflows.worker import WORKFLOWS, ACTIVITIES
+        from app.workflows.worker import ACTIVITIES, WORKFLOWS
+
         assert len(WORKFLOWS) == 4
         assert len(ACTIVITIES) == 6
 
     def test_main_callable(self):
         from app.workflows.worker import main
+
         assert callable(main)

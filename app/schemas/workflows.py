@@ -6,10 +6,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from pydantic import Field
-
 from app.schemas.common import BaseSchema
-
 
 # ── Enums ──────────────────────────────────────────────────────────
 

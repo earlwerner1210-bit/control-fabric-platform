@@ -112,9 +112,8 @@ class PromptRegistry:
         domain_pack: str | None,
         version: int | None,
     ) -> str | None:
-        stmt = (
-            select(PromptTemplate.template)
-            .where(PromptTemplate.name == name, PromptTemplate.is_active.is_(True))
+        stmt = select(PromptTemplate.template).where(
+            PromptTemplate.name == name, PromptTemplate.is_active.is_(True)
         )
         if domain_pack is not None:
             stmt = stmt.where(PromptTemplate.domain_pack == domain_pack)

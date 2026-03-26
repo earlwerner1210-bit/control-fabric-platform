@@ -11,11 +11,10 @@ from pathlib import Path
 
 import pytest
 
+from app.domain_packs.reconciliation import ContractWorkOrderLinker
 from app.domain_packs.utilities_field.parsers import WorkOrderParser
 from app.domain_packs.utilities_field.rules import (
     CompletionValidator,
-    ReadinessRuleEngine,
-    SkillMatchEngine,
     SPENReadinessEngine,
 )
 from app.domain_packs.utilities_field.schemas import (
@@ -34,7 +33,6 @@ from app.domain_packs.utilities_field.schemas import (
     UKAccreditation,
     WorkOrderType,
 )
-from app.domain_packs.reconciliation import ContractWorkOrderLinker
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -225,9 +223,15 @@ class TestCompletionEvidence:
         validator = CompletionValidator()
         evidence = [
             CompletionEvidence(evidence_type=CompletionEvidenceType.after_photo, provided=True),
-            CompletionEvidence(evidence_type=CompletionEvidenceType.risk_assessment_completed, provided=True),
-            CompletionEvidence(evidence_type=CompletionEvidenceType.test_certificate, provided=True),
-            CompletionEvidence(evidence_type=CompletionEvidenceType.safety_documentation, provided=True),
+            CompletionEvidence(
+                evidence_type=CompletionEvidenceType.risk_assessment_completed, provided=True
+            ),
+            CompletionEvidence(
+                evidence_type=CompletionEvidenceType.test_certificate, provided=True
+            ),
+            CompletionEvidence(
+                evidence_type=CompletionEvidenceType.safety_documentation, provided=True
+            ),
         ]
         results = validator.validate_completion(
             work_category=SPENWorkCategory.hv_switching,
@@ -240,7 +244,9 @@ class TestCompletionEvidence:
         validator = CompletionValidator()
         evidence = [
             CompletionEvidence(evidence_type=CompletionEvidenceType.after_photo, provided=True),
-            CompletionEvidence(evidence_type=CompletionEvidenceType.risk_assessment_completed, provided=True),
+            CompletionEvidence(
+                evidence_type=CompletionEvidenceType.risk_assessment_completed, provided=True
+            ),
             # Missing: test_certificate, safety_documentation
         ]
         results = validator.validate_completion(
@@ -259,10 +265,17 @@ class TestFieldToBillingLinkage:
     def test_field_to_billing_linkage(self, wave1_fixture: dict):
         """Work order billing items link to contract rate card."""
         from app.domain_packs.contract_margin.parsers import ContractParser
+
         parser = ContractParser()
         parsed = parser.parse_contract(wave1_fixture["contract"])
         contract_objects = [
-            {"type": "rate_card", "activity": rc.activity, "rate": rc.rate, "unit": rc.unit, "id": rc.activity}
+            {
+                "type": "rate_card",
+                "activity": rc.activity,
+                "rate": rc.rate,
+                "unit": rc.unit,
+                "id": rc.activity,
+            }
             for rc in parsed.rate_card
         ]
         linker = ContractWorkOrderLinker()
@@ -334,5 +347,9 @@ class TestWorkOrderParsing:
         )
         # Unsatisfied gate should block
         assert decision.status == ReadinessStatus.blocked
-        gate_blockers = [b for b in decision.blockers if "gate" in b.description.lower() or "customer" in b.description.lower()]
+        gate_blockers = [
+            b
+            for b in decision.blockers
+            if "gate" in b.description.lower() or "customer" in b.description.lower()
+        ]
         assert len(gate_blockers) >= 1

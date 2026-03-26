@@ -28,15 +28,20 @@ from app.domain_packs.utilities_field.schemas import (
     WorkOrderType,
 )
 
-
 # ---------------------------------------------------------------------------
 # Work order type -> required safety preconditions mapping
 # ---------------------------------------------------------------------------
 
 _SAFETY_MAP: dict[str, list[dict]] = {
     "confined_space": [
-        {"type": PreconditionType.certification, "desc": "Confined space entry certification required"},
-        {"type": PreconditionType.risk_assessment, "desc": "Confined space risk assessment required"},
+        {
+            "type": PreconditionType.certification,
+            "desc": "Confined space entry certification required",
+        },
+        {
+            "type": PreconditionType.risk_assessment,
+            "desc": "Confined space risk assessment required",
+        },
         {"type": PreconditionType.ppe, "desc": "Gas monitor and harness required"},
         {"type": PreconditionType.toolbox_talk, "desc": "Confined space toolbox talk required"},
     ],
@@ -46,14 +51,23 @@ _SAFETY_MAP: dict[str, list[dict]] = {
         {"type": PreconditionType.ppe, "desc": "Fire-resistant PPE required"},
     ],
     "height_works": [
-        {"type": PreconditionType.certification, "desc": "Working at height certification required"},
+        {
+            "type": PreconditionType.certification,
+            "desc": "Working at height certification required",
+        },
         {"type": PreconditionType.risk_assessment, "desc": "Height risk assessment required"},
         {"type": PreconditionType.ppe, "desc": "Harness and lanyard required"},
-        {"type": PreconditionType.method_statement, "desc": "Working at height method statement required"},
+        {
+            "type": PreconditionType.method_statement,
+            "desc": "Working at height method statement required",
+        },
     ],
     "street_works": [
         {"type": PreconditionType.ppe, "desc": "High-visibility clothing required"},
-        {"type": PreconditionType.risk_assessment, "desc": "Street works traffic management risk assessment required"},
+        {
+            "type": PreconditionType.risk_assessment,
+            "desc": "Street works traffic management risk assessment required",
+        },
     ],
 }
 
@@ -100,7 +114,9 @@ class WorkOrderParser:
         skills = [
             SkillRecord(
                 skill_name=s if isinstance(s, str) else s.get("skill_name", s.get("skill", "")),
-                category=SkillCategory(s.get("category", "general")) if isinstance(s, dict) else SkillCategory.general,
+                category=SkillCategory(s.get("category", "general"))
+                if isinstance(s, dict)
+                else SkillCategory.general,
             )
             for s in data.get("required_skills", [])
         ]
@@ -116,7 +132,9 @@ class WorkOrderParser:
         wo_type = data.get("work_order_type", data.get("type", "maintenance"))
         return ParsedWorkOrder(
             work_order_id=data.get("work_order_id", data.get("id", "unknown")),
-            work_order_type=WorkOrderType(wo_type) if wo_type in WorkOrderType.__members__ else WorkOrderType.maintenance,
+            work_order_type=WorkOrderType(wo_type)
+            if wo_type in WorkOrderType.__members__
+            else WorkOrderType.maintenance,
             description=data.get("description", ""),
             location=data.get("location", ""),
             scheduled_date=data.get("scheduled_date"),
@@ -146,7 +164,9 @@ class WorkOrderParser:
         elif re.search(r"\bhigh\b", text, re.IGNORECASE):
             priority = "high"
 
-        location_match = re.search(r"(?:location|site|address)[:\s]+(.+?)(?:\n|$)", text, re.IGNORECASE)
+        location_match = re.search(
+            r"(?:location|site|address)[:\s]+(.+?)(?:\n|$)", text, re.IGNORECASE
+        )
 
         return ParsedWorkOrder(
             work_order_id=wo_id_match.group(0) if wo_id_match else "unknown",
@@ -185,14 +205,16 @@ class WorkOrderParser:
 
         for permit_data in payload.get("required_permits", []):
             if not permit_data.get("obtained", False):
-                dependencies.append({
-                    "dependency_id": permit_data.get("reference", ""),
-                    "type": "permit",
-                    "description": f"Permit required: {permit_data.get('permit_type', 'unknown')}",
-                    "status": "pending",
-                    "blocking": permit_data.get("required", True),
-                    "resolved": False,
-                })
+                dependencies.append(
+                    {
+                        "dependency_id": permit_data.get("reference", ""),
+                        "type": "permit",
+                        "description": f"Permit required: {permit_data.get('permit_type', 'unknown')}",
+                        "status": "pending",
+                        "blocking": permit_data.get("required", True),
+                        "resolved": False,
+                    }
+                )
 
         return dependencies
 
@@ -202,14 +224,16 @@ class WorkOrderParser:
         """Parse material requirements with availability information."""
         materials: list[MaterialRequirement] = []
         for mat in payload.get("materials_required", []):
-            materials.append(MaterialRequirement(
-                material_id=mat.get("material_id", mat.get("id", "")),
-                description=mat.get("description", mat.get("name", "")),
-                quantity=float(mat.get("quantity", 1)),
-                unit=mat.get("unit", "each"),
-                available=mat.get("available", True),
-                alternative=mat.get("alternative", ""),
-            ))
+            materials.append(
+                MaterialRequirement(
+                    material_id=mat.get("material_id", mat.get("id", "")),
+                    description=mat.get("description", mat.get("name", "")),
+                    quantity=float(mat.get("quantity", 1)),
+                    unit=mat.get("unit", "each"),
+                    available=mat.get("available", True),
+                    alternative=mat.get("alternative", ""),
+                )
+            )
         return materials
 
     # ----- safety requirement extraction ---------------------------------------
@@ -225,34 +249,40 @@ class WorkOrderParser:
                 precondition_type = PreconditionType(ptype)
             except ValueError:
                 precondition_type = PreconditionType.ppe
-            safety_items.append(SafetyPreconditionObject(
-                precondition_type=precondition_type,
-                description=item.get("description", ""),
-                required=item.get("required", True),
-                verified=item.get("verified", False),
-                verified_by=item.get("verified_by", ""),
-                verified_at=item.get("verified_at", ""),
-            ))
+            safety_items.append(
+                SafetyPreconditionObject(
+                    precondition_type=precondition_type,
+                    description=item.get("description", ""),
+                    required=item.get("required", True),
+                    verified=item.get("verified", False),
+                    verified_by=item.get("verified_by", ""),
+                    verified_at=item.get("verified_at", ""),
+                )
+            )
 
         # Derive safety items from permit types
         for permit_data in payload.get("required_permits", []):
             pt = permit_data.get("permit_type", "")
             if pt in _SAFETY_MAP:
                 for entry in _SAFETY_MAP[pt]:
-                    safety_items.append(SafetyPreconditionObject(
-                        precondition_type=entry["type"],
-                        description=entry["desc"],
-                        required=True,
-                        verified=False,
-                    ))
+                    safety_items.append(
+                        SafetyPreconditionObject(
+                            precondition_type=entry["type"],
+                            description=entry["desc"],
+                            required=True,
+                            verified=False,
+                        )
+                    )
 
         # Always require basic PPE for any work order
-        safety_items.append(SafetyPreconditionObject(
-            precondition_type=PreconditionType.ppe,
-            description="Standard PPE: hard hat, safety boots, hi-vis vest",
-            required=True,
-            verified=False,
-        ))
+        safety_items.append(
+            SafetyPreconditionObject(
+                precondition_type=PreconditionType.ppe,
+                description="Standard PPE: hard hat, safety boots, hi-vis vest",
+                required=True,
+                verified=False,
+            )
+        )
 
         return safety_items
 
@@ -278,7 +308,9 @@ class WorkOrderParser:
                 end_dt = datetime.fromisoformat(end)
                 if end_dt <= start_dt:
                     constraints["time_window_valid"] = False
-                    constraints["issues"].append("Scheduled end is before or equal to scheduled start")
+                    constraints["issues"].append(
+                        "Scheduled end is before or equal to scheduled start"
+                    )
                 duration_hours = (end_dt - start_dt).total_seconds() / 3600
                 estimated = payload.get("estimated_duration_hours", 0)
                 if estimated and duration_hours < estimated:
@@ -327,7 +359,9 @@ class EngineerProfileParser:
         skills = [
             SkillRecord(
                 skill_name=s.get("skill_name", s.get("name", "")),
-                category=SkillCategory(s.get("category", "general")) if s.get("category") in SkillCategory.__members__ else SkillCategory.general,
+                category=SkillCategory(s.get("category", "general"))
+                if s.get("category") in SkillCategory.__members__
+                else SkillCategory.general,
                 level=s.get("level", "qualified"),
                 expiry_date=s.get("expiry_date"),
             )
@@ -416,7 +450,9 @@ class EngineerProfileParser:
                 req_level = level_order.get(req.level, 1)
                 eng_level = level_order.get(eng_skill.level, 1)
                 if eng_level < req_level:
-                    missing.append(f"{req.skill_name} (requires {req.level}, has {eng_skill.level})")
+                    missing.append(
+                        f"{req.skill_name} (requires {req.level}, has {eng_skill.level})"
+                    )
                 else:
                     matching.append(req.skill_name)
 
@@ -478,26 +514,32 @@ class PermitParser:
         }
         for pattern, pt in permit_patterns.items():
             if re.search(pattern, text, re.IGNORECASE):
-                permits.append(PermitRequirement(
-                    permit_type=pt,
-                    description=f"Detected from text: {pt.value}",
-                    required=True,
-                    obtained=False,
-                ))
+                permits.append(
+                    PermitRequirement(
+                        permit_type=pt,
+                        description=f"Detected from text: {pt.value}",
+                        required=True,
+                        obtained=False,
+                    )
+                )
         return permits
 
     def check_permit_validity(self, permits: list[PermitRequirement]) -> list[dict]:
         """Check each permit's validity status."""
         results: list[dict] = []
         for permit in permits:
-            results.append({
-                "permit_type": permit.permit_type.value,
-                "required": permit.required,
-                "obtained": permit.obtained,
-                "valid": permit.obtained or not permit.required,
-                "reference": permit.reference,
-                "issue": "" if (permit.obtained or not permit.required) else f"Required permit {permit.permit_type.value} not obtained",
-            })
+            results.append(
+                {
+                    "permit_type": permit.permit_type.value,
+                    "required": permit.required,
+                    "obtained": permit.obtained,
+                    "valid": permit.obtained or not permit.required,
+                    "reference": permit.reference,
+                    "issue": ""
+                    if (permit.obtained or not permit.required)
+                    else f"Required permit {permit.permit_type.value} not obtained",
+                }
+            )
         return results
 
     def detect_missing_permits(
@@ -517,14 +559,16 @@ class PermitParser:
                     PermitType.height_works: 24.0,
                 }.get(req.permit_type, 24.0)
 
-                missing.append(MissingPrerequisite(
-                    prerequisite_type="permit",
-                    description=f"Missing required permit: {req.permit_type.value}",
-                    severity="error",
-                    resolution_action=f"Obtain {req.permit_type.value} permit from issuing authority",
-                    estimated_resolution_time_hours=resolution_hours,
-                    blocking=True,
-                ))
+                missing.append(
+                    MissingPrerequisite(
+                        prerequisite_type="permit",
+                        description=f"Missing required permit: {req.permit_type.value}",
+                        severity="error",
+                        resolution_action=f"Obtain {req.permit_type.value} permit from issuing authority",
+                        estimated_resolution_time_hours=resolution_hours,
+                        blocking=True,
+                    )
+                )
 
         return missing
 
@@ -561,10 +605,12 @@ class FieldLogParser:
         # Detect exceptions
         for keyword, exc_type in _EXCEPTION_KEYWORD_MAP.items():
             if keyword in text_lower:
-                result["exceptions"].append({
-                    "type": exc_type.value,
-                    "keyword_match": keyword,
-                })
+                result["exceptions"].append(
+                    {
+                        "type": exc_type.value,
+                        "keyword_match": keyword,
+                    }
+                )
 
         # Extract time on site
         time_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)\s*(?:on\s*site)?", text_lower)
@@ -574,7 +620,9 @@ class FieldLogParser:
         # Extract issues (lines starting with - or * that contain problem language)
         for line in text.split("\n"):
             stripped = line.strip().lstrip("-*").strip()
-            if stripped and re.search(r"\b(issue|problem|fault|defect|broken|damaged|leak)\b", stripped, re.IGNORECASE):
+            if stripped and re.search(
+                r"\b(issue|problem|fault|defect|broken|damaged|leak)\b", stripped, re.IGNORECASE
+            ):
                 result["issues"].append(stripped)
 
         # Follow-up detection
@@ -666,7 +714,8 @@ class FieldLogParser:
 
         # Count unsuccessful visits
         failed_count = sum(
-            1 for h in history
+            1
+            for h in history
             if h.get("outcome", "") in ("failed", "partial", "no_access", "aborted")
         )
 
@@ -688,7 +737,8 @@ class FieldLogParser:
 
         # Check for material issues
         material_issues = sum(
-            1 for h in history
+            1
+            for h in history
             if h.get("exception_type") in ("wrong_materials", "missing_materials")
         )
         if material_issues > 0:
@@ -719,66 +769,202 @@ class FieldLogParser:
 # Gates automatically inferred per work category
 _SPEN_GATE_TEMPLATES: dict[str, list[dict]] = {
     SPENWorkCategory.hv_switching: [
-        {"gate_name": "hv_safety_document", "gate_type": "safety", "description": "HV safety document issued and signed"},
-        {"gate_name": "hv_switching_schedule", "gate_type": "permit", "description": "HV switching schedule approved by control engineer"},
-        {"gate_name": "outage_notification", "gate_type": "customer", "description": "All affected customers notified of planned outage"},
+        {
+            "gate_name": "hv_safety_document",
+            "gate_type": "safety",
+            "description": "HV safety document issued and signed",
+        },
+        {
+            "gate_name": "hv_switching_schedule",
+            "gate_type": "permit",
+            "description": "HV switching schedule approved by control engineer",
+        },
+        {
+            "gate_name": "outage_notification",
+            "gate_type": "customer",
+            "description": "All affected customers notified of planned outage",
+        },
     ],
     SPENWorkCategory.cable_jointing: [
-        {"gate_name": "cable_test_results", "gate_type": "dependency", "description": "Pre-jointing cable test results available"},
-        {"gate_name": "jointing_materials", "gate_type": "materials", "description": "Jointing kit and materials confirmed on-van"},
+        {
+            "gate_name": "cable_test_results",
+            "gate_type": "dependency",
+            "description": "Pre-jointing cable test results available",
+        },
+        {
+            "gate_name": "jointing_materials",
+            "gate_type": "materials",
+            "description": "Jointing kit and materials confirmed on-van",
+        },
     ],
     SPENWorkCategory.new_connection: [
-        {"gate_name": "scheme_design", "gate_type": "design", "description": "Scheme design approved by SPEN design team"},
-        {"gate_name": "wayleave_consent", "gate_type": "access", "description": "Wayleave or easement consent obtained"},
-        {"gate_name": "customer_readiness", "gate_type": "customer", "description": "Customer installation ready for connection"},
+        {
+            "gate_name": "scheme_design",
+            "gate_type": "design",
+            "description": "Scheme design approved by SPEN design team",
+        },
+        {
+            "gate_name": "wayleave_consent",
+            "gate_type": "access",
+            "description": "Wayleave or easement consent obtained",
+        },
+        {
+            "gate_name": "customer_readiness",
+            "gate_type": "customer",
+            "description": "Customer installation ready for connection",
+        },
     ],
     SPENWorkCategory.service_alteration: [
-        {"gate_name": "scheme_design", "gate_type": "design", "description": "Service alteration design approved"},
-        {"gate_name": "customer_agreement", "gate_type": "customer", "description": "Customer agreed to alteration scope and schedule"},
+        {
+            "gate_name": "scheme_design",
+            "gate_type": "design",
+            "description": "Service alteration design approved",
+        },
+        {
+            "gate_name": "customer_agreement",
+            "gate_type": "customer",
+            "description": "Customer agreed to alteration scope and schedule",
+        },
     ],
     SPENWorkCategory.civils_excavation: [
-        {"gate_name": "nrswa_permit", "gate_type": "permit", "description": "NRSWA S50 notice served and permit obtained"},
-        {"gate_name": "traffic_management", "gate_type": "permit", "description": "Traffic management plan approved"},
-        {"gate_name": "utility_drawings", "gate_type": "design", "description": "Statutory utility drawings obtained and reviewed"},
-        {"gate_name": "cat_genny_scan", "gate_type": "safety", "description": "CAT & Genny scan completed before excavation"},
+        {
+            "gate_name": "nrswa_permit",
+            "gate_type": "permit",
+            "description": "NRSWA S50 notice served and permit obtained",
+        },
+        {
+            "gate_name": "traffic_management",
+            "gate_type": "permit",
+            "description": "Traffic management plan approved",
+        },
+        {
+            "gate_name": "utility_drawings",
+            "gate_type": "design",
+            "description": "Statutory utility drawings obtained and reviewed",
+        },
+        {
+            "gate_name": "cat_genny_scan",
+            "gate_type": "safety",
+            "description": "CAT & Genny scan completed before excavation",
+        },
     ],
     SPENWorkCategory.reinstatement: [
-        {"gate_name": "nrswa_permit", "gate_type": "permit", "description": "NRSWA reinstatement notice served"},
-        {"gate_name": "reinstatement_spec", "gate_type": "design", "description": "Reinstatement specification confirmed (SROH compliant)"},
+        {
+            "gate_name": "nrswa_permit",
+            "gate_type": "permit",
+            "description": "NRSWA reinstatement notice served",
+        },
+        {
+            "gate_name": "reinstatement_spec",
+            "gate_type": "design",
+            "description": "Reinstatement specification confirmed (SROH compliant)",
+        },
     ],
     SPENWorkCategory.overhead_lines: [
-        {"gate_name": "line_clearance", "gate_type": "safety", "description": "Line confirmed dead and earthed, or live line working permit issued"},
-        {"gate_name": "landowner_access", "gate_type": "access", "description": "Landowner access permission confirmed"},
+        {
+            "gate_name": "line_clearance",
+            "gate_type": "safety",
+            "description": "Line confirmed dead and earthed, or live line working permit issued",
+        },
+        {
+            "gate_name": "landowner_access",
+            "gate_type": "access",
+            "description": "Landowner access permission confirmed",
+        },
     ],
     SPENWorkCategory.substation_maintenance: [
-        {"gate_name": "substation_access", "gate_type": "access", "description": "Substation key access confirmed"},
-        {"gate_name": "confined_space_permit", "gate_type": "permit", "description": "Confined space permit issued if applicable"},
+        {
+            "gate_name": "substation_access",
+            "gate_type": "access",
+            "description": "Substation key access confirmed",
+        },
+        {
+            "gate_name": "confined_space_permit",
+            "gate_type": "permit",
+            "description": "Confined space permit issued if applicable",
+        },
     ],
     SPENWorkCategory.metering_installation: [
-        {"gate_name": "meter_asset", "gate_type": "materials", "description": "Meter unit allocated and on-van"},
-        {"gate_name": "customer_appointment", "gate_type": "customer", "description": "Customer appointment confirmed"},
+        {
+            "gate_name": "meter_asset",
+            "gate_type": "materials",
+            "description": "Meter unit allocated and on-van",
+        },
+        {
+            "gate_name": "customer_appointment",
+            "gate_type": "customer",
+            "description": "Customer appointment confirmed",
+        },
     ],
     SPENWorkCategory.metering_exchange: [
-        {"gate_name": "meter_asset", "gate_type": "materials", "description": "Replacement meter allocated and on-van"},
-        {"gate_name": "customer_appointment", "gate_type": "customer", "description": "Customer appointment confirmed"},
+        {
+            "gate_name": "meter_asset",
+            "gate_type": "materials",
+            "description": "Replacement meter allocated and on-van",
+        },
+        {
+            "gate_name": "customer_appointment",
+            "gate_type": "customer",
+            "description": "Customer appointment confirmed",
+        },
     ],
     SPENWorkCategory.pole_erection: [
-        {"gate_name": "landowner_consent", "gate_type": "access", "description": "Landowner consent for pole position"},
-        {"gate_name": "ground_conditions", "gate_type": "safety", "description": "Ground conditions assessed for pole foundation"},
+        {
+            "gate_name": "landowner_consent",
+            "gate_type": "access",
+            "description": "Landowner consent for pole position",
+        },
+        {
+            "gate_name": "ground_conditions",
+            "gate_type": "safety",
+            "description": "Ground conditions assessed for pole foundation",
+        },
     ],
     SPENWorkCategory.transformer_installation: [
-        {"gate_name": "hv_safety_document", "gate_type": "safety", "description": "HV safety document issued"},
-        {"gate_name": "crane_booked", "gate_type": "dependency", "description": "Crane/HIAB booked and confirmed"},
-        {"gate_name": "foundation_ready", "gate_type": "dependency", "description": "Transformer plinth/foundation ready"},
+        {
+            "gate_name": "hv_safety_document",
+            "gate_type": "safety",
+            "description": "HV safety document issued",
+        },
+        {
+            "gate_name": "crane_booked",
+            "gate_type": "dependency",
+            "description": "Crane/HIAB booked and confirmed",
+        },
+        {
+            "gate_name": "foundation_ready",
+            "gate_type": "dependency",
+            "description": "Transformer plinth/foundation ready",
+        },
     ],
     SPENWorkCategory.tree_cutting: [
-        {"gate_name": "tree_survey", "gate_type": "design", "description": "Tree survey completed and cutting plan agreed"},
-        {"gate_name": "landowner_consent", "gate_type": "access", "description": "Landowner notified and consent obtained"},
+        {
+            "gate_name": "tree_survey",
+            "gate_type": "design",
+            "description": "Tree survey completed and cutting plan agreed",
+        },
+        {
+            "gate_name": "landowner_consent",
+            "gate_type": "access",
+            "description": "Landowner notified and consent obtained",
+        },
     ],
     SPENWorkCategory.cable_laying: [
-        {"gate_name": "nrswa_permit", "gate_type": "permit", "description": "NRSWA permit for cable trench"},
-        {"gate_name": "cable_route_design", "gate_type": "design", "description": "Cable route design approved"},
-        {"gate_name": "cable_drums", "gate_type": "materials", "description": "Cable drums delivered to site or on-vehicle"},
+        {
+            "gate_name": "nrswa_permit",
+            "gate_type": "permit",
+            "description": "NRSWA permit for cable trench",
+        },
+        {
+            "gate_name": "cable_route_design",
+            "gate_type": "design",
+            "description": "Cable route design approved",
+        },
+        {
+            "gate_name": "cable_drums",
+            "gate_type": "materials",
+            "description": "Cable drums delivered to site or on-vehicle",
+        },
     ],
 }
 
@@ -802,7 +988,9 @@ class SPENWorkOrderParser:
         skills = [
             SkillRecord(
                 skill_name=s if isinstance(s, str) else s.get("skill_name", s.get("skill", "")),
-                category=SkillCategory(s.get("category", "general")) if isinstance(s, dict) and s.get("category") in SkillCategory.__members__ else SkillCategory.general,
+                category=SkillCategory(s.get("category", "general"))
+                if isinstance(s, dict) and s.get("category") in SkillCategory.__members__
+                else SkillCategory.general,
             )
             for s in data.get("required_skills", [])
         ]
@@ -834,7 +1022,9 @@ class SPENWorkOrderParser:
 
         special_instructions = data.get("special_instructions", "")
         if work_category:
-            special_instructions = f"SPEN Work Category: {work_category}. {special_instructions}".strip()
+            special_instructions = (
+                f"SPEN Work Category: {work_category}. {special_instructions}".strip()
+            )
 
         return ParsedWorkOrder(
             work_order_id=data.get("work_order_id", data.get("id", "unknown")),
@@ -873,14 +1063,16 @@ class SPENWorkOrderParser:
 
         for tmpl in templates:
             satisfied = self._check_gate_satisfaction(tmpl, work_order)
-            gates.append(SPENReadinessGate(
-                gate_name=tmpl["gate_name"],
-                gate_type=tmpl["gate_type"],
-                required=True,
-                satisfied=satisfied,
-                blocking=True,
-                description=tmpl.get("description", ""),
-            ))
+            gates.append(
+                SPENReadinessGate(
+                    gate_name=tmpl["gate_name"],
+                    gate_type=tmpl["gate_type"],
+                    required=True,
+                    satisfied=satisfied,
+                    blocking=True,
+                    description=tmpl.get("description", ""),
+                )
+            )
 
         return gates
 
@@ -935,10 +1127,18 @@ class SPENWorkOrderParser:
         if gate_type == "design":
             # Check if design dependency is approved
             for dep in work_order.dependencies:
-                if dep.get("type") == "design" and dep.get("status") in ("approved", "completed", "resolved"):
+                if dep.get("type") == "design" and dep.get("status") in (
+                    "approved",
+                    "completed",
+                    "resolved",
+                ):
                     return True
             for prereq in work_order.prerequisites:
-                if prereq.get("type") == "design" and prereq.get("status") in ("approved", "completed", "resolved"):
+                if prereq.get("type") == "design" and prereq.get("status") in (
+                    "approved",
+                    "completed",
+                    "resolved",
+                ):
                     return True
             return False
 
@@ -950,7 +1150,11 @@ class SPENWorkOrderParser:
             # Check if a matching dependency is resolved
             for dep in work_order.dependencies:
                 dep_desc = str(dep.get("description", "")).lower()
-                if gate_name.replace("_", " ") in dep_desc and dep.get("status") in ("completed", "resolved", "approved"):
+                if gate_name.replace("_", " ") in dep_desc and dep.get("status") in (
+                    "completed",
+                    "resolved",
+                    "approved",
+                ):
                     return True
             return False
 

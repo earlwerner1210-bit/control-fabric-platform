@@ -7,18 +7,18 @@ total exposure, identify active breaches, and suggest mitigation actions.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from app.domain_packs.contract_margin.schemas.contract import (
     PenaltyCondition,
-    PriorityLevel,
 )
 
 
 class PenaltyExposureSummary(BaseModel):
     """Summary of penalty exposure for a contract or period."""
+
     total_penalties: float = Field(default=0.0, ge=0.0, description="Total penalty value")
     active_breaches: int = Field(default=0, ge=0, description="Number of active breaches")
     breach_details: list[dict[str, Any]] = Field(
@@ -57,7 +57,7 @@ class PenaltyExposureAnalyzer:
         """
         breach_details: list[dict[str, Any]] = []
         total_penalty_value = 0.0
-        overall_cap: Optional[float] = None
+        overall_cap: float | None = None
         mitigation_actions: list[str] = []
 
         perf_index = self._build_performance_index(sla_performance)
@@ -82,9 +82,8 @@ class PenaltyExposureAnalyzer:
                 continue
 
             # Check cure period
-            in_cure_period = (
-                condition.cure_period_days > 0
-                and breach_days <= (condition.grace_period_days + condition.cure_period_days)
+            in_cure_period = condition.cure_period_days > 0 and breach_days <= (
+                condition.grace_period_days + condition.cure_period_days
             )
             if in_cure_period:
                 mitigation_actions.append(
@@ -93,9 +92,7 @@ class PenaltyExposureAnalyzer:
                 )
 
             # Calculate penalty value
-            penalty_value = self._calculate_penalty_value(
-                condition, monthly_invoice_value
-            )
+            penalty_value = self._calculate_penalty_value(condition, monthly_invoice_value)
 
             # Apply per-condition cap
             if condition.cap is not None and condition.cap > 0:
@@ -104,16 +101,18 @@ class PenaltyExposureAnalyzer:
                 if overall_cap is None or condition.cap > overall_cap:
                     overall_cap = condition.cap
 
-            breach_details.append({
-                "clause_id": condition.clause_id,
-                "description": condition.description,
-                "penalty_value": round(penalty_value, 2),
-                "penalty_type": condition.penalty_type,
-                "breach_type": condition.trigger,
-                "breach_days": breach_days,
-                "in_cure_period": in_cure_period,
-                "mitigated": in_cure_period,
-            })
+            breach_details.append(
+                {
+                    "clause_id": condition.clause_id,
+                    "description": condition.description,
+                    "penalty_value": round(penalty_value, 2),
+                    "penalty_type": condition.penalty_type,
+                    "breach_type": condition.trigger,
+                    "breach_days": breach_days,
+                    "in_cure_period": in_cure_period,
+                    "mitigated": in_cure_period,
+                }
+            )
 
             total_penalty_value += penalty_value
 
@@ -170,7 +169,7 @@ class PenaltyExposureAnalyzer:
     def _find_matching_performance(
         condition: PenaltyCondition,
         perf_index: dict[str, dict[str, Any]],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Find the performance record that matches a penalty condition."""
         if condition.clause_id in perf_index:
             return perf_index[condition.clause_id]

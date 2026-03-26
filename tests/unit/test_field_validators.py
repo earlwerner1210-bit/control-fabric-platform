@@ -63,7 +63,9 @@ def qualified_engineer() -> EngineerProfile:
         ],
         accreditations=[
             Accreditation(name="general_competency", issuing_body="TrainingCo", is_valid=True),
-            Accreditation(name="confined_space_certification", issuing_body="SafetyCert", is_valid=True),
+            Accreditation(
+                name="confined_space_certification", issuing_body="SafetyCert", is_valid=True
+            ),
         ],
         availability="available",
     )
@@ -81,7 +83,9 @@ class TestFieldValidators:
                 SkillRecord(skill_name="gas", category=SkillCategory.gas),
             ],
             required_permits=[
-                PermitRequirement(permit_type=PermitType.confined_space, required=True, obtained=False),
+                PermitRequirement(
+                    permit_type=PermitType.confined_space, required=True, obtained=False
+                ),
             ],
         )
         engineer = EngineerProfile(
@@ -125,7 +129,9 @@ class TestFieldValidators:
             work_order_type=WorkOrderType.repair,
             required_skills=[],
             required_permits=[
-                PermitRequirement(permit_type=PermitType.street_works, required=True, obtained=False),
+                PermitRequirement(
+                    permit_type=PermitType.street_works, required=True, obtained=False
+                ),
                 PermitRequirement(permit_type=PermitType.hot_works, required=True, obtained=False),
             ],
         )
@@ -176,7 +182,9 @@ class TestFieldValidators:
             work_order_type=WorkOrderType.maintenance,
             required_skills=[],
             required_permits=[
-                PermitRequirement(permit_type=PermitType.confined_space, required=True, obtained=True),
+                PermitRequirement(
+                    permit_type=PermitType.confined_space, required=True, obtained=True
+                ),
                 PermitRequirement(permit_type=PermitType.hot_works, required=True, obtained=True),
             ],
         )

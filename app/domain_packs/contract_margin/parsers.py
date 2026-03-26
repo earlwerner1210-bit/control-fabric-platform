@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
@@ -21,8 +20,8 @@ from app.domain_packs.contract_margin.schemas import (
     ReattendanceRule,
     ScopeBoundaryObject,
     ScopeType,
-    SLAEntry,
     ServiceCreditRule,
+    SLAEntry,
     SPENRateCard,
     WorkCategory,
 )
@@ -113,7 +112,7 @@ class ContractParser:
         """Extract clauses from contract text using pattern matching."""
         clauses: list[ExtractedClause] = []
         # Match section patterns like "3.1 Provider shall..."
-        pattern = r'(\d+\.\d+)\s+(.+?)(?=\n\d+\.\d+|\n\n|\Z)'
+        pattern = r"(\d+\.\d+)\s+(.+?)(?=\n\d+\.\d+|\n\n|\Z)"
         matches = re.findall(pattern, text, re.DOTALL)
 
         for i, (section, content) in enumerate(matches):
@@ -121,7 +120,7 @@ class ContractParser:
             clause_type = self._classify_clause(content)
             clauses.append(
                 ExtractedClause(
-                    id=f"CL-{i+1:03d}",
+                    id=f"CL-{i + 1:03d}",
                     type=clause_type,
                     text=content,
                     section=section,
@@ -133,7 +132,7 @@ class ContractParser:
         """Extract SLA entries from text."""
         entries: list[SLAEntry] = []
         # Match patterns like "P1: response 1hr, resolution 4hr"
-        pattern = r'(P[1-4])[:\s]+(?:response\s+)?(\d+)\s*(?:hr|hour).*?(?:resolution\s+)?(\d+)\s*(?:hr|hour)'
+        pattern = r"(P[1-4])[:\s]+(?:response\s+)?(\d+)\s*(?:hr|hour).*?(?:resolution\s+)?(\d+)\s*(?:hr|hour)"
         matches = re.findall(pattern, text, re.IGNORECASE)
         for priority, response, resolution in matches:
             entries.append(
@@ -150,7 +149,7 @@ class ContractParser:
         """Extract rate card entries from text."""
         entries: list[RateCardEntry] = []
         # Match patterns like "$125/hr" or "125.00 per hour"
-        pattern = r'(\w[\w\s]+?)[\s:]+\$?([\d,.]+)\s*(?:per|/)\s*(\w+)'
+        pattern = r"(\w[\w\s]+?)[\s:]+\$?([\d,.]+)\s*(?:per|/)\s*(\w+)"
         matches = re.findall(pattern, text, re.IGNORECASE)
         for activity, rate, unit in matches:
             try:
@@ -190,7 +189,9 @@ class ContractParser:
                 activity=r.activity,
                 rate=r.rate,
                 unit=r.unit,
-                category=BillableCategory.time_and_materials if r.unit in ("hour", "hr") else BillableCategory.fixed_price,
+                category=BillableCategory.time_and_materials
+                if r.unit in ("hour", "hr")
+                else BillableCategory.fixed_price,
             )
             for r in rate_card
         ]
@@ -211,7 +212,7 @@ class ContractParser:
 
         # Pattern 1: numbered sections like "1.", "1.1", "1.1.1" followed by text
         numbered_pattern = re.compile(
-            r'^[ \t]*((\d+(?:\.\d+)*)\.?)\s+([^\n]+)',
+            r"^[ \t]*((\d+(?:\.\d+)*)\.?)\s+([^\n]+)",
             re.MULTILINE,
         )
         for match in numbered_pattern.finditer(text):
@@ -223,29 +224,35 @@ class ContractParser:
             dot_count = section_number.count(".")
             level = min(dot_count + 1, 3)
 
-            headings.append({
-                "heading_text": heading_text,
-                "level": level,
-                "section_number": section_number,
-                "offset_start": match.start(),
-                "offset_end": match.end(),
-            })
+            headings.append(
+                {
+                    "heading_text": heading_text,
+                    "level": level,
+                    "section_number": section_number,
+                    "offset_start": match.start(),
+                    "offset_end": match.end(),
+                }
+            )
 
         # Pattern 2: "SECTION 1", "Article 1", "Schedule A/1"
         named_pattern = re.compile(
-            r'^[ \t]*((?:SECTION|Article|Schedule)\s+([A-Za-z0-9]+))[:\s.\-]+\s*([^\n]*)',
+            r"^[ \t]*((?:SECTION|Article|Schedule)\s+([A-Za-z0-9]+))[:\s.\-]+\s*([^\n]*)",
             re.MULTILINE | re.IGNORECASE,
         )
         for match in named_pattern.finditer(text):
             section_id = match.group(2).strip()
-            heading_text = match.group(3).strip() if match.group(3).strip() else match.group(1).strip()
-            headings.append({
-                "heading_text": heading_text,
-                "level": 1,
-                "section_number": section_id,
-                "offset_start": match.start(),
-                "offset_end": match.end(),
-            })
+            heading_text = (
+                match.group(3).strip() if match.group(3).strip() else match.group(1).strip()
+            )
+            headings.append(
+                {
+                    "heading_text": heading_text,
+                    "level": 1,
+                    "section_number": section_id,
+                    "offset_start": match.start(),
+                    "offset_end": match.end(),
+                }
+            )
 
         # Sort by offset_start for document order
         headings.sort(key=lambda h: h["offset_start"])
@@ -262,7 +269,7 @@ class ContractParser:
 
         # Split text by section numbers (e.g. "1.", "1.1", "1.1.1")
         section_pattern = re.compile(
-            r'^[ \t]*((\d+(?:\.\d+)*)\.?)\s+',
+            r"^[ \t]*((\d+(?:\.\d+)*)\.?)\s+",
             re.MULTILINE,
         )
         matches = list(section_pattern.finditer(text))
@@ -278,7 +285,7 @@ class ContractParser:
             else:
                 offset_end = len(text)
 
-            raw_content = text[match.end():offset_end].strip()
+            raw_content = text[match.end() : offset_end].strip()
             if not raw_content:
                 continue
 
@@ -303,18 +310,20 @@ class ContractParser:
 
             segment_id = f"SEG-{section_number}"
 
-            segments.append(ClauseSegment(
-                id=segment_id,
-                clause_number=section_number,
-                heading=heading,
-                text=body_text,
-                clause_type=clause_type,
-                section_ref=section_number,
-                parent_clause_id=parent_clause_id,
-                source_offset_start=offset_start,
-                source_offset_end=offset_end,
-                confidence=confidence,
-            ))
+            segments.append(
+                ClauseSegment(
+                    id=segment_id,
+                    clause_number=section_number,
+                    heading=heading,
+                    text=body_text,
+                    clause_type=clause_type,
+                    section_ref=section_number,
+                    parent_clause_id=parent_clause_id,
+                    source_offset_start=offset_start,
+                    source_offset_end=offset_end,
+                    confidence=confidence,
+                )
+            )
 
         return segments
 
@@ -357,35 +366,40 @@ class ContractParser:
         boundaries: list[ScopeBoundaryObject] = []
 
         _SCOPE_PATTERNS: list[tuple[re.Pattern, ScopeType]] = [
-            (re.compile(
-                r'(?:in[\s-]scope|included|shall\s+provide|services?\s+include)[:\s]*([^\n.]+)',
-                re.IGNORECASE,
-            ), ScopeType.in_scope),
-            (re.compile(
-                r'(?:out[\s-]of[\s-]scope|excluded|shall\s+not\s+include|not\s+included)[:\s]*([^\n.]+)',
-                re.IGNORECASE,
-            ), ScopeType.out_of_scope),
-            (re.compile(
-                r'(?:conditional(?:ly)?|subject\s+to|upon\s+request|where\s+approved)[:\s]*([^\n.]+)',
-                re.IGNORECASE,
-            ), ScopeType.conditional),
+            (
+                re.compile(
+                    r"(?:in[\s-]scope|included|shall\s+provide|services?\s+include)[:\s]*([^\n.]+)",
+                    re.IGNORECASE,
+                ),
+                ScopeType.in_scope,
+            ),
+            (
+                re.compile(
+                    r"(?:out[\s-]of[\s-]scope|excluded|shall\s+not\s+include|not\s+included)[:\s]*([^\n.]+)",
+                    re.IGNORECASE,
+                ),
+                ScopeType.out_of_scope,
+            ),
+            (
+                re.compile(
+                    r"(?:conditional(?:ly)?|subject\s+to|upon\s+request|where\s+approved)[:\s]*([^\n.]+)",
+                    re.IGNORECASE,
+                ),
+                ScopeType.conditional,
+            ),
         ]
 
         for pattern, scope_type in _SCOPE_PATTERNS:
             for match in pattern.finditer(text):
                 raw = match.group(1).strip()
                 # Split comma/semicolon-separated activities
-                activities = [
-                    a.strip()
-                    for a in re.split(r'[,;]', raw)
-                    if a.strip()
-                ]
+                activities = [a.strip() for a in re.split(r"[,;]", raw) if a.strip()]
 
                 # Extract conditions for conditional scope
                 conditions: list[str] = []
                 if scope_type == ScopeType.conditional:
                     cond_match = re.search(
-                        r'(?:subject\s+to|provided\s+that|if|where)\s+(.+?)(?:\.|$)',
+                        r"(?:subject\s+to|provided\s+that|if|where)\s+(.+?)(?:\.|$)",
                         match.group(0),
                         re.IGNORECASE,
                     )
@@ -394,20 +408,22 @@ class ContractParser:
 
                 # Try to find a nearby section reference
                 clause_refs: list[str] = []
-                preceding = text[max(0, match.start() - 200):match.start()]
-                ref_match = re.search(r'(\d+\.\d+(?:\.\d+)?)', preceding)
+                preceding = text[max(0, match.start() - 200) : match.start()]
+                ref_match = re.search(r"(\d+\.\d+(?:\.\d+)?)", preceding)
                 if ref_match:
                     clause_refs.append(ref_match.group(1))
 
                 description = raw[:200] if raw else match.group(0).strip()[:200]
 
-                boundaries.append(ScopeBoundaryObject(
-                    scope_type=scope_type,
-                    description=description,
-                    conditions=conditions,
-                    clause_refs=clause_refs,
-                    activities=activities,
-                ))
+                boundaries.append(
+                    ScopeBoundaryObject(
+                        scope_type=scope_type,
+                        description=description,
+                        conditions=conditions,
+                        clause_refs=clause_refs,
+                        activities=activities,
+                    )
+                )
 
         return boundaries
 
@@ -434,7 +450,7 @@ class ContractParser:
 
         # Payment period: "net 30", "within 30 days", "30 days from invoice"
         period_match = re.search(
-            r'(?:net\s+(\d+)|within\s+(\d+)\s+days|(\d+)\s+days\s+(?:from|of|after)\s+(?:invoice|receipt))',
+            r"(?:net\s+(\d+)|within\s+(\d+)\s+days|(\d+)\s+days\s+(?:from|of|after)\s+(?:invoice|receipt))",
             text,
             re.IGNORECASE,
         )
@@ -443,23 +459,23 @@ class ContractParser:
             result["payment_period_days"] = int(days)
 
         # Currency
-        currency_match = re.search(r'\b(USD|GBP|EUR|AUD|CAD)\b', text, re.IGNORECASE)
+        currency_match = re.search(r"\b(USD|GBP|EUR|AUD|CAD)\b", text, re.IGNORECASE)
         if currency_match:
             result["currency"] = currency_match.group(1).upper()
 
         # Invoicing frequency
-        if re.search(r'\bquarterly\b', text, re.IGNORECASE):
+        if re.search(r"\bquarterly\b", text, re.IGNORECASE):
             result["invoicing_frequency"] = "quarterly"
-        elif re.search(r'\bannually\b|\bannual\b', text, re.IGNORECASE):
+        elif re.search(r"\bannually\b|\bannual\b", text, re.IGNORECASE):
             result["invoicing_frequency"] = "annually"
-        elif re.search(r'\bweekly\b', text, re.IGNORECASE):
+        elif re.search(r"\bweekly\b", text, re.IGNORECASE):
             result["invoicing_frequency"] = "weekly"
-        elif re.search(r'\bmonthly\b', text, re.IGNORECASE):
+        elif re.search(r"\bmonthly\b", text, re.IGNORECASE):
             result["invoicing_frequency"] = "monthly"
 
         # Late payment interest: "interest at 2%", "2% per month late"
         interest_match = re.search(
-            r'(?:interest|late\s+payment)[^.]*?(\d+(?:\.\d+)?)\s*%',
+            r"(?:interest|late\s+payment)[^.]*?(\d+(?:\.\d+)?)\s*%",
             text,
             re.IGNORECASE,
         )
@@ -468,7 +484,7 @@ class ContractParser:
 
         # Retention: "5% retention", "retention of 5%"
         retention_match = re.search(
-            r'(?:retention\s+(?:of\s+)?|retain\s+)(\d+(?:\.\d+)?)\s*%|(\d+(?:\.\d+)?)\s*%\s*retention',
+            r"(?:retention\s+(?:of\s+)?|retain\s+)(\d+(?:\.\d+)?)\s*%|(\d+(?:\.\d+)?)\s*%\s*retention",
             text,
             re.IGNORECASE,
         )
@@ -499,11 +515,11 @@ class ContractParser:
         return lines[0].strip() if lines else ""
 
     def _extract_penalty_trigger(self, text: str) -> str:
-        match = re.search(r'(?:failure|breach|failure to)\s+(.+?)(?:\.|,)', text, re.IGNORECASE)
+        match = re.search(r"(?:failure|breach|failure to)\s+(.+?)(?:\.|,)", text, re.IGNORECASE)
         return match.group(1).strip() if match else ""
 
     def _extract_penalty_amount(self, text: str) -> str:
-        match = re.search(r'(\d+%|\$[\d,.]+)', text)
+        match = re.search(r"(\d+%|\$[\d,.]+)", text)
         return match.group(1) if match else ""
 
     # -- SPEN / Vodafone extraction helpers --------------------------------
@@ -534,10 +550,12 @@ class ContractParser:
             lower = clause.text.lower()
             for keyword, gate_type in _GATE_KEYWORDS.items():
                 if keyword in lower and gate_type not in seen:
-                    gates.append(BillingGate(
-                        gate_type=gate_type,
-                        description=f"Extracted from clause {clause.id}: {clause.text[:120]}",
-                    ))
+                    gates.append(
+                        BillingGate(
+                            gate_type=gate_type,
+                            description=f"Extracted from clause {clause.id}: {clause.text[:120]}",
+                        )
+                    )
                     seen.add(gate_type)
 
         return gates
@@ -586,7 +604,10 @@ class ContractParser:
 
         for clause in clauses:
             lower = clause.text.lower()
-            if not any(kw in lower for kw in ("reattend", "re-attend", "revisit", "re-visit", "rework", "re-work")):
+            if not any(
+                kw in lower
+                for kw in ("reattend", "re-attend", "revisit", "re-visit", "rework", "re-work")
+            ):
                 continue
             for pattern, rule_data in _TRIGGER_PATTERNS.items():
                 if re.search(pattern, lower) and rule_data["trigger"] not in seen_triggers:
@@ -620,16 +641,16 @@ class ContractParser:
                     continue
 
                 # Attempt to extract percentage values
-                pct_matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', clause.text)
+                pct_matches = re.findall(r"(\d+(?:\.\d+)?)\s*%", clause.text)
                 credit_pct = float(pct_matches[0]) if pct_matches else 5.0
                 cap_pct = float(pct_matches[1]) if len(pct_matches) > 1 else 10.0
 
                 # Attempt to extract threshold value (hours or percentage)
-                threshold_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:hour|hr|h\b)', lower)
+                threshold_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:hour|hr|h\b)", lower)
                 if threshold_match:
                     threshold = float(threshold_match.group(1))
                 else:
-                    threshold_match = re.search(r'(\d+(?:\.\d+)?)\s*%', lower)
+                    threshold_match = re.search(r"(\d+(?:\.\d+)?)\s*%", lower)
                     threshold = float(threshold_match.group(1)) / 100.0 if threshold_match else 0.0
 
                 # Extract exclusions
@@ -639,13 +660,15 @@ class ContractParser:
                 if "customer caused" in lower or "customer fault" in lower:
                     exclusions.append("customer_caused")
 
-                rules.append(ServiceCreditRule(
-                    sla_metric=metric,
-                    threshold_value=threshold,
-                    credit_percentage=credit_pct,
-                    cap_percentage=cap_pct,
-                    exclusions=exclusions,
-                ))
+                rules.append(
+                    ServiceCreditRule(
+                        sla_metric=metric,
+                        threshold_value=threshold,
+                        credit_percentage=credit_pct,
+                        cap_percentage=cap_pct,
+                        exclusions=exclusions,
+                    )
+                )
 
         return rules
 
@@ -666,24 +689,26 @@ class SPENRateCardParser:
                 # Normalise to enum value
                 if isinstance(work_cat, str):
                     work_cat = work_cat.lower().replace(" ", "_").replace("-", "_")
-                cards.append(SPENRateCard(
-                    work_category=WorkCategory(work_cat),
-                    activity_code=str(entry.get("activity_code", "")),
-                    description=str(entry.get("description", "")),
-                    unit=str(entry.get("unit", "each")),
-                    base_rate=float(entry.get("base_rate", 0.0)),
-                    emergency_multiplier=float(entry.get("emergency_multiplier", 1.5)),
-                    overtime_multiplier=float(entry.get("overtime_multiplier", 1.3)),
-                    weekend_multiplier=float(entry.get("weekend_multiplier", 1.5)),
-                    currency=str(entry.get("currency", "GBP")),
-                    effective_from=str(entry.get("effective_from", "")),
-                    effective_to=str(entry.get("effective_to", "")),
-                    requires_approval_above=(
-                        float(entry["requires_approval_above"])
-                        if entry.get("requires_approval_above") is not None
-                        else None
-                    ),
-                ))
+                cards.append(
+                    SPENRateCard(
+                        work_category=WorkCategory(work_cat),
+                        activity_code=str(entry.get("activity_code", "")),
+                        description=str(entry.get("description", "")),
+                        unit=str(entry.get("unit", "each")),
+                        base_rate=float(entry.get("base_rate", 0.0)),
+                        emergency_multiplier=float(entry.get("emergency_multiplier", 1.5)),
+                        overtime_multiplier=float(entry.get("overtime_multiplier", 1.3)),
+                        weekend_multiplier=float(entry.get("weekend_multiplier", 1.5)),
+                        currency=str(entry.get("currency", "GBP")),
+                        effective_from=str(entry.get("effective_from", "")),
+                        effective_to=str(entry.get("effective_to", "")),
+                        requires_approval_above=(
+                            float(entry["requires_approval_above"])
+                            if entry.get("requires_approval_above") is not None
+                            else None
+                        ),
+                    )
+                )
             except (ValueError, KeyError):
                 continue
         return cards
@@ -719,7 +744,9 @@ class SPENRateCardParser:
         for row in rows:
             mapped: dict = {}
             for key, value in row.items():
-                canonical = _COLUMN_MAP.get(key.lower().strip(), key.lower().strip().replace(" ", "_"))
+                canonical = _COLUMN_MAP.get(
+                    key.lower().strip(), key.lower().strip().replace(" ", "_")
+                )
                 mapped[canonical] = value
             normalised.append(mapped)
 

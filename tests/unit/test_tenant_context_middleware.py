@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
-
 from app.api.middleware.tenant_context import TenantContextMiddleware
 
 
@@ -14,7 +12,7 @@ class TestTenantContextMiddleware:
 
     def test_default_tenant(self):
         expected = uuid.UUID("00000000-0000-0000-0000-000000000001")
-        assert TenantContextMiddleware.DEFAULT_TENANT == expected
+        assert expected == TenantContextMiddleware.DEFAULT_TENANT
 
     def test_exempt_paths(self):
         exempt = TenantContextMiddleware.EXEMPT_PATHS
@@ -32,6 +30,6 @@ class TestTenantContextMiddleware:
     def test_invalid_uuid_fallback(self):
         try:
             uuid.UUID("not-a-uuid")
-            assert False, "Should have raised ValueError"
+            raise AssertionError("Should have raised ValueError")
         except ValueError:
             pass

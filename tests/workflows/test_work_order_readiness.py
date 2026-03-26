@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from services.readiness_engine import ReadinessRuleEngine
 from workflows.work_order_readiness.workflow import (
-    WorkOrderReadinessWorkflow,
     WorkOrderReadinessResult,
+    WorkOrderReadinessWorkflow,
 )
 
 
@@ -106,7 +106,9 @@ class TestWorkOrderReadinessWorkflow:
         mock_audit.log.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_workflow_uses_sample_data(self, readiness_engine: ReadinessRuleEngine, sample_work_order: dict[str, Any]):
+    async def test_workflow_uses_sample_data(
+        self, readiness_engine: ReadinessRuleEngine, sample_work_order: dict[str, Any]
+    ):
         """Workflow should work with sample fixture data."""
         workflow = WorkOrderReadinessWorkflow(readiness_engine=readiness_engine)
         result = await workflow.run(

@@ -6,7 +6,6 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,10 +47,18 @@ class ReportingService:
         if workflow_case:
             content["workflow"] = {
                 "type": workflow_case.workflow_type,
-                "status": workflow_case.status.value if hasattr(workflow_case.status, "value") else str(workflow_case.status),
-                "verdict": workflow_case.verdict.value if workflow_case.verdict and hasattr(workflow_case.verdict, "value") else str(workflow_case.verdict) if workflow_case.verdict else None,
+                "status": workflow_case.status.value
+                if hasattr(workflow_case.status, "value")
+                else str(workflow_case.status),
+                "verdict": workflow_case.verdict.value
+                if workflow_case.verdict and hasattr(workflow_case.verdict, "value")
+                else str(workflow_case.verdict)
+                if workflow_case.verdict
+                else None,
                 "started_at": str(workflow_case.started_at) if workflow_case.started_at else None,
-                "completed_at": str(workflow_case.completed_at) if workflow_case.completed_at else None,
+                "completed_at": str(workflow_case.completed_at)
+                if workflow_case.completed_at
+                else None,
             }
 
         # Get control objects
@@ -62,7 +69,9 @@ class ReportingService:
         content["control_objects"] = [
             {
                 "id": str(co.id),
-                "type": co.control_type.value if hasattr(co.control_type, "value") else str(co.control_type),
+                "type": co.control_type.value
+                if hasattr(co.control_type, "value")
+                else str(co.control_type),
                 "label": co.label,
                 "confidence": co.confidence,
                 "is_active": co.is_active,
@@ -95,14 +104,11 @@ class ReportingService:
         # Validations
         if include_validations:
             val_result = await self.db.execute(
-                select(ValidationResult)
-                .where(ValidationResult.tenant_id == tenant_id)
-                .limit(100)
+                select(ValidationResult).where(ValidationResult.tenant_id == tenant_id).limit(100)
             )
             validations = val_result.scalars().all()
             case_validations = [
-                v for v in validations
-                if (v.metadata_ or {}).get("case_id") == str(case_id)
+                v for v in validations if (v.metadata_ or {}).get("case_id") == str(case_id)
             ]
             content["validations"] = [
                 {

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter
@@ -47,5 +47,5 @@ async def register(body: LoginRequest) -> UserResponse:
         role="viewer",
         tenant_id=UUID("00000000-0000-0000-0000-000000000010"),
         is_active=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )

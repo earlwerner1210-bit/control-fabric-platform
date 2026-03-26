@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.dependencies import get_current_user, get_db, get_tenant_context
+from apps.api.dependencies import get_db, get_tenant_context
 
 router = APIRouter(tags=["compile"])
 
@@ -46,7 +46,9 @@ async def compile_contract(
         {"id": contract_id, "tenant_id": tenant_id},
     )
     if result.first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract document not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Contract document not found"
+        )
 
     # Mark as compiling
     await db.execute(
@@ -76,7 +78,9 @@ async def compile_work_order(
         {"id": work_order_id, "tenant_id": tenant_id},
     )
     if result.first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order document not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Work order document not found"
+        )
 
     await db.execute(
         text("UPDATE documents SET status = :status WHERE id = :id"),
@@ -105,7 +109,9 @@ async def compile_incident(
         {"id": incident_id, "tenant_id": tenant_id},
     )
     if result.first() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident document not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Incident document not found"
+        )
 
     await db.execute(
         text("UPDATE documents SET status = :status WHERE id = :id"),

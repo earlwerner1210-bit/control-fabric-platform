@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
@@ -39,7 +39,7 @@ def create_access_token(
         Custom expiry; defaults to ``JWT_EXPIRATION_MINUTES`` from settings.
     """
     settings = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expire = now + (expires_delta or timedelta(minutes=settings.JWT_EXPIRATION_MINUTES))
 
     payload: dict[str, Any] = {

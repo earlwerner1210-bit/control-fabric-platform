@@ -15,7 +15,6 @@ import json
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 # Add project root to path
@@ -64,7 +63,6 @@ def _load_json(path: Path) -> dict:
 def _hash_password(password: str) -> str:
     """Create a simple password hash for seeding (not for production)."""
     import hashlib
-    import secrets
 
     salt = "seed-salt-do-not-use-in-prod"
     h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), iterations=100_000)
@@ -317,8 +315,8 @@ def run_wave1_demo():
     # Ensure project root is on path
     _sys.path.insert(0, str(PROJECT_ROOT))
 
-    from app.domain_packs.contract_margin.parsers import ContractParser, SPENRateCardParser
     from app.domain_packs.contract_margin.compiler import ContractCompiler
+    from app.domain_packs.contract_margin.parsers import ContractParser
     from app.domain_packs.contract_margin.rules import (
         BillabilityRuleEngine,
         LeakageRuleEngine,
@@ -349,7 +347,7 @@ def run_wave1_demo():
     # ---------------------------------------------------------------
     parser = ContractParser()
     parsed = parser.parse_contract(contract_margin["contract"])
-    print(f"\n--- Parsed Contract ---")
+    print("\n--- Parsed Contract ---")
     print(f"  Title: {parsed.title}")
     print(f"  Parties: {', '.join(parsed.parties)}")
     print(f"  Clauses: {len(parsed.clauses)}")
@@ -361,7 +359,7 @@ def run_wave1_demo():
     # ---------------------------------------------------------------
     compiler = ContractCompiler()
     compiled = compiler.compile(parsed)
-    print(f"\n--- Compiled Control Objects ---")
+    print("\n--- Compiled Control Objects ---")
     print(f"  Clause objects: {len(compiled.clauses)}")
     print(f"  SLA entries: {len(compiled.sla_entries)}")
     print(f"  Rate card entries: {len(compiled.rate_card_entries)}")
@@ -375,7 +373,7 @@ def run_wave1_demo():
     billability_engine = BillabilityRuleEngine()
     obligations = [{"text": c.text, "description": c.text} for c in parsed.clauses]
 
-    print(f"\n--- Billability Checks ---")
+    print("\n--- Billability Checks ---")
     for wo in contract_margin["work_orders"]:
         for item in wo.get("billable_items", []):
             activity = item["description"].lower().replace(" ", "_")
@@ -385,17 +383,17 @@ def run_wave1_demo():
                 obligations=obligations,
             )
             status = "BILLABLE" if decision.billable else "NON-BILLABLE"
-            print(f"  {wo['work_order_id']} / {item['description']}: {status} "
-                  f"(rate={decision.rate_applied}, confidence={decision.confidence:.2f})")
+            print(
+                f"  {wo['work_order_id']} / {item['description']}: {status} "
+                f"(rate={decision.rate_applied}, confidence={decision.confidence:.2f})"
+            )
 
     # ---------------------------------------------------------------
     # 5. Run leakage detection
     # ---------------------------------------------------------------
     leakage_engine = LeakageRuleEngine()
-    triggers = leakage_engine.evaluate(
-        [], work_history=margin_leakage["work_history"]
-    )
-    print(f"\n--- Leakage Detection ---")
+    triggers = leakage_engine.evaluate([], work_history=margin_leakage["work_history"])
+    print("\n--- Leakage Detection ---")
     print(f"  Total triggers: {len(triggers)}")
     for t in triggers:
         print(f"  [{t.severity.upper()}] {t.trigger_type}: {t.description}")
@@ -409,7 +407,7 @@ def run_wave1_demo():
         contract_objects=[],
         rate_card=[],
     )
-    print(f"\n--- Recovery Recommendations ---")
+    print("\n--- Recovery Recommendations ---")
     print(f"  Total recommendations: {len(recommendations)}")
     for r in recommendations:
         print(f"  [{r.priority.value.upper()}] {r.recommendation_type.value}: {r.description}")
@@ -418,34 +416,45 @@ def run_wave1_demo():
     # 7. Cross-pack reconciliation
     # ---------------------------------------------------------------
     contract_objects = [
-        {"type": "rate_card", "activity": rc.activity, "rate": rc.rate,
-         "unit": rc.unit, "id": rc.activity}
+        {
+            "type": "rate_card",
+            "activity": rc.activity,
+            "rate": rc.rate,
+            "unit": rc.unit,
+            "id": rc.activity,
+        }
         for rc in parsed.rate_card
     ]
     linker = ContractWorkOrderLinker()
 
-    print(f"\n--- Cross-Pack Reconciliation ---")
+    print("\n--- Cross-Pack Reconciliation ---")
     total_links = 0
     for wo in contract_margin["work_orders"]:
         links = linker.link(contract_objects, wo)
         total_links += len(links)
         for link in links:
-            print(f"  {link.source_id} -> {link.target_id} ({link.link_type}, "
-                  f"confidence={link.confidence:.3f})")
+            print(
+                f"  {link.source_id} -> {link.target_id} ({link.link_type}, "
+                f"confidence={link.confidence:.3f})"
+            )
     print(f"  Total cross-pack links: {total_links}")
 
     # ---------------------------------------------------------------
     # 8. Evidence bundle assembly
     # ---------------------------------------------------------------
     work_history = [
-        {"work_order_id": wo["work_order_id"], "description": wo["description"],
-         "activity": wo.get("work_category", ""), "status": wo.get("status", "")}
+        {
+            "work_order_id": wo["work_order_id"],
+            "description": wo["description"],
+            "activity": wo.get("work_category", ""),
+            "status": wo.get("status", ""),
+        }
         for wo in contract_margin["work_orders"]
     ]
     trigger_dicts = [t.model_dump() for t in triggers]
     assembler = MarginEvidenceAssembler()
     bundle = assembler.assemble(contract_objects, work_history, trigger_dicts)
-    print(f"\n--- Evidence Bundle ---")
+    print("\n--- Evidence Bundle ---")
     print(f"  Bundle ID: {bundle.bundle_id}")
     print(f"  Domains: {', '.join(bundle.domains)}")
     print(f"  Evidence items: {bundle.total_items}")
@@ -454,7 +463,7 @@ def run_wave1_demo():
     # ---------------------------------------------------------------
     # 9. Penalty scenario summary
     # ---------------------------------------------------------------
-    print(f"\n--- Penalty Scenario ---")
+    print("\n--- Penalty Scenario ---")
     breaches = penalty_scenario["breach_events"]
     total_pct = sum(b["penalty_percentage"] for b in breaches if b["breach"])
     cap = penalty_scenario["expected_outcomes"]["cap_percentage"]
@@ -467,7 +476,7 @@ def run_wave1_demo():
     print(f"  Penalty exposure: £{exposure:,.2f}")
     print(f"  Service improvement plan triggered: {capped_pct >= 20}")
 
-    print(f"\n=== Wave 1 Demo Complete ===")
+    print("\n=== Wave 1 Demo Complete ===")
 
 
 if __name__ == "__main__":

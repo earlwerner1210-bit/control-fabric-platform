@@ -6,14 +6,13 @@ representation suitable for reports, handoffs, or LLM context.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ..schemas.telco_schemas import (
-    IncidentSummary,
     OpsNote,
     ParsedIncident,
 )
-from ..taxonomy.telco_taxonomy import IncidentSeverity, IncidentState
+from ..taxonomy.telco_taxonomy import IncidentSeverity
 
 
 class IncidentSummaryTemplate:
@@ -40,7 +39,9 @@ class IncidentSummaryTemplate:
         lines.append(f"# Incident Summary: {incident.incident_id}")
         lines.append("")
         lines.append(f"**Title:** {incident.title}")
-        lines.append(f"**Severity:** {severity_labels.get(incident.severity, incident.severity.value)}")
+        lines.append(
+            f"**Severity:** {severity_labels.get(incident.severity, incident.severity.value)}"
+        )
         lines.append(f"**State:** {incident.state.value}")
         lines.append(f"**Escalation Level:** {incident.escalation_level.value.upper()}")
 
@@ -57,10 +58,10 @@ class IncidentSummaryTemplate:
                 lines.append(f"**Resolved At:** {incident.resolved_at.isoformat()}")
                 lines.append(f"**Duration:** {duration:.0f} minutes")
             else:
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 reported = incident.reported_at
                 if reported.tzinfo is None:
-                    reported = reported.replace(tzinfo=timezone.utc)
+                    reported = reported.replace(tzinfo=UTC)
                 elapsed = (now - reported).total_seconds() / 60
                 lines.append(f"**Elapsed:** {elapsed:.0f} minutes (ongoing)")
 
@@ -91,8 +92,10 @@ class IncidentSummaryTemplate:
 
         # Recurring incident
         if incident.is_recurring:
-            lines.append(f"## Recurrence")
-            lines.append(f"This is a **recurring incident** (occurrence #{incident.recurrence_count}).")
+            lines.append("## Recurrence")
+            lines.append(
+                f"This is a **recurring incident** (occurrence #{incident.recurrence_count})."
+            )
             if incident.related_incident_ids:
                 lines.append(f"Related incidents: {', '.join(incident.related_incident_ids)}")
             lines.append("")

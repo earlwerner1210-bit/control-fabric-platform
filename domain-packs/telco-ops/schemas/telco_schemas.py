@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -14,7 +13,6 @@ from ..taxonomy.telco_taxonomy import (
     IncidentState,
     ServiceState,
 )
-
 
 # ---------------------------------------------------------------------------
 # Core parsed objects
@@ -29,7 +27,7 @@ class ServiceStateMapping(BaseModel):
     state: ServiceState
     affected_customers: int = Field(0, ge=0)
     region: str = Field("")
-    last_state_change: Optional[datetime] = None
+    last_state_change: datetime | None = None
     related_incident_ids: list[str] = Field(default_factory=list)
 
 
@@ -42,16 +40,16 @@ class ParsedIncident(BaseModel):
     severity: IncidentSeverity = IncidentSeverity.p3
     state: IncidentState = IncidentState.new
     escalation_level: EscalationLevel = EscalationLevel.l1
-    reported_at: Optional[datetime] = None
-    acknowledged_at: Optional[datetime] = None
-    resolved_at: Optional[datetime] = None
+    reported_at: datetime | None = None
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
     reporter: str = Field("", description="Person or system that reported the incident")
-    assigned_to: Optional[str] = None
+    assigned_to: str | None = None
     affected_services: list[ServiceStateMapping] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     related_incident_ids: list[str] = Field(default_factory=list)
-    root_cause: Optional[str] = None
-    resolution_notes: Optional[str] = None
+    root_cause: str | None = None
+    resolution_notes: str | None = None
     is_recurring: bool = False
     recurrence_count: int = Field(0, ge=0)
 
@@ -78,7 +76,7 @@ class ParsedRunbook(BaseModel):
     steps: list[RunbookStep] = Field(default_factory=list)
     prerequisites: list[str] = Field(default_factory=list)
     estimated_total_minutes: float = Field(0.0, ge=0.0)
-    last_updated: Optional[datetime] = None
+    last_updated: datetime | None = None
     owner: str = ""
     tags: list[str] = Field(default_factory=list)
 
@@ -95,7 +93,7 @@ class IncidentSummary(BaseModel):
     title: str
     severity: IncidentSeverity
     state: IncidentState
-    duration_minutes: Optional[float] = None
+    duration_minutes: float | None = None
     affected_services_count: int = 0
     total_affected_customers: int = 0
     key_events: list[str] = Field(default_factory=list, description="Timeline of key events")
@@ -107,11 +105,13 @@ class NextAction(BaseModel):
     """Recommended next action for an incident."""
 
     action: str = Field(..., description="Description of the recommended action")
-    action_type: str = Field("investigate", description="Type: investigate, escalate, resolve, communicate")
-    owner: Optional[str] = Field(None, description="Suggested owner for this action")
+    action_type: str = Field(
+        "investigate", description="Type: investigate, escalate, resolve, communicate"
+    )
+    owner: str | None = Field(None, description="Suggested owner for this action")
     priority: str = Field("normal", description="Priority: low, normal, high, critical")
-    runbook_ref: Optional[str] = Field(None, description="Reference to applicable runbook")
-    estimated_minutes: Optional[float] = None
+    runbook_ref: str | None = Field(None, description="Reference to applicable runbook")
+    estimated_minutes: float | None = None
     rationale: str = Field("", description="Why this action is recommended")
 
 
@@ -129,7 +129,7 @@ class EscalationDecision(BaseModel):
     """Result of evaluating whether an incident should be escalated."""
 
     level: EscalationLevel
-    owner: Optional[str] = None
+    owner: str | None = None
     reason: str
     evidence_ids: list[str] = Field(default_factory=list)
     urgency: str = Field("normal", description="Urgency: normal, urgent, critical")
@@ -143,8 +143,10 @@ class OpsNote(BaseModel):
     incident_id: str
     summary: str
     next_action: NextAction
-    runbook_ref: Optional[str] = None
-    escalation: Optional[EscalationDecision] = None
-    service_state_explanation: str = Field("", description="Current service state and impact description")
+    runbook_ref: str | None = None
+    escalation: EscalationDecision | None = None
+    service_state_explanation: str = Field(
+        "", description="Current service state and impact description"
+    )
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     author: str = Field("system", description="Author: system or analyst name")

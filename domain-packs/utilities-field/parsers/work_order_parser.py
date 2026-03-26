@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from datetime import date, time
-from typing import Optional
 
 from ..schemas.field_schemas import (
     FieldJob,
@@ -27,15 +26,21 @@ from ..taxonomy.field_taxonomy import (
 
 _WO_TYPE_KEYWORDS: dict[WorkOrderType, re.Pattern[str]] = {
     WorkOrderType.emergency: re.compile(r"\b(emergency|urgent fault|critical failure)\b", re.I),
-    WorkOrderType.installation: re.compile(r"\b(install|new connection|provision|commissioning)\b", re.I),
+    WorkOrderType.installation: re.compile(
+        r"\b(install|new connection|provision|commissioning)\b", re.I
+    ),
     WorkOrderType.repair: re.compile(r"\b(repair|fix|fault|breakdown|restore)\b", re.I),
-    WorkOrderType.maintenance: re.compile(r"\b(maintenance|preventive|scheduled service|routine)\b", re.I),
+    WorkOrderType.maintenance: re.compile(
+        r"\b(maintenance|preventive|scheduled service|routine)\b", re.I
+    ),
     WorkOrderType.inspection: re.compile(r"\b(inspection|survey|audit|assessment|check)\b", re.I),
     WorkOrderType.upgrade: re.compile(r"\b(upgrade|replacement|modernis|retrofit)\b", re.I),
 }
 
 _SKILL_KEYWORDS: dict[SkillCategory, re.Pattern[str]] = {
-    SkillCategory.electrical: re.compile(r"\b(electric|wiring|circuit|power|voltage|transformer)\b", re.I),
+    SkillCategory.electrical: re.compile(
+        r"\b(electric|wiring|circuit|power|voltage|transformer)\b", re.I
+    ),
     SkillCategory.plumbing: re.compile(r"\b(plumb|pipe|water|drain|sewage)\b", re.I),
     SkillCategory.hvac: re.compile(r"\b(hvac|heating|ventilation|air\s+condition|cooling)\b", re.I),
     SkillCategory.gas: re.compile(r"\b(gas|boiler|flue|combustion)\b", re.I),
@@ -44,11 +49,21 @@ _SKILL_KEYWORDS: dict[SkillCategory, re.Pattern[str]] = {
 }
 
 _PERMIT_KEYWORDS: dict[PermitType, re.Pattern[str]] = {
-    PermitType.street_works: re.compile(r"\b(street\s+works?|road\s+(closure|works?)|traffic\s+management)\b", re.I),
-    PermitType.building_access: re.compile(r"\b(building\s+access|site\s+access|key\s+holder|access\s+control)\b", re.I),
-    PermitType.confined_space: re.compile(r"\b(confined\s+space|manhole|chamber|underground)\b", re.I),
-    PermitType.hot_works: re.compile(r"\b(hot\s+works?|welding|soldering|brazing|grinding)\b", re.I),
-    PermitType.height_works: re.compile(r"\b(height|elevated|ladder|scaffold|cherry\s+picker|aerial)\b", re.I),
+    PermitType.street_works: re.compile(
+        r"\b(street\s+works?|road\s+(closure|works?)|traffic\s+management)\b", re.I
+    ),
+    PermitType.building_access: re.compile(
+        r"\b(building\s+access|site\s+access|key\s+holder|access\s+control)\b", re.I
+    ),
+    PermitType.confined_space: re.compile(
+        r"\b(confined\s+space|manhole|chamber|underground)\b", re.I
+    ),
+    PermitType.hot_works: re.compile(
+        r"\b(hot\s+works?|welding|soldering|brazing|grinding)\b", re.I
+    ),
+    PermitType.height_works: re.compile(
+        r"\b(height|elevated|ladder|scaffold|cherry\s+picker|aerial)\b", re.I
+    ),
 }
 
 _DATE_PATTERN = re.compile(r"(\d{4}-\d{2}-\d{2})")
@@ -78,7 +93,7 @@ _SAFETY_EQUIPMENT = re.compile(
 )
 
 
-def _parse_date(text: str) -> Optional[date]:
+def _parse_date(text: str) -> date | None:
     """Extract first ISO date from text."""
     match = _DATE_PATTERN.search(text)
     if match:
@@ -89,7 +104,7 @@ def _parse_date(text: str) -> Optional[date]:
     return None
 
 
-def _parse_time(text: str) -> Optional[time]:
+def _parse_time(text: str) -> time | None:
     """Extract first HH:MM time from text."""
     match = _TIME_PATTERN.search(text)
     if match:
@@ -202,8 +217,14 @@ class WorkOrderParser:
         jobs: list[FieldJob] = []
 
         # Look for numbered task lists
-        task_pattern = re.compile(r"(?:^|\n)\s*(?:\d+[.)]\s*|-\s*)(.+?)(?=\n\s*(?:\d+[.)]\s*|-\s*)|\Z)", re.DOTALL)
-        task_section = re.search(r"(?:tasks?|jobs?|activities|steps?)\s*[:=]?\s*\n(.*?)(?:\n\n|\Z)", text, re.I | re.DOTALL)
+        task_pattern = re.compile(
+            r"(?:^|\n)\s*(?:\d+[.)]\s*|-\s*)(.+?)(?=\n\s*(?:\d+[.)]\s*|-\s*)|\Z)", re.DOTALL
+        )
+        task_section = re.search(
+            r"(?:tasks?|jobs?|activities|steps?)\s*[:=]?\s*\n(.*?)(?:\n\n|\Z)",
+            text,
+            re.I | re.DOTALL,
+        )
 
         if task_section:
             for match in task_pattern.finditer(task_section.group(1)):
@@ -236,7 +257,7 @@ class WorkOrderParser:
 
         return jobs
 
-    def _extract_field(self, text: str, field_name: str) -> Optional[str]:
+    def _extract_field(self, text: str, field_name: str) -> str | None:
         """Extract a named field from text."""
         pattern = _FIELD_PATTERNS.get(field_name)
         if pattern:
@@ -290,7 +311,9 @@ class PermitParser:
         for permit_type, pattern in _PERMIT_KEYWORDS.items():
             if pattern.search(text):
                 # Try to extract reference number
-                ref_match = re.search(r"(?:ref|reference|permit\s*#|number)\s*[:=]?\s*([\w\-/]+)", text, re.I)
+                ref_match = re.search(
+                    r"(?:ref|reference|permit\s*#|number)\s*[:=]?\s*([\w\-/]+)", text, re.I
+                )
                 ref = ref_match.group(1) if ref_match else None
 
                 # Try to extract status
@@ -304,7 +327,11 @@ class PermitParser:
 
                 # Extract conditions
                 conditions: list[str] = []
-                cond_match = re.search(r"(?:conditions?|restrictions?)\s*[:=]\s*(.+?)(?:\n\n|\Z)", text, re.I | re.DOTALL)
+                cond_match = re.search(
+                    r"(?:conditions?|restrictions?)\s*[:=]\s*(.+?)(?:\n\n|\Z)",
+                    text,
+                    re.I | re.DOTALL,
+                )
                 if cond_match:
                     for line in cond_match.group(1).strip().split("\n"):
                         line = line.strip().lstrip("-*# ")

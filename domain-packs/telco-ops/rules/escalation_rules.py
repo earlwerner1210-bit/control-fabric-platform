@@ -6,8 +6,7 @@ SLA timing, recurrence patterns, and cross-domain impact.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from ..schemas.telco_schemas import (
     EscalationDecision,
@@ -48,10 +47,8 @@ class EscalationRuleEngine:
         Returns:
             EscalationDecision with the recommended escalation level and reasoning.
         """
-        now = current_time or datetime.now(timezone.utc)
-        service_states = service_states or [
-            s for s in incident.affected_services
-        ]
+        now = current_time or datetime.now(UTC)
+        service_states = service_states or [s for s in incident.affected_services]
 
         decisions: list[EscalationDecision] = []
 
@@ -105,7 +102,7 @@ class EscalationRuleEngine:
     def _severity_escalation(
         self,
         incident: ParsedIncident,
-    ) -> Optional[EscalationDecision]:
+    ) -> EscalationDecision | None:
         """P1 incidents escalate to L2 minimum; P2 with outage to L2."""
         if incident.severity == IncidentSeverity.p1:
             return EscalationDecision(
@@ -116,9 +113,7 @@ class EscalationRuleEngine:
             )
 
         if incident.severity == IncidentSeverity.p2:
-            has_outage = any(
-                s.state == ServiceState.outage for s in incident.affected_services
-            )
+            has_outage = any(s.state == ServiceState.outage for s in incident.affected_services)
             if has_outage:
                 return EscalationDecision(
                     level=EscalationLevel.l2,
@@ -133,16 +128,16 @@ class EscalationRuleEngine:
         self,
         incident: ParsedIncident,
         now: datetime,
-    ) -> Optional[EscalationDecision]:
+    ) -> EscalationDecision | None:
         """Escalate when SLA response or resolution targets are at risk."""
         if not incident.reported_at:
             return None
 
         reported = incident.reported_at
         if reported.tzinfo is None:
-            reported = reported.replace(tzinfo=timezone.utc)
+            reported = reported.replace(tzinfo=UTC)
         if now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
+            now = now.replace(tzinfo=UTC)
 
         elapsed_minutes = (now - reported).total_seconds() / 60
         resolution_target = incident.severity.sla_resolution_minutes
@@ -201,7 +196,7 @@ class EscalationRuleEngine:
     def _repeated_incident(
         self,
         incident: ParsedIncident,
-    ) -> Optional[EscalationDecision]:
+    ) -> EscalationDecision | None:
         """Recurring incidents escalate for root cause analysis."""
         if not incident.is_recurring:
             return None
@@ -234,11 +229,9 @@ class EscalationRuleEngine:
         self,
         incident: ParsedIncident,
         service_states: list[ServiceStateMapping],
-    ) -> Optional[EscalationDecision]:
+    ) -> EscalationDecision | None:
         """Incidents affecting multiple services or large customer bases escalate."""
-        impacted_services = [
-            s for s in service_states if s.state.is_impacted
-        ]
+        impacted_services = [s for s in service_states if s.state.is_impacted]
         total_customers = sum(s.affected_customers for s in impacted_services)
 
         if len(impacted_services) >= 3:

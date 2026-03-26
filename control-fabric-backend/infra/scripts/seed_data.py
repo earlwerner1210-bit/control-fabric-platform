@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Hard-coded seed IDs for deterministic test references
@@ -24,7 +24,7 @@ DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/control_fa
 async def seed(session: AsyncSession) -> None:
     """Insert sample records if they do not already exist."""
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # ── Tenant ────────────────────────────────────────────────────────────
     exists = await session.execute(
@@ -67,9 +67,7 @@ async def seed(session: AsyncSession) -> None:
         print(f"  Inserted role: admin ({SEED_ADMIN_ROLE_ID})")
 
     # ── User ──────────────────────────────────────────────────────────────
-    exists = await session.execute(
-        text("SELECT 1 FROM users WHERE id = :id"), {"id": SEED_USER_ID}
-    )
+    exists = await session.execute(text("SELECT 1 FROM users WHERE id = :id"), {"id": SEED_USER_ID})
     if exists.scalar() is None:
         # bcrypt hash of "password123"
         hashed = "$2b$12$LJ3m4ys2gOPveC0gN2kn1.Y9bJm7P1pWqF6Lb/nGg7nRzDmS0qS3e"
@@ -91,9 +89,7 @@ async def seed(session: AsyncSession) -> None:
 
         # Link user -> role
         await session.execute(
-            text(
-                "INSERT INTO user_roles (user_id, role_id) VALUES (:uid, :rid)"
-            ),
+            text("INSERT INTO user_roles (user_id, role_id) VALUES (:uid, :rid)"),
             {"uid": SEED_USER_ID, "rid": SEED_ADMIN_ROLE_ID},
         )
         print("  Linked user -> admin role")
@@ -108,9 +104,7 @@ async def seed(session: AsyncSession) -> None:
     ]
     for pack_name, version, description in packs:
         exists = await session.execute(
-            text(
-                "SELECT 1 FROM domain_pack_versions WHERE pack_name = :pn AND version = :v"
-            ),
+            text("SELECT 1 FROM domain_pack_versions WHERE pack_name = :pn AND version = :v"),
             {"pn": pack_name, "v": version},
         )
         if exists.scalar() is None:

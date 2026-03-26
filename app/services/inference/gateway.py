@@ -76,7 +76,9 @@ class InferenceGateway:
         start = time.monotonic()
         result = await self.provider.summarize(text, system_prompt)
         latency = int((time.monotonic() - start) * 1000)
-        await self._log_run(tenant_id, "summarize", workflow_case_id, {"summary": result}, latency, True)
+        await self._log_run(
+            tenant_id, "summarize", workflow_case_id, {"summary": result}, latency, True
+        )
         return result
 
     async def classify(
@@ -104,7 +106,9 @@ class InferenceGateway:
         start = time.monotonic()
         result = await self.provider.explain(context, question, system_prompt)
         latency = int((time.monotonic() - start) * 1000)
-        await self._log_run(tenant_id, "explain", workflow_case_id, {"explanation": result}, latency, True)
+        await self._log_run(
+            tenant_id, "explain", workflow_case_id, {"explanation": result}, latency, True
+        )
         return result
 
     async def _log_run(

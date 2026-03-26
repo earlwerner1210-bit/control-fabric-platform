@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import platform
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -52,7 +52,7 @@ async def system_info():
         environment=settings.ENVIRONMENT,
         python_version=sys.version,
         platform=platform.platform(),
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
     )
 
 
@@ -68,6 +68,7 @@ async def deep_health(
     db_healthy = True
     try:
         from sqlalchemy import text
+
         await db.execute(text("SELECT 1"))
     except Exception:
         db_healthy = False
@@ -79,7 +80,7 @@ async def deep_health(
             environment=settings.ENVIRONMENT,
             python_version=sys.version,
             platform=platform.platform(),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         ),
         database=DatabaseHealth(
             connected=db_healthy,
@@ -96,7 +97,7 @@ async def detailed_metrics(
 ):
     """Return detailed metrics snapshot."""
     return {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "metrics": metrics.snapshot(),
     }
 
@@ -107,5 +108,6 @@ async def clear_cache(
 ):
     """Clear application caches (settings, etc.)."""
     from app.core.config import get_settings
+
     get_settings.cache_clear()
-    return {"status": "cache_cleared", "timestamp": datetime.now(timezone.utc).isoformat()}
+    return {"status": "cache_cleared", "timestamp": datetime.now(UTC).isoformat()}

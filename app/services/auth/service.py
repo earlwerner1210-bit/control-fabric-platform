@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -18,8 +19,8 @@ from app.core.exceptions import (
     ConflictError,
     NotFoundError,
 )
-from app.core.security import TokenPayload, TenantContext, create_access_token
-from app.db.models import User, Tenant
+from app.core.security import TokenPayload
+from app.db.models import User
 
 _pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -108,11 +109,8 @@ class AuthService:
         Token payload contains: sub (user_id), tenant_id, roles, exp, iat, jti.
         Default expiry is read from ``JWT_EXPIRATION_MINUTES`` (default 60 min).
         """
-        now = datetime.now(timezone.utc)
-        expire = now + (
-            expires_delta
-            or timedelta(minutes=self._settings.JWT_EXPIRATION_MINUTES)
-        )
+        now = datetime.now(UTC)
+        expire = now + (expires_delta or timedelta(minutes=self._settings.JWT_EXPIRATION_MINUTES))
         payload: dict[str, Any] = {
             "sub": user_id,
             "tenant_id": tenant_id,
@@ -209,9 +207,7 @@ class AuthService:
         async def _check(token: str) -> TokenPayload:
             payload = self.verify_token(token)
             if required_role not in payload.roles:
-                raise AuthorizationError(
-                    f"Role '{required_role}' is required for this operation"
-                )
+                raise AuthorizationError(f"Role '{required_role}' is required for this operation")
             return payload
 
         return _check

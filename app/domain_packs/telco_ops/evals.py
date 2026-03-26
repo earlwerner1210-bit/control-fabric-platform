@@ -84,8 +84,18 @@ TELCO_OPS_EVAL_CASES = [
                 "tags": ["sla_breach"],
                 "created_at": "2026-03-25T06:00:00Z",
                 "timeline": [
-                    {"timestamp": "2026-03-25T06:00:00Z", "event_type": "created", "actor": "monitoring", "description": "Incident created"},
-                    {"timestamp": "2026-03-25T10:05:00Z", "event_type": "sla_breach", "actor": "system", "description": "SLA breached at 245 min"},
+                    {
+                        "timestamp": "2026-03-25T06:00:00Z",
+                        "event_type": "created",
+                        "actor": "monitoring",
+                        "description": "Incident created",
+                    },
+                    {
+                        "timestamp": "2026-03-25T10:05:00Z",
+                        "event_type": "sla_breach",
+                        "actor": "system",
+                        "description": "SLA breached at 245 min",
+                    },
                 ],
             },
             "sla_breached": True,
@@ -124,9 +134,27 @@ TELCO_OPS_EVAL_CASES = [
                     "applicable_services": ["dns_resolver"],
                     "applicable_severity": ["p2", "p3"],
                     "steps": [
-                        {"step_number": 1, "action": "Check DNS service health", "expected_result": "Service status returned", "automated": True, "timeout_minutes": 5},
-                        {"step_number": 2, "action": "Flush DNS cache", "expected_result": "Cache cleared", "automated": True, "timeout_minutes": 3},
-                        {"step_number": 3, "action": "Verify upstream resolvers", "expected_result": "All resolvers responding", "automated": False, "timeout_minutes": 10},
+                        {
+                            "step_number": 1,
+                            "action": "Check DNS service health",
+                            "expected_result": "Service status returned",
+                            "automated": True,
+                            "timeout_minutes": 5,
+                        },
+                        {
+                            "step_number": 2,
+                            "action": "Flush DNS cache",
+                            "expected_result": "Cache cleared",
+                            "automated": True,
+                            "timeout_minutes": 3,
+                        },
+                        {
+                            "step_number": 3,
+                            "action": "Verify upstream resolvers",
+                            "expected_result": "All resolvers responding",
+                            "automated": False,
+                            "timeout_minutes": 10,
+                        },
                     ],
                     "estimated_time_minutes": 20,
                     "success_rate": 0.85,
@@ -386,10 +414,30 @@ TELCO_OPS_EVAL_CASES = [
                 "tags": ["outage", "major_incident"],
                 "created_at": "2026-03-25T01:00:00Z",
                 "timeline": [
-                    {"timestamp": "2026-03-25T01:00:00Z", "event_type": "created", "actor": "monitoring", "description": "Incident auto-created by NMS"},
-                    {"timestamp": "2026-03-25T01:10:00Z", "event_type": "acknowledged", "actor": "noc_operator", "description": "Acknowledged by NOC"},
-                    {"timestamp": "2026-03-25T01:30:00Z", "event_type": "escalation", "actor": "system", "description": "Escalated to L3"},
-                    {"timestamp": "2026-03-25T06:00:00Z", "event_type": "sla_breach", "actor": "system", "description": "Resolution SLA breached at 300 min"},
+                    {
+                        "timestamp": "2026-03-25T01:00:00Z",
+                        "event_type": "created",
+                        "actor": "monitoring",
+                        "description": "Incident auto-created by NMS",
+                    },
+                    {
+                        "timestamp": "2026-03-25T01:10:00Z",
+                        "event_type": "acknowledged",
+                        "actor": "noc_operator",
+                        "description": "Acknowledged by NOC",
+                    },
+                    {
+                        "timestamp": "2026-03-25T01:30:00Z",
+                        "event_type": "escalation",
+                        "actor": "system",
+                        "description": "Escalated to L3",
+                    },
+                    {
+                        "timestamp": "2026-03-25T06:00:00Z",
+                        "event_type": "sla_breach",
+                        "actor": "system",
+                        "description": "Resolution SLA breached at 300 min",
+                    },
                 ],
             },
             "service_domain": "core_network",
@@ -416,9 +464,7 @@ TELCO_OPS_EVAL_CASES = [
         "name": "vodafone_closure_blocked_no_rca",
         "domain": "telco_ops",
         "workflow_type": "vodafone_managed_services",
-        "description": (
-            "P1 incident resolved but RCA not submitted — closure should be blocked"
-        ),
+        "description": ("P1 incident resolved but RCA not submitted — closure should be blocked"),
         "input_payload": {
             "incident": {
                 "incident_id": "VF-INC-004",
@@ -432,9 +478,17 @@ TELCO_OPS_EVAL_CASES = [
             },
             "closure_gates": [
                 {"prerequisite": "service_restored", "satisfied": True, "evidence_ref": "SR-001"},
-                {"prerequisite": "customer_notified", "satisfied": True, "evidence_ref": "COMMS-001"},
+                {
+                    "prerequisite": "customer_notified",
+                    "satisfied": True,
+                    "evidence_ref": "COMMS-001",
+                },
                 {"prerequisite": "rca_submitted", "satisfied": False, "evidence_ref": ""},
-                {"prerequisite": "problem_record_created", "satisfied": True, "evidence_ref": "PRB-001"},
+                {
+                    "prerequisite": "problem_record_created",
+                    "satisfied": True,
+                    "evidence_ref": "PRB-001",
+                },
             ],
             "major_incident": {
                 "incident_id": "VF-INC-004",
@@ -497,9 +551,7 @@ TELCO_OPS_EVAL_CASES = [
         "name": "vodafone_dispatch_software_remote_first",
         "domain": "telco_ops",
         "workflow_type": "vodafone_managed_services",
-        "description": (
-            "Software bug should require remote remediation before dispatch"
-        ),
+        "description": ("Software bug should require remote remediation before dispatch"),
         "input_payload": {
             "incident": {
                 "incident_id": "VF-INC-006",
@@ -576,8 +628,7 @@ TELCO_OPS_EVAL_CASES = [
         "domain": "telco_ops",
         "workflow_type": "vodafone_managed_services",
         "description": (
-            "Fibre cut should trigger immediate dispatch with NRSWA "
-            "permit coordination"
+            "Fibre cut should trigger immediate dispatch with NRSWA permit coordination"
         ),
         "input_payload": {
             "incident": {

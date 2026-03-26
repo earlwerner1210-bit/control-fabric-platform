@@ -1,8 +1,8 @@
 """Contract margin domain pack schemas."""
 
 from app.domain_packs.contract_margin.schemas.contract import (
-    BillableCategory,
     BillabilityDecision,
+    BillableCategory,
     BillableEvent,
     ClauseSegment,
     ClauseType,
@@ -25,8 +25,8 @@ from app.domain_packs.contract_margin.schemas.contract import (
 )
 
 __all__ = [
-    "BillableCategory",
     "BillabilityDecision",
+    "BillableCategory",
     "BillableEvent",
     "ClauseSegment",
     "ClauseType",
@@ -43,7 +43,7 @@ __all__ = [
     "PriorityLevel",
     "RateCardEntry",
     "RecoveryType",
+    "SLAEntry",
     "ScopeBoundary",
     "ScopeType",
-    "SLAEntry",
 ]

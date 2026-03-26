@@ -6,9 +6,6 @@ representation suitable for reports, LLM context, or audit logs.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional
-
 from ..schemas.contract_schemas import (
     MarginLeakageDiagnosis,
     ObligationRegister,
@@ -34,7 +31,9 @@ class ContractSummaryTemplate:
         lines.append("")
         lines.append(f"**Contract ID:** {contract.contract_id}")
         lines.append(f"**Type:** {contract.contract_type.value}")
-        lines.append(f"**Parties:** {', '.join(contract.parties) if contract.parties else 'Not specified'}")
+        lines.append(
+            f"**Parties:** {', '.join(contract.parties) if contract.parties else 'Not specified'}"
+        )
 
         if contract.effective_date:
             lines.append(f"**Effective Date:** {contract.effective_date.isoformat()}")
@@ -58,7 +57,9 @@ class ContractSummaryTemplate:
             lines.append("")
             lines.append("## SLA Targets")
             for sla in contract.sla_entries:
-                lines.append(f"- {sla.metric_name}: {sla.target_value}{sla.unit} ({sla.measurement_period})")
+                lines.append(
+                    f"- {sla.metric_name}: {sla.target_value}{sla.unit} ({sla.measurement_period})"
+                )
 
         if contract.rate_card:
             lines.append("")
@@ -75,7 +76,9 @@ class ContractSummaryTemplate:
                     amount_str = f" ({penalty.currency} {penalty.amount:,.2f})"
                 elif penalty.amount_formula:
                     amount_str = f" ({penalty.amount_formula})"
-                lines.append(f"- [{penalty.penalty_type}]{amount_str}: {penalty.trigger_condition[:120]}")
+                lines.append(
+                    f"- [{penalty.penalty_type}]{amount_str}: {penalty.trigger_condition[:120]}"
+                )
 
         return "\n".join(lines)
 
@@ -99,8 +102,8 @@ class ObligationRegisterTemplate:
         lines.append(f"**Contracts:** {', '.join(register.contract_ids)}")
         lines.append(f"**Generated:** {register.generated_at.strftime('%Y-%m-%d %H:%M UTC')}")
         lines.append("")
-        lines.append(f"| Status | Count |")
-        lines.append(f"|--------|-------|")
+        lines.append("| Status | Count |")
+        lines.append("|--------|-------|")
         lines.append(f"| Open   | {register.total_open} |")
         lines.append(f"| Met    | {register.total_met} |")
         lines.append(f"| Breached | {register.total_breached} |")
@@ -110,11 +113,16 @@ class ObligationRegisterTemplate:
             lines.append("## Obligations")
             lines.append("")
             for ob in register.obligations:
-                status_marker = {"open": "[ ]", "met": "[x]", "breached": "[!]", "waived": "[-]"}.get(
-                    ob.status, "[ ]"
-                )
+                status_marker = {
+                    "open": "[ ]",
+                    "met": "[x]",
+                    "breached": "[!]",
+                    "waived": "[-]",
+                }.get(ob.status, "[ ]")
                 due_str = f" (due: {ob.due_date.isoformat()})" if ob.due_date else ""
-                lines.append(f"- {status_marker} **{ob.obligation_id}** — {ob.obligated_party}: {ob.description[:150]}{due_str}")
+                lines.append(
+                    f"- {status_marker} **{ob.obligation_id}** — {ob.obligated_party}: {ob.description[:150]}{due_str}"
+                )
 
         return "\n".join(lines)
 
@@ -125,7 +133,7 @@ class MarginReportTemplate:
     def render(
         self,
         diagnosis: MarginLeakageDiagnosis,
-        penalty_summary: Optional[PenaltyExposureSummary] = None,
+        penalty_summary: PenaltyExposureSummary | None = None,
     ) -> str:
         """Render a margin diagnosis into a structured report.
 
@@ -171,10 +179,14 @@ class MarginReportTemplate:
             lines.append("## Recovery Recommendations")
             lines.append("")
             for idx, rec in enumerate(diagnosis.recovery_recommendations, 1):
-                lines.append(f"### {idx}. {rec.driver.value.replace('_', ' ').title()} [{rec.priority.upper()}]")
+                lines.append(
+                    f"### {idx}. {rec.driver.value.replace('_', ' ').title()} [{rec.priority.upper()}]"
+                )
                 lines.append(f"**Action:** {rec.action}")
                 if rec.estimated_recovery is not None:
-                    lines.append(f"**Estimated Recovery:** {rec.currency} {rec.estimated_recovery:,.2f}")
+                    lines.append(
+                        f"**Estimated Recovery:** {rec.currency} {rec.estimated_recovery:,.2f}"
+                    )
                 lines.append("")
 
         if penalty_summary:

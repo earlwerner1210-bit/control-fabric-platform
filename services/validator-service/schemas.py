@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 from shared.schemas.common import BaseSchema
-from shared.schemas.validation import ValidationResultResponse, ValidationRuleResult
+from shared.schemas.validation import ValidationResultResponse
 
 
 class ValidateRequest(BaseModel):

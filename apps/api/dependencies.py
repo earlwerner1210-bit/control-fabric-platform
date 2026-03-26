@@ -12,7 +12,6 @@ from shared.config import get_settings
 from shared.db.base import async_session_factory
 from shared.security.auth import decode_token
 
-
 # ── Database dependency ───────────────────────────────────────────────────
 
 

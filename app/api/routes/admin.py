@@ -9,11 +9,10 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps.auth import get_current_user, require_role
+from app.api.deps.auth import get_current_user
 from app.core.security import TenantContext
 from app.db.models import DomainPackVersion, ModelRun, PromptTemplate
 from app.db.session import get_db
-from app.schemas.common import PaginatedResponse
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -56,7 +55,9 @@ async def update_prompt(
     ctx: TenantContext = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(PromptTemplate).where(PromptTemplate.id == prompt_id, PromptTemplate.tenant_id == ctx.tenant_id)
+        select(PromptTemplate).where(
+            PromptTemplate.id == prompt_id, PromptTemplate.tenant_id == ctx.tenant_id
+        )
     )
     prompt = result.scalar_one_or_none()
     if not prompt:
@@ -75,7 +76,10 @@ async def update_prompt(
 @router.get("/domain-packs")
 async def list_domain_packs(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(DomainPackVersion).order_by(DomainPackVersion.pack_name))
-    return [{"id": str(p.id), "pack_name": p.pack_name, "version": p.version, "is_active": p.is_active} for p in result.scalars().all()]
+    return [
+        {"id": str(p.id), "pack_name": p.pack_name, "version": p.version, "is_active": p.is_active}
+        for p in result.scalars().all()
+    ]
 
 
 @router.get("/model-runs")
@@ -85,7 +89,11 @@ async def list_model_runs(
     db: AsyncSession = Depends(get_db),
     ctx: TenantContext = Depends(get_current_user),
 ):
-    stmt = select(ModelRun).where(ModelRun.tenant_id == ctx.tenant_id).order_by(ModelRun.created_at.desc())
+    stmt = (
+        select(ModelRun)
+        .where(ModelRun.tenant_id == ctx.tenant_id)
+        .order_by(ModelRun.created_at.desc())
+    )
     stmt = stmt.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(stmt)
     runs = result.scalars().all()

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -37,7 +37,7 @@ def _make_audit_event(
         payload=payload,
     )
     # Manually set created_at since it's normally set by the DB
-    event.created_at = created_at or datetime.now(timezone.utc)
+    event.created_at = created_at or datetime.now(UTC)
     return event
 
 
@@ -141,22 +141,34 @@ class TestGetWorkflowTimelineOrdered:
     @pytest.mark.asyncio
     async def test_get_workflow_timeline_ordered(self, svc, mock_db, tenant_id, case_id):
         """get_workflow_timeline should return events ordered by timestamp."""
-        t1 = datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
-        t2 = datetime(2026, 1, 1, 10, 5, 0, tzinfo=timezone.utc)
-        t3 = datetime(2026, 1, 1, 10, 10, 0, tzinfo=timezone.utc)
+        t1 = datetime(2026, 1, 1, 10, 0, 0, tzinfo=UTC)
+        t2 = datetime(2026, 1, 1, 10, 5, 0, tzinfo=UTC)
+        t3 = datetime(2026, 1, 1, 10, 10, 0, tzinfo=UTC)
 
         events = [
             _make_audit_event(
-                event_type="started", case_id=case_id, tenant_id=tenant_id,
-                payload={"stage": "ingestion"}, detail="Started", created_at=t1,
+                event_type="started",
+                case_id=case_id,
+                tenant_id=tenant_id,
+                payload={"stage": "ingestion"},
+                detail="Started",
+                created_at=t1,
             ),
             _make_audit_event(
-                event_type="compiled", case_id=case_id, tenant_id=tenant_id,
-                payload={"stage": "compilation"}, detail="Compiled", created_at=t2,
+                event_type="compiled",
+                case_id=case_id,
+                tenant_id=tenant_id,
+                payload={"stage": "compilation"},
+                detail="Compiled",
+                created_at=t2,
             ),
             _make_audit_event(
-                event_type="validated", case_id=case_id, tenant_id=tenant_id,
-                payload={"stage": "validation"}, detail="Validated", created_at=t3,
+                event_type="validated",
+                case_id=case_id,
+                tenant_id=tenant_id,
+                payload={"stage": "validation"},
+                detail="Validated",
+                created_at=t3,
             ),
         ]
 
@@ -185,8 +197,11 @@ class TestTimelineFiltersByTenant:
 
         # Only the target tenant's event should be returned by the query
         target_event = _make_audit_event(
-            event_type="started", case_id=case_id, tenant_id=target_tenant,
-            payload={"stage": "ingestion"}, detail="Started",
+            event_type="started",
+            case_id=case_id,
+            tenant_id=target_tenant,
+            payload={"stage": "ingestion"},
+            detail="Started",
         )
 
         mock_result = MagicMock()
@@ -226,12 +241,16 @@ class TestMultipleEventsSameCase:
     async def test_multiple_events_same_case(self, svc, mock_db, tenant_id, case_id):
         """Multiple events for the same case should each be persisted."""
         e1 = await svc.log_workflow_event(
-            tenant_id=tenant_id, case_id=case_id,
-            event_type="started", stage="ingestion",
+            tenant_id=tenant_id,
+            case_id=case_id,
+            event_type="started",
+            stage="ingestion",
         )
         e2 = await svc.log_workflow_event(
-            tenant_id=tenant_id, case_id=case_id,
-            event_type="completed", stage="validation",
+            tenant_id=tenant_id,
+            case_id=case_id,
+            event_type="completed",
+            stage="validation",
         )
 
         assert e1.workflow_case_id == case_id
@@ -249,25 +268,32 @@ class TestAuditEventActorTypes:
 
         # System actor (default)
         e1 = await svc.log_workflow_event(
-            tenant_id=tenant_id, case_id=case_id,
-            event_type="auto_check", stage="validation",
+            tenant_id=tenant_id,
+            case_id=case_id,
+            event_type="auto_check",
+            stage="validation",
         )
         assert e1.actor_type == "system"
         assert e1.actor_id is None
 
         # User actor
         e2 = await svc.log_workflow_event(
-            tenant_id=tenant_id, case_id=case_id,
-            event_type="manual_review", stage="review",
-            actor_id=user_id, actor_type="user",
+            tenant_id=tenant_id,
+            case_id=case_id,
+            event_type="manual_review",
+            stage="review",
+            actor_id=user_id,
+            actor_type="user",
         )
         assert e2.actor_type == "user"
         assert e2.actor_id == user_id
 
         # Workflow actor
         e3 = await svc.log_workflow_event(
-            tenant_id=tenant_id, case_id=case_id,
-            event_type="step_complete", stage="compilation",
+            tenant_id=tenant_id,
+            case_id=case_id,
+            event_type="step_complete",
+            stage="compilation",
             actor_type="workflow",
         )
         assert e3.actor_type == "workflow"

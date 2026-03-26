@@ -91,7 +91,9 @@ class CanonicalizationService:
         )
         self.db.add(entity)
         await self.db.flush()
-        logger.info("Registered entity %s (%s) for tenant %s", canonical_name, entity_type, tenant_id)
+        logger.info(
+            "Registered entity %s (%s) for tenant %s", canonical_name, entity_type, tenant_id
+        )
         return entity
 
     async def merge_entities(
@@ -99,18 +101,26 @@ class CanonicalizationService:
     ) -> CanonicalEntity:
         """Merge source entity into target, combining aliases."""
         source_result = await self.db.execute(
-            select(CanonicalEntity).where(CanonicalEntity.id == source_id, CanonicalEntity.tenant_id == tenant_id)
+            select(CanonicalEntity).where(
+                CanonicalEntity.id == source_id, CanonicalEntity.tenant_id == tenant_id
+            )
         )
         source = source_result.scalar_one_or_none()
         if not source:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source entity not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Source entity not found"
+            )
 
         target_result = await self.db.execute(
-            select(CanonicalEntity).where(CanonicalEntity.id == target_id, CanonicalEntity.tenant_id == tenant_id)
+            select(CanonicalEntity).where(
+                CanonicalEntity.id == target_id, CanonicalEntity.tenant_id == tenant_id
+            )
         )
         target = target_result.scalar_one_or_none()
         if not target:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target entity not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Target entity not found"
+            )
 
         source_aliases = source.aliases if isinstance(source.aliases, list) else []
         target_aliases = target.aliases if isinstance(target.aliases, list) else []
@@ -125,7 +135,9 @@ class CanonicalizationService:
     async def get_entity(self, entity_id: uuid.UUID, tenant_id: uuid.UUID) -> CanonicalEntity:
         """Get a single entity by ID."""
         result = await self.db.execute(
-            select(CanonicalEntity).where(CanonicalEntity.id == entity_id, CanonicalEntity.tenant_id == tenant_id)
+            select(CanonicalEntity).where(
+                CanonicalEntity.id == entity_id, CanonicalEntity.tenant_id == tenant_id
+            )
         )
         entity = result.scalar_one_or_none()
         if not entity:

@@ -26,7 +26,9 @@ class MLXProvider(BaseInferenceProvider):
         max_tokens: int = 2048,
         temperature: float = 0.1,
     ) -> dict[str, Any]:
-        raise NotImplementedError("MLX provider not yet implemented. Set INFERENCE_PROVIDER=vllm or fake.")
+        raise NotImplementedError(
+            "MLX provider not yet implemented. Set INFERENCE_PROVIDER=vllm or fake."
+        )
 
     async def summarize(self, text: str, system_prompt: str | None = None) -> str:
         raise NotImplementedError("MLX provider not yet implemented.")

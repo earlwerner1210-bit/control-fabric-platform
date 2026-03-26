@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import select, text as sql_text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -44,7 +44,9 @@ class Citation:
 
 
 class RetrievalService:
-    def __init__(self, db: AsyncSession, embedding_provider: EmbeddingProvider | None = None) -> None:
+    def __init__(
+        self, db: AsyncSession, embedding_provider: EmbeddingProvider | None = None
+    ) -> None:
         self.db = db
         self.embedding_provider = embedding_provider or get_embedding_provider()
 
@@ -138,8 +140,12 @@ class RetrievalService:
         document_ids: list[uuid.UUID] | None = None,
     ) -> list[RetrievalResult]:
         """Reciprocal Rank Fusion of keyword + vector results."""
-        keyword_results = await self.keyword_search(query, tenant_id, top_k * 2, document_type, document_ids)
-        vector_results = await self.vector_search(query, tenant_id, top_k * 2, document_type, document_ids)
+        keyword_results = await self.keyword_search(
+            query, tenant_id, top_k * 2, document_type, document_ids
+        )
+        vector_results = await self.vector_search(
+            query, tenant_id, top_k * 2, document_type, document_ids
+        )
 
         # RRF with k=60
         k = 60
@@ -221,9 +227,7 @@ class RetrievalService:
         """Retrieve the most relevant chunks from a single document."""
         # Use the tenant_id from the first matching chunk (scoped to document)
         result = await self.db.execute(
-            select(DocumentChunk.tenant_id)
-            .where(DocumentChunk.document_id == document_id)
-            .limit(1)
+            select(DocumentChunk.tenant_id).where(DocumentChunk.document_id == document_id).limit(1)
         )
         row = result.scalar_one_or_none()
         if row is None:

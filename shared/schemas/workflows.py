@@ -11,7 +11,6 @@ from pydantic import Field
 
 from shared.schemas.common import BaseSchema
 
-
 # ── Enums ──────────────────────────────────────────────────────────────
 
 

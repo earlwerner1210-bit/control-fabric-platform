@@ -6,8 +6,6 @@ including state transitions, runbook application, and owner assignment.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from ..schemas.telco_schemas import (
     NextAction,
     ParsedIncident,
@@ -16,7 +14,6 @@ from ..schemas.telco_schemas import (
     ServiceStateMapping,
 )
 from ..taxonomy.telco_taxonomy import (
-    EscalationLevel,
     IncidentSeverity,
     IncidentState,
     ServiceState,
@@ -101,7 +98,7 @@ class ActionRuleEngine:
         self,
         incident: ParsedIncident,
         service_states: list[ServiceStateMapping],
-    ) -> Optional[NextAction]:
+    ) -> NextAction | None:
         """Recommend the next valid state transition."""
         valid_next = incident.state.valid_transitions()
         if not valid_next:
@@ -130,10 +127,14 @@ class ActionRuleEngine:
 
         if current == IncidentState.investigating:
             # Check if services are restored
-            all_restored = all(
-                s.state in (ServiceState.active, ServiceState.maintenance)
-                for s in service_states
-            ) if service_states else False
+            all_restored = (
+                all(
+                    s.state in (ServiceState.active, ServiceState.maintenance)
+                    for s in service_states
+                )
+                if service_states
+                else False
+            )
 
             if all_restored or incident.root_cause:
                 return NextAction(
@@ -170,12 +171,12 @@ class ActionRuleEngine:
         self,
         incident: ParsedIncident,
         runbooks: list[ParsedRunbook],
-    ) -> Optional[RunbookRecommendation]:
+    ) -> RunbookRecommendation | None:
         """Find the most relevant runbook for the incident."""
         if not runbooks:
             return None
 
-        best_match: Optional[RunbookRecommendation] = None
+        best_match: RunbookRecommendation | None = None
         best_score = 0.0
 
         for rb in runbooks:
@@ -206,7 +207,16 @@ class ActionRuleEngine:
             # Title similarity (simple keyword overlap)
             incident_words = set(incident.title.lower().split())
             rb_words = set(rb.title.lower().split())
-            word_overlap = incident_words & rb_words - {"the", "a", "an", "is", "in", "on", "for", "of"}
+            word_overlap = incident_words & rb_words - {
+                "the",
+                "a",
+                "an",
+                "is",
+                "in",
+                "on",
+                "for",
+                "of",
+            }
             if len(word_overlap) >= 2:
                 score += 0.1
                 criteria.append(f"title keyword match: {', '.join(word_overlap)}")
@@ -226,7 +236,7 @@ class ActionRuleEngine:
     def _owner_assigned(
         self,
         incident: ParsedIncident,
-    ) -> Optional[NextAction]:
+    ) -> NextAction | None:
         """Check if the incident has an assigned owner."""
         if incident.state.is_active and not incident.assigned_to:
             priority = self._severity_to_priority(incident.severity)

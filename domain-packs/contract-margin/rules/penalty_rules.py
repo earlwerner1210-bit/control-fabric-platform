@@ -6,11 +6,9 @@ evaluating SLA compliance, obligation fulfilment, and penalty conditions.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 from ..schemas.contract_schemas import (
-    Obligation,
     ParsedContract,
     PenaltyCondition,
     PenaltyExposureSummary,
@@ -45,7 +43,7 @@ class PenaltyEvaluation:
     penalty: PenaltyCondition
     triggered: bool
     reason: str
-    estimated_amount: Optional[float] = None
+    estimated_amount: float | None = None
     mitigated: bool = False
     mitigation_notes: str = ""
 
@@ -88,7 +86,7 @@ class PenaltyRuleEngine:
         )
 
         # Find highest risk penalty
-        highest_risk: Optional[PenaltyCondition] = None
+        highest_risk: PenaltyCondition | None = None
         highest_amount = 0.0
         for e in triggered:
             amt = e.estimated_amount or 0.0
@@ -161,9 +159,7 @@ class PenaltyRuleEngine:
 
         # Rule: penalty-to-contract-value ratio
         if contract.total_value and contract.total_value > 0:
-            total_penalty_amount = sum(
-                p.amount for p in contract.penalties if p.amount is not None
-            )
+            total_penalty_amount = sum(p.amount for p in contract.penalties if p.amount is not None)
             ratio = total_penalty_amount / contract.total_value
             results.append(
                 RuleResult(
@@ -265,7 +261,7 @@ class PenaltyRuleEngine:
         self,
         contract: ParsedContract,
         sla: SLAEntry,
-    ) -> Optional[PenaltyCondition]:
+    ) -> PenaltyCondition | None:
         """Find a penalty condition linked to a specific SLA entry."""
         if sla.penalty_on_breach:
             # Try to match penalty by description

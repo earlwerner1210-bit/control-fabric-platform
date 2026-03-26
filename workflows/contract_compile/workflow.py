@@ -9,6 +9,7 @@ from typing import Any
 @dataclass
 class ContractCompileResult:
     """Result of a contract compile workflow run."""
+
     case_id: str
     document_id: str
     control_objects_created: int = 0
@@ -79,11 +80,13 @@ class ContractCompileWorkflow:
         # Step 2: Validate
         if self.validator:
             try:
-                validation_result = self.validator.validate({
-                    "case_id": case_id,
-                    "document_id": document_id,
-                    "control_objects_created": control_objects_created,
-                })
+                validation_result = self.validator.validate(
+                    {
+                        "case_id": case_id,
+                        "document_id": document_id,
+                        "control_objects_created": control_objects_created,
+                    }
+                )
                 if hasattr(validation_result, "status"):
                     if validation_result.status.value == "warned":
                         warnings.append("Validation produced warnings")
@@ -105,8 +108,7 @@ class ContractCompileWorkflow:
                 pass
 
         summary = (
-            f"Compiled contract {document_id}: "
-            f"{control_objects_created} control objects created"
+            f"Compiled contract {document_id}: {control_objects_created} control objects created"
         )
 
         return ContractCompileResult(

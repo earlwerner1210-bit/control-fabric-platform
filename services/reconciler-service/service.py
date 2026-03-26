@@ -36,7 +36,9 @@ class ReconcilerService:
         )
         objects = list(result.scalars().all())
         if not objects:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No control objects found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="No control objects found"
+            )
 
         contradictions = self.detect_contradictions(objects)
         leakage = self.detect_leakage(objects)
@@ -45,7 +47,10 @@ class ReconcilerService:
 
         logger.info(
             "Reconciled case %s: %d objects, %d contradictions, %d leakage items",
-            case_id, len(objects), len(contradictions), len(leakage),
+            case_id,
+            len(objects),
+            len(contradictions),
+            len(leakage),
         )
 
         return {
@@ -72,14 +77,16 @@ class ReconcilerService:
                     and a.control_type == b.control_type
                     and a.payload != b.payload
                 ):
-                    contradictions.append({
-                        "object_a_id": a.id,
-                        "object_b_id": b.id,
-                        "field": "payload",
-                        "value_a": str(a.payload)[:200],
-                        "value_b": str(b.payload)[:200],
-                        "severity": "warning",
-                    })
+                    contradictions.append(
+                        {
+                            "object_a_id": a.id,
+                            "object_b_id": b.id,
+                            "field": "payload",
+                            "value_a": str(a.payload)[:200],
+                            "value_b": str(b.payload)[:200],
+                            "severity": "warning",
+                        }
+                    )
         return contradictions
 
     @staticmethod
@@ -90,17 +97,21 @@ class ReconcilerService:
             payload = obj.payload or {}
             if obj.control_type and obj.control_type.value == "billable_event":
                 if not payload.get("rate") and not payload.get("amount"):
-                    leakage.append({
-                        "object_id": obj.id,
-                        "description": f"Billable event '{obj.label}' has no rate or amount defined",
-                        "estimated_amount": None,
-                    })
+                    leakage.append(
+                        {
+                            "object_id": obj.id,
+                            "description": f"Billable event '{obj.label}' has no rate or amount defined",
+                            "estimated_amount": None,
+                        }
+                    )
             if obj.control_type and obj.control_type.value == "leakage_trigger":
-                leakage.append({
-                    "object_id": obj.id,
-                    "description": f"Leakage trigger detected: {obj.label}",
-                    "estimated_amount": payload.get("estimated_amount"),
-                })
+                leakage.append(
+                    {
+                        "object_id": obj.id,
+                        "description": f"Leakage trigger detected: {obj.label}",
+                        "estimated_amount": payload.get("estimated_amount"),
+                    }
+                )
         return leakage
 
     @staticmethod
@@ -127,27 +138,35 @@ class ReconcilerService:
         """Build actionable recommendations from findings."""
         recs: list[dict[str, str]] = []
         if contradictions:
-            recs.append({
-                "action": "Review contradicting control objects",
-                "reason": f"{len(contradictions)} contradiction(s) found between objects",
-                "priority": "high",
-            })
+            recs.append(
+                {
+                    "action": "Review contradicting control objects",
+                    "reason": f"{len(contradictions)} contradiction(s) found between objects",
+                    "priority": "high",
+                }
+            )
         if leakage:
-            recs.append({
-                "action": "Investigate potential leakage",
-                "reason": f"{len(leakage)} leakage item(s) detected",
-                "priority": "high",
-            })
+            recs.append(
+                {
+                    "action": "Investigate potential leakage",
+                    "reason": f"{len(leakage)} leakage item(s) detected",
+                    "priority": "high",
+                }
+            )
         if missing:
-            recs.append({
-                "action": "Add missing prerequisite objects",
-                "reason": "; ".join(missing),
-                "priority": "medium",
-            })
+            recs.append(
+                {
+                    "action": "Add missing prerequisite objects",
+                    "reason": "; ".join(missing),
+                    "priority": "medium",
+                }
+            )
         if not recs:
-            recs.append({
-                "action": "No issues found",
-                "reason": "All reconciliation checks passed",
-                "priority": "low",
-            })
+            recs.append(
+                {
+                    "action": "No issues found",
+                    "reason": "All reconciliation checks passed",
+                    "priority": "low",
+                }
+            )
         return recs

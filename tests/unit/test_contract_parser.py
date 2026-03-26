@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -27,7 +25,9 @@ def msa_data(sample_contract: dict[str, Any]) -> dict[str, Any]:
 class TestParseContract:
     """Tests for ContractParser.parse_contract."""
 
-    def test_parse_contract_returns_all_fields(self, parser: ContractParser, msa_data: dict[str, Any]):
+    def test_parse_contract_returns_all_fields(
+        self, parser: ContractParser, msa_data: dict[str, Any]
+    ):
         result = parser.parse_contract(msa_data)
         assert result["document_type"] == "master_services_agreement"
         assert result["title"] is not None
@@ -65,7 +65,9 @@ class TestExtractClauses:
         assert "penalty_details" in penalty
         assert penalty["penalty_details"]["penalty_percentage"] == 5.0
 
-    def test_extract_clause_obligation_details(self, parser: ContractParser, msa_data: dict[str, Any]):
+    def test_extract_clause_obligation_details(
+        self, parser: ContractParser, msa_data: dict[str, Any]
+    ):
         clauses = parser.extract_clauses(msa_data)
         obligation_clauses = [c for c in clauses if c["type"] == "obligation"]
         assert len(obligation_clauses) >= 1
@@ -113,7 +115,9 @@ class TestExtractRateCard:
         rate_card = parser.extract_rate_card(msa_data)
         assert len(rate_card) == 4
 
-    def test_extract_rate_card_standard_maintenance(self, parser: ContractParser, msa_data: dict[str, Any]):
+    def test_extract_rate_card_standard_maintenance(
+        self, parser: ContractParser, msa_data: dict[str, Any]
+    ):
         rate_card = parser.extract_rate_card(msa_data)
         standard = [r for r in rate_card if r["activity"] == "standard_maintenance"]
         assert len(standard) == 1
@@ -121,7 +125,9 @@ class TestExtractRateCard:
         assert standard[0]["currency"] == "USD"
         assert standard[0]["unit"] == "hour"
 
-    def test_extract_rate_card_all_rates_positive(self, parser: ContractParser, msa_data: dict[str, Any]):
+    def test_extract_rate_card_all_rates_positive(
+        self, parser: ContractParser, msa_data: dict[str, Any]
+    ):
         rate_card = parser.extract_rate_card(msa_data)
         for entry in rate_card:
             assert entry["rate"] > 0

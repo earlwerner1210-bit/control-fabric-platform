@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends
@@ -45,7 +45,7 @@ async def start_margin_diagnosis(
     metrics.increment("workflows.margin_diagnosis.started")
 
     case_id = uuid.uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     case_record: dict[str, Any] = {
         "id": str(case_id),
@@ -85,7 +85,9 @@ async def get_case(
 
     return WorkflowCaseResponse(
         id=uuid.UUID(case["id"]),
-        tenant_id=uuid.UUID(case["tenant_id"]) if isinstance(case["tenant_id"], str) else case["tenant_id"],
+        tenant_id=uuid.UUID(case["tenant_id"])
+        if isinstance(case["tenant_id"], str)
+        else case["tenant_id"],
         workflow_type=case["workflow_type"],
         status=case["status"],
         verdict=case.get("verdict"),
@@ -107,7 +109,7 @@ async def get_case_audit(
     if case is None:
         raise NotFoundError(detail=f"Case {case_id} not found")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     events = [
         AuditEventResponse(
             id=uuid.uuid4(),

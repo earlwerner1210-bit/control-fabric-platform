@@ -14,20 +14,18 @@ from app.domain_packs.contract_margin.rules import (
     ScopeConflictDetector,
 )
 from app.domain_packs.contract_margin.schemas import (
-    CommercialRecoveryRecommendation,
     LeakageTrigger,
     PenaltyCondition,
-    PenaltyExposureSummary,
     RateCardEntry,
     RecoveryType,
     ScopeBoundaryObject,
     ScopeType,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def engine() -> BillabilityRuleEngine:
@@ -49,6 +47,7 @@ def basic_obligations() -> list[dict]:
 # ===================================================================
 # Approval threshold check (Rule 4)
 # ===================================================================
+
 
 class TestApprovalThresholdCheck:
     """Tests for approval_threshold_check rule."""
@@ -105,10 +104,16 @@ class TestApprovalThresholdCheck:
 # Duplicate claim check (Rule 5)
 # ===================================================================
 
+
 class TestDuplicateClaimCheck:
     """Tests for duplicate_claim_check rule."""
 
-    def test_duplicate_found(self, engine: BillabilityRuleEngine, basic_rate_card: list[RateCardEntry], basic_obligations: list[dict]):
+    def test_duplicate_found(
+        self,
+        engine: BillabilityRuleEngine,
+        basic_rate_card: list[RateCardEntry],
+        basic_obligations: list[dict],
+    ):
         """Same activity on same date is a duplicate."""
         result = engine.evaluate(
             activity="standard_maintenance",
@@ -120,7 +125,12 @@ class TestDuplicateClaimCheck:
         assert result.billable is False
         assert any("Duplicate claim" in r for r in result.reasons)
 
-    def test_no_duplicate_different_date(self, engine: BillabilityRuleEngine, basic_rate_card: list[RateCardEntry], basic_obligations: list[dict]):
+    def test_no_duplicate_different_date(
+        self,
+        engine: BillabilityRuleEngine,
+        basic_rate_card: list[RateCardEntry],
+        basic_obligations: list[dict],
+    ):
         """Same activity on different date is not a duplicate."""
         result = engine.evaluate(
             activity="standard_maintenance",
@@ -131,7 +141,12 @@ class TestDuplicateClaimCheck:
         )
         assert result.billable is True
 
-    def test_no_duplicate_different_activity(self, engine: BillabilityRuleEngine, basic_rate_card: list[RateCardEntry], basic_obligations: list[dict]):
+    def test_no_duplicate_different_activity(
+        self,
+        engine: BillabilityRuleEngine,
+        basic_rate_card: list[RateCardEntry],
+        basic_obligations: list[dict],
+    ):
         """Different activity on same date is not a duplicate."""
         result = engine.evaluate(
             activity="standard_maintenance",
@@ -142,7 +157,12 @@ class TestDuplicateClaimCheck:
         )
         assert result.billable is True
 
-    def test_no_prior_claims(self, engine: BillabilityRuleEngine, basic_rate_card: list[RateCardEntry], basic_obligations: list[dict]):
+    def test_no_prior_claims(
+        self,
+        engine: BillabilityRuleEngine,
+        basic_rate_card: list[RateCardEntry],
+        basic_obligations: list[dict],
+    ):
         """No prior claims means no duplicate."""
         result = engine.evaluate(
             activity="standard_maintenance",
@@ -156,6 +176,7 @@ class TestDuplicateClaimCheck:
 # ===================================================================
 # Expired rate check (Rule 6)
 # ===================================================================
+
 
 class TestExpiredRateCheck:
     """Tests for expired_rate_check rule."""
@@ -180,7 +201,9 @@ class TestExpiredRateCheck:
         assert result.billable is False
         assert any("Rate card expired" in r for r in result.reasons)
 
-    def test_valid_rate_not_expired(self, engine: BillabilityRuleEngine, basic_obligations: list[dict]):
+    def test_valid_rate_not_expired(
+        self, engine: BillabilityRuleEngine, basic_obligations: list[dict]
+    ):
         """Work before rate card expiry should pass."""
         rc = [
             RateCardEntry(
@@ -199,7 +222,12 @@ class TestExpiredRateCheck:
         )
         assert result.billable is True
 
-    def test_no_expiry_date_passes(self, engine: BillabilityRuleEngine, basic_rate_card: list[RateCardEntry], basic_obligations: list[dict]):
+    def test_no_expiry_date_passes(
+        self,
+        engine: BillabilityRuleEngine,
+        basic_rate_card: list[RateCardEntry],
+        basic_obligations: list[dict],
+    ):
         """Rate card without effective_to should pass regardless of work_date."""
         result = engine.evaluate(
             activity="standard_maintenance",
@@ -209,7 +237,9 @@ class TestExpiredRateCheck:
         )
         assert result.billable is True
 
-    def test_no_work_date_passes(self, engine: BillabilityRuleEngine, basic_obligations: list[dict]):
+    def test_no_work_date_passes(
+        self, engine: BillabilityRuleEngine, basic_obligations: list[dict]
+    ):
         """No work_date provided means expiry check is skipped."""
         rc = [
             RateCardEntry(
@@ -232,6 +262,7 @@ class TestExpiredRateCheck:
 # Minimum charge enforcement (Rule 7)
 # ===================================================================
 
+
 class TestMinimumChargeEnforcement:
     """Tests for minimum_charge_enforcement rule."""
 
@@ -248,7 +279,9 @@ class TestMinimumChargeEnforcement:
 
     def test_above_minimum_keeps_rate(self, engine: BillabilityRuleEngine):
         """Rate above minimum_charge should be unchanged."""
-        rc = [RateCardEntry(activity="cable_jointing", rate=485.0, unit="each", minimum_charge=50.0)]
+        rc = [
+            RateCardEntry(activity="cable_jointing", rate=485.0, unit="each", minimum_charge=50.0)
+        ]
         result = engine.evaluate(
             activity="cable_jointing",
             rate_card=rc,
@@ -257,7 +290,9 @@ class TestMinimumChargeEnforcement:
         assert result.billable is True
         assert result.rate_applied == 485.0
 
-    def test_no_minimum_charge_keeps_rate(self, engine: BillabilityRuleEngine, basic_rate_card: list[RateCardEntry]):
+    def test_no_minimum_charge_keeps_rate(
+        self, engine: BillabilityRuleEngine, basic_rate_card: list[RateCardEntry]
+    ):
         """No minimum_charge means rate is unchanged."""
         result = engine.evaluate(
             activity="standard_maintenance",
@@ -270,6 +305,7 @@ class TestMinimumChargeEnforcement:
 # ===================================================================
 # ScopeConflictDetector
 # ===================================================================
+
 
 class TestScopeConflictDetector:
     """Tests for ScopeConflictDetector."""
@@ -299,29 +335,39 @@ class TestScopeConflictDetector:
             ),
         ]
 
-    def test_in_scope_no_conflict(self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]):
+    def test_in_scope_no_conflict(
+        self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]
+    ):
         conflicts = detector.detect_conflicts(scope_boundaries, ["network_maintenance"])
         assert len(conflicts) == 0
 
-    def test_out_of_scope_conflict(self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]):
+    def test_out_of_scope_conflict(
+        self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]
+    ):
         conflicts = detector.detect_conflicts(scope_boundaries, ["software_development"])
         assert len(conflicts) == 1
         assert conflicts[0]["conflict_type"] == "out_of_scope"
         assert conflicts[0]["severity"] == "error"
 
-    def test_conditional_unmet_conflict(self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]):
+    def test_conditional_unmet_conflict(
+        self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]
+    ):
         conflicts = detector.detect_conflicts(scope_boundaries, ["emergency_callout"])
         assert len(conflicts) == 1
         assert conflicts[0]["conflict_type"] == "conditional_unmet"
         assert conflicts[0]["severity"] == "warning"
 
-    def test_scope_gap_conflict(self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]):
+    def test_scope_gap_conflict(
+        self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]
+    ):
         conflicts = detector.detect_conflicts(scope_boundaries, ["environmental_survey"])
         assert len(conflicts) == 1
         assert conflicts[0]["conflict_type"] == "scope_gap"
         assert conflicts[0]["severity"] == "warning"
 
-    def test_multiple_conflicts(self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]):
+    def test_multiple_conflicts(
+        self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]
+    ):
         conflicts = detector.detect_conflicts(
             scope_boundaries,
             ["software_development", "environmental_survey", "network_maintenance"],
@@ -331,7 +377,9 @@ class TestScopeConflictDetector:
         assert "out_of_scope" in types
         assert "scope_gap" in types
 
-    def test_empty_activities_no_conflicts(self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]):
+    def test_empty_activities_no_conflicts(
+        self, detector: ScopeConflictDetector, scope_boundaries: list[ScopeBoundaryObject]
+    ):
         conflicts = detector.detect_conflicts(scope_boundaries, [])
         assert len(conflicts) == 0
 
@@ -339,6 +387,7 @@ class TestScopeConflictDetector:
 # ===================================================================
 # RecoveryRecommendationEngine
 # ===================================================================
+
 
 class TestRecoveryRecommendationEngine:
     """Tests for RecoveryRecommendationEngine."""
@@ -354,7 +403,9 @@ class TestRecoveryRecommendationEngine:
             RateCardEntry(activity="fault_repair", rate=275.0, unit="each"),
         ]
 
-    def test_unbilled_work_maps_to_backbill(self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]):
+    def test_unbilled_work_maps_to_backbill(
+        self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]
+    ):
         triggers = [
             LeakageTrigger(
                 trigger_type="unbilled_completed_work",
@@ -368,7 +419,9 @@ class TestRecoveryRecommendationEngine:
         assert recs[0].recommendation_type == RecoveryType.backbill
         assert recs[0].estimated_recovery_value == 750.0
 
-    def test_rate_below_contract_maps_to_rate_adjustment(self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]):
+    def test_rate_below_contract_maps_to_rate_adjustment(
+        self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]
+    ):
         triggers = [
             LeakageTrigger(
                 trigger_type="rate_below_contract",
@@ -381,7 +434,9 @@ class TestRecoveryRecommendationEngine:
         assert len(recs) == 1
         assert recs[0].recommendation_type == RecoveryType.rate_adjustment
 
-    def test_penalty_exposure_maps_to_penalty_waiver(self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]):
+    def test_penalty_exposure_maps_to_penalty_waiver(
+        self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]
+    ):
         triggers = [
             LeakageTrigger(
                 trigger_type="penalty_exposure_unmitigated",
@@ -393,7 +448,9 @@ class TestRecoveryRecommendationEngine:
         assert len(recs) == 1
         assert recs[0].recommendation_type == RecoveryType.penalty_waiver
 
-    def test_scope_creep_maps_to_change_order(self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]):
+    def test_scope_creep_maps_to_change_order(
+        self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]
+    ):
         triggers = [
             LeakageTrigger(
                 trigger_type="scope_creep_detected",
@@ -406,7 +463,9 @@ class TestRecoveryRecommendationEngine:
         assert len(recs) == 1
         assert recs[0].recommendation_type == RecoveryType.change_order
 
-    def test_unknown_trigger_type_skipped(self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]):
+    def test_unknown_trigger_type_skipped(
+        self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]
+    ):
         triggers = [
             LeakageTrigger(
                 trigger_type="unknown_trigger_xyz",
@@ -417,11 +476,28 @@ class TestRecoveryRecommendationEngine:
         recs = recovery_engine.build_recommendations(triggers, [], sample_rate_card)
         assert len(recs) == 0
 
-    def test_multiple_triggers_produce_multiple_recommendations(self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]):
+    def test_multiple_triggers_produce_multiple_recommendations(
+        self, recovery_engine: RecoveryRecommendationEngine, sample_rate_card: list[RateCardEntry]
+    ):
         triggers = [
-            LeakageTrigger(trigger_type="unbilled_completed_work", description="t1", severity="error", estimated_impact_value=500.0),
-            LeakageTrigger(trigger_type="rate_below_contract", description="t2", severity="warning", estimated_impact_value=100.0),
-            LeakageTrigger(trigger_type="missing_daywork_sheet", description="t3", severity="error", estimated_impact_value=1200.0),
+            LeakageTrigger(
+                trigger_type="unbilled_completed_work",
+                description="t1",
+                severity="error",
+                estimated_impact_value=500.0,
+            ),
+            LeakageTrigger(
+                trigger_type="rate_below_contract",
+                description="t2",
+                severity="warning",
+                estimated_impact_value=100.0,
+            ),
+            LeakageTrigger(
+                trigger_type="missing_daywork_sheet",
+                description="t3",
+                severity="error",
+                estimated_impact_value=1200.0,
+            ),
         ]
         recs = recovery_engine.build_recommendations(triggers, [], sample_rate_card)
         assert len(recs) == 3
@@ -433,6 +509,7 @@ class TestRecoveryRecommendationEngine:
 # ===================================================================
 # PenaltyExposureAnalyzer
 # ===================================================================
+
 
 class TestPenaltyExposureAnalyzer:
     """Tests for PenaltyExposureAnalyzer."""

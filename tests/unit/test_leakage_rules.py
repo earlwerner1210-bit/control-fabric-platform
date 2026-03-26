@@ -63,7 +63,9 @@ class TestLeakageRuleEngine:
         diagnosis = engine.diagnose(sample_contract, history)
         assert diagnosis.verdict == "healthy"
 
-    def test_unbilled_work_detected(self, engine: LeakageRuleEngine, sample_contract: ParsedContract):
+    def test_unbilled_work_detected(
+        self, engine: LeakageRuleEngine, sample_contract: ParsedContract
+    ):
         """Unbilled completed work should be detected."""
         history = [
             WorkHistoryEntry(
@@ -83,7 +85,9 @@ class TestLeakageRuleEngine:
         assert len(unbilled) >= 1
         assert unbilled[0].estimated_impact == 750.0  # 6 * 125
 
-    def test_rate_erosion_detected(self, engine: LeakageRuleEngine, sample_contract: ParsedContract):
+    def test_rate_erosion_detected(
+        self, engine: LeakageRuleEngine, sample_contract: ParsedContract
+    ):
         """Work billed below contract rate should be flagged."""
         history = [
             WorkHistoryEntry(
@@ -121,7 +125,9 @@ class TestLeakageRuleEngine:
         scope = [t for t in triggers if t.driver.value == "scope_creep"]
         assert len(scope) >= 1
 
-    def test_missing_change_order_detected(self, engine: LeakageRuleEngine, sample_contract: ParsedContract):
+    def test_missing_change_order_detected(
+        self, engine: LeakageRuleEngine, sample_contract: ParsedContract
+    ):
         """Out-of-scope work without change order should also flag missing CO."""
         history = [
             WorkHistoryEntry(
@@ -161,7 +167,9 @@ class TestLeakageRuleEngine:
         penalty = [t for t in triggers if t.driver.value == "penalty_exposure"]
         assert len(penalty) >= 1
 
-    def test_diagnosis_verdict_levels(self, engine: LeakageRuleEngine, sample_contract: ParsedContract):
+    def test_diagnosis_verdict_levels(
+        self, engine: LeakageRuleEngine, sample_contract: ParsedContract
+    ):
         """Diagnosis verdict should reflect leakage severity."""
         # Small leakage
         small_history = [

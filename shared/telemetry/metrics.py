@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
 from prometheus_client import Counter, Histogram, Info
-
 
 # ── Application info ───────────────────────────────────────────────────
 

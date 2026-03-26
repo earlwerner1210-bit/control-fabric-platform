@@ -2,57 +2,61 @@
 
 from __future__ import annotations
 
-import uuid
-from datetime import date
-
 import pytest
 
+from app.domain_packs.contract_margin.rules import (
+    PenaltyExposureAnalyzer,
+    RecoveryRecommendationEngine,
+    ScopeConflictDetector,
+)
 from app.domain_packs.contract_margin.schemas import (
-    BillableCategory,
-    BillabilityDecision,
-    ClauseType,
-    ContractType,
-    ExtractedClause,
+    CommercialRecoveryRecommendation,
     LeakageTrigger,
-    Obligation,
-    ParsedContract,
     PenaltyCondition,
     PenaltyExposureSummary,
     RateCardEntry,
-    SLAEntry,
     ScopeBoundaryObject,
     ScopeType,
-    CommercialRecoveryRecommendation,
-)
-from app.domain_packs.contract_margin.rules import (
-    BillabilityRuleEngine,
-    LeakageRuleEngine,
-    ScopeConflictDetector,
-    RecoveryRecommendationEngine,
-    PenaltyExposureAnalyzer,
 )
 from app.domain_packs.reconciliation import (
     ContractWorkOrderLinker,
-    WorkOrderIncidentLinker,
     ContradictionDetector,
-    EvidenceChainValidator,
     EvidenceBundle,
-    MarginDiagnosisReconciler,
+    EvidenceChainValidator,
     MarginDiagnosisBundle,
+    MarginDiagnosisReconciler,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def contract_objects() -> list[dict]:
     """Contract objects as dicts for linker."""
     return [
-        {"id": "CL-004", "type": "rate_card", "activity": "hv_switching", "rate": 450.0, "unit": "day"},
-        {"id": "CL-004b", "type": "rate_card", "activity": "cable_jointing", "rate": 180.0, "unit": "each"},
-        {"id": "CL-004c", "type": "rate_card", "activity": "metering", "rate": 95.0, "unit": "each"},
+        {
+            "id": "CL-004",
+            "type": "rate_card",
+            "activity": "hv_switching",
+            "rate": 450.0,
+            "unit": "day",
+        },
+        {
+            "id": "CL-004b",
+            "type": "rate_card",
+            "activity": "cable_jointing",
+            "rate": 180.0,
+            "unit": "each",
+        },
+        {
+            "id": "CL-004c",
+            "type": "rate_card",
+            "activity": "metering",
+            "rate": 95.0,
+            "unit": "each",
+        },
         {"id": "CL-001", "type": "obligation", "description": "Monthly SLA reporting"},
         {"id": "CL-005", "type": "scope", "description": "All HV and LV maintenance"},
     ]
@@ -124,6 +128,7 @@ def scope_boundaries() -> list[ScopeBoundaryObject]:
 # Tests: Contract-Work Order Linking
 # ---------------------------------------------------------------------------
 
+
 class TestContractWorkOrderLinking:
     """Test contract <-> work order linkage."""
 
@@ -149,6 +154,7 @@ class TestContractWorkOrderLinking:
 # ---------------------------------------------------------------------------
 # Tests: Scope Conflict Detection
 # ---------------------------------------------------------------------------
+
 
 class TestScopeConflictDetection:
     """Test scope boundary conflict detection."""
@@ -180,6 +186,7 @@ class TestScopeConflictDetection:
 # ---------------------------------------------------------------------------
 # Tests: Full Reconciliation Pipeline
 # ---------------------------------------------------------------------------
+
 
 class TestFullReconciliationPipeline:
     """Test the complete margin diagnosis reconciliation."""
@@ -216,6 +223,7 @@ class TestFullReconciliationPipeline:
 # Tests: Evidence Chain Validation
 # ---------------------------------------------------------------------------
 
+
 class TestEvidenceChainValidation:
     """Test evidence chain validation."""
 
@@ -230,22 +238,26 @@ class TestEvidenceChainValidation:
 
     def test_complete_chain_valid(self):
         validator = EvidenceChainValidator()
-        bundle = self._make_bundle([
-            {"type": "rate_card", "id": "CL-004"},
-            {"type": "work_order", "id": "WO-001"},
-            {"type": "completion_certificate", "id": "CERT-001"},
-            {"type": "invoice", "id": "INV-001"},
-        ])
+        bundle = self._make_bundle(
+            [
+                {"type": "rate_card", "id": "CL-004"},
+                {"type": "work_order", "id": "WO-001"},
+                {"type": "completion_certificate", "id": "CERT-001"},
+                {"type": "invoice", "id": "INV-001"},
+            ]
+        )
         results = validator.validate_chain(bundle)
         assert all(r["present"] for r in results)
 
     def test_missing_billing_evidence(self):
         validator = EvidenceChainValidator()
-        bundle = self._make_bundle([
-            {"type": "rate_card", "id": "CL-004"},
-            {"type": "work_order", "id": "WO-001"},
-            {"type": "completion_certificate", "id": "CERT-001"},
-        ])
+        bundle = self._make_bundle(
+            [
+                {"type": "rate_card", "id": "CL-004"},
+                {"type": "work_order", "id": "WO-001"},
+                {"type": "completion_certificate", "id": "CERT-001"},
+            ]
+        )
         results = validator.validate_chain(bundle)
         billing_stage = next((r for r in results if r["stage"] == "billing_evidence"), None)
         assert billing_stage is not None
@@ -262,6 +274,7 @@ class TestEvidenceChainValidation:
 # ---------------------------------------------------------------------------
 # Tests: Contradiction Detection
 # ---------------------------------------------------------------------------
+
 
 class TestContradictionDetection:
     """Test contradiction detection between domains."""
@@ -291,6 +304,7 @@ class TestContradictionDetection:
 # ---------------------------------------------------------------------------
 # Tests: Recovery Recommendations
 # ---------------------------------------------------------------------------
+
 
 class TestRecoveryRecommendations:
     """Test recovery recommendation engine."""
@@ -333,6 +347,7 @@ class TestRecoveryRecommendations:
 # ---------------------------------------------------------------------------
 # Tests: Penalty Exposure
 # ---------------------------------------------------------------------------
+
 
 class TestPenaltyExposure:
     """Test penalty exposure analysis."""

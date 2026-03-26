@@ -14,7 +14,6 @@ from app.domain_packs.telco_ops.schemas import (
     ServiceStateObject,
 )
 
-
 # ---------------------------------------------------------------------------
 # Result container
 # ---------------------------------------------------------------------------
@@ -113,8 +112,7 @@ class TelcoCompiler:
         """Generate incident_state control object."""
         is_active = incident.state not in (IncidentState.resolved, IncidentState.closed)
         requires_attention = (
-            incident.severity in (IncidentSeverity.p1, IncidentSeverity.p2)
-            and is_active
+            incident.severity in (IncidentSeverity.p1, IncidentSeverity.p2) and is_active
         )
         return {
             "incident_id": incident.incident_id,
@@ -141,32 +139,36 @@ class TelcoCompiler:
         results: list[dict] = []
 
         if service_state is not None:
-            results.append({
-                "service_id": service_state.service_id,
-                "service_name": service_state.service_name,
-                "state": service_state.state.value,
-                "affected_customers": service_state.affected_customers,
-                "impact_level": service_state.impact_level.value,
-                "recovery_eta_minutes": service_state.recovery_eta_minutes,
-                "dependencies": service_state.dependencies,
-                "linked_incident": incident.incident_id,
-            })
+            results.append(
+                {
+                    "service_id": service_state.service_id,
+                    "service_name": service_state.service_name,
+                    "state": service_state.state.value,
+                    "affected_customers": service_state.affected_customers,
+                    "impact_level": service_state.impact_level.value,
+                    "recovery_eta_minutes": service_state.recovery_eta_minutes,
+                    "dependencies": service_state.dependencies,
+                    "linked_incident": incident.incident_id,
+                }
+            )
 
         # Placeholder entries for services mentioned in the incident but
         # not represented by the explicit service_state argument.
         known = {service_state.service_name} if service_state else set()
         for svc_name in incident.affected_services:
             if svc_name not in known:
-                results.append({
-                    "service_id": f"svc-{svc_name}",
-                    "service_name": svc_name,
-                    "state": "unknown",
-                    "affected_customers": 0,
-                    "impact_level": "unknown",
-                    "recovery_eta_minutes": None,
-                    "dependencies": [],
-                    "linked_incident": incident.incident_id,
-                })
+                results.append(
+                    {
+                        "service_id": f"svc-{svc_name}",
+                        "service_name": svc_name,
+                        "state": "unknown",
+                        "affected_customers": 0,
+                        "impact_level": "unknown",
+                        "recovery_eta_minutes": None,
+                        "dependencies": [],
+                        "linked_incident": incident.incident_id,
+                    }
+                )
 
         return results
 
@@ -178,36 +180,45 @@ class TelcoCompiler:
 
         # Base severity-driven rule
         esc_level = _SEVERITY_ESCALATION_MAP.get(incident.severity.value, EscalationLevel.l1.value)
-        rules.append({
-            "rule": "severity_based_escalation",
-            "incident_id": incident.incident_id,
-            "severity": incident.severity.value,
-            "escalation_level": esc_level,
-            "trigger": "incident_created",
-            "auto": incident.severity in (IncidentSeverity.p1,),
-        })
+        rules.append(
+            {
+                "rule": "severity_based_escalation",
+                "incident_id": incident.incident_id,
+                "severity": incident.severity.value,
+                "escalation_level": esc_level,
+                "trigger": "incident_created",
+                "auto": incident.severity in (IncidentSeverity.p1,),
+            }
+        )
 
         # State-based rule: stale investigating
         if incident.state == IncidentState.investigating:
-            rules.append({
-                "rule": "stale_investigation_escalation",
-                "incident_id": incident.incident_id,
-                "escalation_level": EscalationLevel.l2.value,
-                "trigger": "investigation_exceeds_threshold",
-                "threshold_minutes": 60 if incident.severity == IncidentSeverity.p1 else 240,
-                "auto": False,
-            })
+            rules.append(
+                {
+                    "rule": "stale_investigation_escalation",
+                    "incident_id": incident.incident_id,
+                    "escalation_level": EscalationLevel.l2.value,
+                    "trigger": "investigation_exceeds_threshold",
+                    "threshold_minutes": 60 if incident.severity == IncidentSeverity.p1 else 240,
+                    "auto": False,
+                }
+            )
 
         # Outage service escalation
-        if any(svc in ("core_network", "voice_platform", "billing") for svc in incident.affected_services):
-            rules.append({
-                "rule": "critical_service_escalation",
-                "incident_id": incident.incident_id,
-                "escalation_level": EscalationLevel.l3.value,
-                "trigger": "critical_service_affected",
-                "affected_services": incident.affected_services,
-                "auto": True,
-            })
+        if any(
+            svc in ("core_network", "voice_platform", "billing")
+            for svc in incident.affected_services
+        ):
+            rules.append(
+                {
+                    "rule": "critical_service_escalation",
+                    "incident_id": incident.incident_id,
+                    "escalation_level": EscalationLevel.l3.value,
+                    "trigger": "critical_service_affected",
+                    "affected_services": incident.affected_services,
+                    "auto": True,
+                }
+            )
 
         return rules
 
@@ -228,12 +239,14 @@ class TelcoCompiler:
 
         # If unassigned, add an alert rule
         if not incident.assigned_to:
-            rules.append({
-                "rule": "unassigned_alert",
-                "incident_id": incident.incident_id,
-                "alert": True,
-                "message": f"Incident {incident.incident_id} has no assigned owner",
-            })
+            rules.append(
+                {
+                    "rule": "unassigned_alert",
+                    "incident_id": incident.incident_id,
+                    "alert": True,
+                    "message": f"Incident {incident.incident_id} has no assigned owner",
+                }
+            )
 
         return rules
 

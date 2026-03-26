@@ -19,7 +19,6 @@ from app.domain_packs.telco_ops.schemas import (
     ServiceStateObject,
 )
 
-
 # ---------------------------------------------------------------------------
 # IncidentNoteTemplate
 # ---------------------------------------------------------------------------
@@ -100,14 +99,20 @@ class RunbookSummaryTemplate:
     def render(runbook: RunbookReferenceObject, applicability_score: float) -> dict:
         step_summaries = []
         for step in runbook.steps:
-            step_summaries.append({
-                "step": step.step_number,
-                "action": step.action,
-                "automated": step.automated,
-                "timeout": step.timeout_minutes,
-            })
+            step_summaries.append(
+                {
+                    "step": step.step_number,
+                    "action": step.action,
+                    "automated": step.automated,
+                    "timeout": step.timeout_minutes,
+                }
+            )
 
-        confidence_label = "high" if applicability_score >= 0.8 else ("medium" if applicability_score >= 0.5 else "low")
+        confidence_label = (
+            "high"
+            if applicability_score >= 0.8
+            else ("medium" if applicability_score >= 0.5 else "low")
+        )
 
         return {
             "template": "runbook_summary",
@@ -182,13 +187,15 @@ class ReconciliationSummaryTemplate:
 
         mismatch_details = []
         for mm in result.mismatches:
-            mismatch_details.append({
-                "field": mm.field,
-                "incident_value": mm.incident_value,
-                "work_order_value": mm.work_order_value,
-                "severity": mm.severity,
-                "resolution": mm.resolution,
-            })
+            mismatch_details.append(
+                {
+                    "field": mm.field,
+                    "incident_value": mm.incident_value,
+                    "work_order_value": mm.work_order_value,
+                    "severity": mm.severity,
+                    "resolution": mm.resolution,
+                }
+            )
 
         return {
             "template": "reconciliation_summary",
@@ -226,22 +233,22 @@ class OpsShiftHandoverTemplate:
 
         incident_summaries = []
         for inc in incidents:
-            incident_summaries.append({
-                "incident_id": inc.incident_id,
-                "title": inc.title,
-                "severity": inc.severity.value,
-                "severity_label": severity_labels.get(inc.severity.value, "UNKNOWN"),
-                "state": inc.state.value,
-                "assigned_to": inc.assigned_to or "unassigned",
-                "affected_services": inc.affected_services,
-            })
+            incident_summaries.append(
+                {
+                    "incident_id": inc.incident_id,
+                    "title": inc.title,
+                    "severity": inc.severity.value,
+                    "severity_label": severity_labels.get(inc.severity.value, "UNKNOWN"),
+                    "state": inc.state.value,
+                    "assigned_to": inc.assigned_to or "unassigned",
+                    "affected_services": inc.affected_services,
+                }
+            )
 
-        active_count = sum(
-            1 for inc in incidents
-            if inc.state.value not in ("resolved", "closed")
-        )
+        active_count = sum(1 for inc in incidents if inc.state.value not in ("resolved", "closed"))
         critical_count = sum(
-            1 for inc in incidents
+            1
+            for inc in incidents
             if inc.severity.value in ("p1", "p2") and inc.state.value not in ("resolved", "closed")
         )
 
@@ -267,9 +274,13 @@ class OpsShiftHandoverTemplate:
             "critical_active_incidents": critical_count,
             "incidents": incident_summaries,
             "actions_taken": actions_taken,
-            "actions_taken_display": "\n".join(action_lines) if action_lines else "No actions recorded.",
+            "actions_taken_display": "\n".join(action_lines)
+            if action_lines
+            else "No actions recorded.",
             "pending_items": pending_items,
-            "pending_items_display": "\n".join(pending_lines) if pending_lines else "No pending items.",
+            "pending_items_display": "\n".join(pending_lines)
+            if pending_lines
+            else "No pending items.",
             "display_text": (
                 f"Shift Handover | "
                 f"Total: {len(incidents)} | Active: {active_count} | "
@@ -310,9 +321,7 @@ class IncidentSummaryTemplate:
             for ss in service_states
         ]
 
-        total_affected_customers = sum(
-            ss.affected_customers for ss in service_states
-        )
+        total_affected_customers = sum(ss.affected_customers for ss in service_states)
 
         # Determine overall service health from the worst state observed
         state_priority = {
@@ -356,8 +365,7 @@ class IncidentSummaryTemplate:
         severity_label = incident.severity.value.upper()
         state_label = incident.state.value.replace("_", " ").title()
         summary_line = (
-            f"[{severity_label}] {incident.title or incident.incident_id} "
-            f"- {state_label}"
+            f"[{severity_label}] {incident.title or incident.incident_id} - {state_label}"
         )
         if escalation and escalation.escalate and escalation.level:
             summary_line += f" | Escalated to {escalation.level.value.upper()}"
@@ -407,9 +415,7 @@ class OpsNoteTemplate:
         ]
 
         if incident.affected_services:
-            lines.append(
-                f"Affected services: {', '.join(incident.affected_services)}."
-            )
+            lines.append(f"Affected services: {', '.join(incident.affected_services)}.")
 
         if next_action:
             action_text = (
@@ -423,8 +429,7 @@ class OpsNoteTemplate:
 
         if escalation and escalation.escalate:
             esc_text = (
-                f"Escalated to "
-                f"{escalation.level.value.upper() if escalation.level else 'UNKNOWN'}"
+                f"Escalated to {escalation.level.value.upper() if escalation.level else 'UNKNOWN'}"
             )
             if escalation.owner:
                 esc_text += f" (owner: {escalation.owner})"
@@ -458,9 +463,7 @@ class OpsNoteTemplate:
             "escalation_level": (
                 escalation.level.value if escalation and escalation.level else None
             ),
-            "escalation_owner": (
-                escalation.owner if escalation and escalation.escalate else None
-            ),
+            "escalation_owner": (escalation.owner if escalation and escalation.escalate else None),
             "incident_id": incident.incident_id,
             "severity": incident.severity.value,
             "state": incident.state.value,
@@ -514,17 +517,19 @@ class ReconciliationReportTemplate:
                 f"{error_count} error-level discrepancies. Immediate review required."
             )
         elif status == ReconciliationStatus.partial:
-            verdict = (
-                "Records are partially aligned. Review warnings before closing."
-            )
+            verdict = "Records are partially aligned. Review warnings before closing."
         else:
             verdict = "Reconciliation status is unknown. Manual review recommended."
 
         # Determine whether the report requires action
-        requires_action = status in (
-            ReconciliationStatus.mismatched,
-            ReconciliationStatus.unknown,
-        ) or severity_counts.get("critical", 0) > 0
+        requires_action = (
+            status
+            in (
+                ReconciliationStatus.mismatched,
+                ReconciliationStatus.unknown,
+            )
+            or severity_counts.get("critical", 0) > 0
+        )
 
         return {
             "report_type": "incident_reconciliation",

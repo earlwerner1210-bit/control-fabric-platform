@@ -8,16 +8,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 from ..schemas.contract_schemas import (
     BillabilityDecision,
-    BillableEvent,
-    ExtractedClause,
     ParsedContract,
-    RateCardEntry,
     RuleResult,
-    SLAEntry,
 )
 from ..taxonomy.contract_taxonomy import BillableCategory
 
@@ -31,10 +26,10 @@ class WorkEvent:
     activity_type: str
     hours: float = 0.0
     role: str = ""
-    date: Optional[str] = None
+    date: str | None = None
     has_approval: bool = False
     sla_met: bool = True
-    amount: Optional[float] = None
+    amount: float | None = None
 
 
 class BillabilityRuleEngine:
@@ -98,7 +93,10 @@ class BillabilityRuleEngine:
         """Check that a valid rate exists for the event's role or activity."""
         if not contract.rate_card:
             # Fixed-price or milestone contracts may not need a rate card
-            if contract.billing_category in (BillableCategory.fixed_price, BillableCategory.milestone):
+            if contract.billing_category in (
+                BillableCategory.fixed_price,
+                BillableCategory.milestone,
+            ):
                 return RuleResult(
                     rule_name="has_valid_rate",
                     passed=True,
@@ -254,7 +252,7 @@ class BillabilityRuleEngine:
             severity="info",
         )
 
-    def _find_applicable_rate(self, event: WorkEvent, contract: ParsedContract) -> Optional[float]:
+    def _find_applicable_rate(self, event: WorkEvent, contract: ParsedContract) -> float | None:
         """Find the applicable rate for the event from the contract rate card."""
         role_lower = event.role.lower()
         for entry in contract.rate_card:

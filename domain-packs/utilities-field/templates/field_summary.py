@@ -73,7 +73,9 @@ class ReadinessSummaryTemplate:
                 if blocker.resolution_action:
                     lines.append(f"  - Action: {blocker.resolution_action}")
                 if blocker.estimated_resolution_hours:
-                    lines.append(f"  - Est. resolution: {blocker.estimated_resolution_hours:.0f} hours")
+                    lines.append(
+                        f"  - Est. resolution: {blocker.estimated_resolution_hours:.0f} hours"
+                    )
             lines.append("")
 
         # Missing prerequisites
@@ -127,7 +129,9 @@ class DispatchReportTemplate:
             lines.append(f"**Scheduled:** {work_order.scheduled_date.isoformat()}{time_str}")
 
         lines.append("")
-        lines.append(f"**Dispatch Approved:** {'Yes' if recommendation.dispatch_approved else 'No'}")
+        lines.append(
+            f"**Dispatch Approved:** {'Yes' if recommendation.dispatch_approved else 'No'}"
+        )
 
         if engineer:
             lines.append(f"**Assigned Engineer:** {engineer.name}")
@@ -135,7 +139,9 @@ class DispatchReportTemplate:
             lines.append(f"**Recommended Engineer ID:** {recommendation.recommended_engineer_id}")
 
         if recommendation.estimated_travel_time_minutes is not None:
-            lines.append(f"**Est. Travel Time:** {recommendation.estimated_travel_time_minutes:.0f} minutes")
+            lines.append(
+                f"**Est. Travel Time:** {recommendation.estimated_travel_time_minutes:.0f} minutes"
+            )
 
         lines.append("")
 

@@ -87,7 +87,11 @@ async def load_documents_activity(input: dict[str, Any]) -> dict[str, Any]:
 
     all_ids = [contract_doc_id] + sla_ids + rate_card_ids
     documents = [
-        {"id": doc_id, "status": "loaded", "type": "contract" if doc_id == contract_doc_id else "supplementary"}
+        {
+            "id": doc_id,
+            "status": "loaded",
+            "type": "contract" if doc_id == contract_doc_id else "supplementary",
+        }
         for doc_id in all_ids
         if doc_id is not None
     ]
@@ -261,7 +265,9 @@ class ContractCompileWorkflow:
             )
 
             errors.extend(validation_result.get("validation_errors", []))
-            status = "completed" if validation_result["validation_status"] == "approved" else "failed"
+            status = (
+                "completed" if validation_result["validation_status"] == "approved" else "failed"
+            )
 
             output = {
                 "document_count": load_result["document_count"],

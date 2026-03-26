@@ -15,7 +15,6 @@ from app.db.session import get_db
 from app.domain_packs.reconciliation import (
     ContradictionDetector,
     EvidenceChainValidator,
-    MarginDiagnosisReconciler,
 )
 from app.services.reconciler.service import ReconcilerService
 
@@ -25,6 +24,7 @@ router = APIRouter(prefix="/reconciliation", tags=["reconciliation"])
 # ---------------------------------------------------------------------------
 # Request / Response schemas
 # ---------------------------------------------------------------------------
+
 
 class ReconciliationRequest(BaseModel):
     contract: dict = Field(..., description="Parsed contract payload")
@@ -71,6 +71,7 @@ class EvidenceChainResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/run", response_model=ReconciliationResponse)
 async def run_reconciliation(

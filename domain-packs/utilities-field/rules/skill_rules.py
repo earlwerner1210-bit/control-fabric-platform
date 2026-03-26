@@ -6,7 +6,7 @@ to produce a quantified fit analysis.
 
 from __future__ import annotations
 
-from ..schemas.field_schemas import EngineerProfile, SkillFitAnalysis, SkillRecord
+from ..schemas.field_schemas import EngineerProfile, SkillFitAnalysis
 from ..taxonomy.field_taxonomy import SkillCategory
 
 # Mapping of related skill categories for partial matching
@@ -68,8 +68,7 @@ class SkillMatchEngine:
         overqualified = [
             s.category.value
             for s in engineer.skills
-            if s.category not in required_set
-            and s.proficiency_level == "expert"
+            if s.category not in required_set and s.proficiency_level == "expert"
         ]
 
         # Calculate overall fit

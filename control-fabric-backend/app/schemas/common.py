@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -31,7 +31,7 @@ class ErrorResponse(BaseSchema):
     detail: str = Field(..., description="Human-readable error message")
     code: str = Field(..., description="Machine-readable error code, e.g. 'VALIDATION_ERROR'")
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="UTC timestamp of when the error occurred",
     )
     extra: dict | None = Field(

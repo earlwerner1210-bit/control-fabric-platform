@@ -12,7 +12,6 @@ from app.core.telemetry import metrics
 from app.schemas.workflows import (
     ContractCompileInput,
     ContractCompileOutput,
-    ValidationStatus,
     WorkflowStatusEnum,
 )
 

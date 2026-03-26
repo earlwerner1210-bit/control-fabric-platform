@@ -6,7 +6,7 @@ skill requirements, and accreditation requirements.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any
 
 from app.domain_packs.utilities_field.schemas.field_schemas import (
     AccreditationRequirementObject,
@@ -17,7 +17,6 @@ from app.domain_packs.utilities_field.schemas.field_schemas import (
     WorkCategory,
     WorkOrderObject,
 )
-
 
 # ---------------------------------------------------------------------------
 # Skill / accreditation requirement mappings
@@ -133,6 +132,7 @@ _ACCREDITATION_REQUIREMENTS: dict[str, dict[str, Any]] = {
 # Parser
 # ---------------------------------------------------------------------------
 
+
 class WorkOrderParser:
     """Parses raw payloads into validated utilities-field domain objects."""
 
@@ -146,7 +146,7 @@ class WorkOrderParser:
         can pass loosely-typed data (e.g. from JSON APIs).
         """
         scheduled_raw = payload.get("scheduled_date")
-        scheduled: Optional[date] = None
+        scheduled: date | None = None
         if isinstance(scheduled_raw, date):
             scheduled = scheduled_raw
         elif isinstance(scheduled_raw, datetime):
@@ -196,22 +196,26 @@ class WorkOrderParser:
         gates: list[dict[str, Any]] = []
         if "billing_gates" in payload and isinstance(payload["billing_gates"], list):
             for g in payload["billing_gates"]:
-                gates.append({
-                    "gate_id": g.get("gate_id", g.get("id", "")),
-                    "name": g.get("name", ""),
-                    "status": g.get("status", "pending"),
-                    "amount": g.get("amount"),
-                    "evidence_ref": g.get("evidence_ref"),
-                })
+                gates.append(
+                    {
+                        "gate_id": g.get("gate_id", g.get("id", "")),
+                        "name": g.get("name", ""),
+                        "status": g.get("status", "pending"),
+                        "amount": g.get("amount"),
+                        "evidence_ref": g.get("evidence_ref"),
+                    }
+                )
         elif "billing" in payload and isinstance(payload["billing"], dict):
             for g in payload["billing"].get("gates", []):
-                gates.append({
-                    "gate_id": g.get("gate_id", g.get("id", "")),
-                    "name": g.get("name", ""),
-                    "status": g.get("status", "pending"),
-                    "amount": g.get("amount"),
-                    "evidence_ref": g.get("evidence_ref"),
-                })
+                gates.append(
+                    {
+                        "gate_id": g.get("gate_id", g.get("id", "")),
+                        "name": g.get("name", ""),
+                        "status": g.get("status", "pending"),
+                        "amount": g.get("amount"),
+                        "evidence_ref": g.get("evidence_ref"),
+                    }
+                )
         return gates
 
     @staticmethod
@@ -223,14 +227,18 @@ class WorkOrderParser:
             return evidence
         for item in raw:
             if isinstance(item, dict):
-                evidence.append({
-                    "type": item.get("type", "unknown"),
-                    "ref": item.get("ref", item.get("reference", "")),
-                    "timestamp": item.get("timestamp"),
-                    "description": item.get("description", ""),
-                })
+                evidence.append(
+                    {
+                        "type": item.get("type", "unknown"),
+                        "ref": item.get("ref", item.get("reference", "")),
+                        "timestamp": item.get("timestamp"),
+                        "description": item.get("description", ""),
+                    }
+                )
             elif isinstance(item, str):
-                evidence.append({"type": "reference", "ref": item, "timestamp": None, "description": ""})
+                evidence.append(
+                    {"type": "reference", "ref": item, "timestamp": None, "description": ""}
+                )
         return evidence
 
     # -- Engineer profile parsing --------------------------------------------
@@ -241,14 +249,18 @@ class WorkOrderParser:
         accreditations: list[dict[str, Any]] = []
         for acc in payload.get("accreditations", []):
             if isinstance(acc, dict):
-                accreditations.append({
-                    "type": acc.get("type", ""),
-                    "expiry": acc.get("expiry"),
-                    "issuing_body": acc.get("issuing_body", ""),
-                    "card_number": acc.get("card_number", ""),
-                })
+                accreditations.append(
+                    {
+                        "type": acc.get("type", ""),
+                        "expiry": acc.get("expiry"),
+                        "issuing_body": acc.get("issuing_body", ""),
+                        "card_number": acc.get("card_number", ""),
+                    }
+                )
             elif isinstance(acc, str):
-                accreditations.append({"type": acc, "expiry": None, "issuing_body": "", "card_number": ""})
+                accreditations.append(
+                    {"type": acc, "expiry": None, "issuing_body": "", "card_number": ""}
+                )
 
         return EngineerProfileObject(
             engineer_id=str(payload.get("engineer_id", payload.get("id", ""))),

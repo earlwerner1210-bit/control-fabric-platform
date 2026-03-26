@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _result(
@@ -273,12 +273,8 @@ class ValidationService:
         has_critical_fail = any(
             not v["passed"] and v["severity"] == "critical" for v in validations
         )
-        has_error_fail = any(
-            not v["passed"] and v["severity"] == "error" for v in validations
-        )
-        has_warning_fail = any(
-            not v["passed"] and v["severity"] == "warning" for v in validations
-        )
+        has_error_fail = any(not v["passed"] and v["severity"] == "error" for v in validations)
+        has_warning_fail = any(not v["passed"] and v["severity"] == "warning" for v in validations)
 
         if has_critical_fail:
             return ValidationStatus.ESCALATE

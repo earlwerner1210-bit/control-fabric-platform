@@ -25,7 +25,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.db.base import Base
 
-
 # ── Enums ──────────────────────────────────────────────────────────────
 
 
@@ -100,9 +99,7 @@ class TenantMixin:
 class Tenant(TimestampMixin, Base):
     __tablename__ = "tenants"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     slug: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -115,9 +112,7 @@ class Tenant(TimestampMixin, Base):
 class Role(TimestampMixin, Base):
     __tablename__ = "roles"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     description: Mapped[str | None] = mapped_column(Text)
     permissions: Mapped[dict | None] = mapped_column(JSONB, default=dict)
@@ -128,9 +123,7 @@ class Role(TimestampMixin, Base):
 class User(TimestampMixin, TenantMixin, Base):
     __tablename__ = "users"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
     hashed_password: Mapped[str] = mapped_column(String(512), nullable=False)
     full_name: Mapped[str | None] = mapped_column(String(255))
@@ -146,9 +139,7 @@ class User(TimestampMixin, TenantMixin, Base):
 class Document(TimestampMixin, TenantMixin, Base):
     __tablename__ = "documents"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     filename: Mapped[str] = mapped_column(String(512), nullable=False)
     content_type: Mapped[str] = mapped_column(String(128), nullable=False)
     s3_key: Mapped[str] = mapped_column(String(1024), nullable=False)
@@ -169,9 +160,7 @@ class DocumentChunk(TimestampMixin, TenantMixin, Base):
         Index("ix_document_chunks_embedding", "embedding", postgresql_using="ivfflat"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
     )
@@ -191,9 +180,7 @@ class CanonicalEntity(TimestampMixin, TenantMixin, Base):
         UniqueConstraint("tenant_id", "entity_type", "canonical_name", name="uq_entity_canonical"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     entity_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     canonical_name: Mapped[str] = mapped_column(String(512), nullable=False)
     aliases: Mapped[dict | None] = mapped_column(JSONB, default=list)
@@ -206,9 +193,7 @@ class CanonicalEntity(TimestampMixin, TenantMixin, Base):
 class ControlObject(TimestampMixin, TenantMixin, Base):
     __tablename__ = "control_objects"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     control_type: Mapped[ControlObjectType] = mapped_column(
         Enum(ControlObjectType, name="control_object_type", create_constraint=True),
         nullable=False,
@@ -238,9 +223,7 @@ class ControlObject(TimestampMixin, TenantMixin, Base):
 class ControlLink(TimestampMixin, TenantMixin, Base):
     __tablename__ = "control_links"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("control_objects.id", ondelete="CASCADE"), nullable=False
     )
@@ -251,16 +234,18 @@ class ControlLink(TimestampMixin, TenantMixin, Base):
     weight: Mapped[float | None] = mapped_column(Float, default=1.0)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB, default=dict)
 
-    source: Mapped[ControlObject] = relationship(foreign_keys=[source_id], back_populates="links_from")
-    target: Mapped[ControlObject] = relationship(foreign_keys=[target_id], back_populates="links_to")
+    source: Mapped[ControlObject] = relationship(
+        foreign_keys=[source_id], back_populates="links_from"
+    )
+    target: Mapped[ControlObject] = relationship(
+        foreign_keys=[target_id], back_populates="links_to"
+    )
 
 
 class WorkflowCase(TimestampMixin, TenantMixin, Base):
     __tablename__ = "workflow_cases"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     workflow_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     status: Mapped[WorkflowStatus] = mapped_column(
         Enum(WorkflowStatus, name="workflow_status", create_constraint=True),
@@ -281,9 +266,7 @@ class WorkflowCase(TimestampMixin, TenantMixin, Base):
 class ValidationResult(TimestampMixin, TenantMixin, Base):
     __tablename__ = "validation_results"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     target_type: Mapped[str] = mapped_column(String(128), nullable=False)
     target_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     status: Mapped[ValidationStatus] = mapped_column(
@@ -300,9 +283,7 @@ class ValidationResult(TimestampMixin, TenantMixin, Base):
 class ModelRun(TimestampMixin, TenantMixin, Base):
     __tablename__ = "model_runs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     model_name: Mapped[str] = mapped_column(String(256), nullable=False)
     model_provider: Mapped[str] = mapped_column(String(128), nullable=False)
     prompt_template_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -320,9 +301,7 @@ class ModelRun(TimestampMixin, TenantMixin, Base):
 class AuditEvent(TimestampMixin, TenantMixin, Base):
     __tablename__ = "audit_events"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     event_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
@@ -338,9 +317,7 @@ class AuditEvent(TimestampMixin, TenantMixin, Base):
 class PromptTemplate(TimestampMixin, TenantMixin, Base):
     __tablename__ = "prompt_templates"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     template: Mapped[str] = mapped_column(Text, nullable=False)
@@ -349,34 +326,26 @@ class PromptTemplate(TimestampMixin, TenantMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB, default=dict)
 
-    __table_args__ = (
-        UniqueConstraint("name", "version", name="uq_prompt_template_name_version"),
-    )
+    __table_args__ = (UniqueConstraint("name", "version", name="uq_prompt_template_name_version"),)
 
 
 class DomainPackVersion(TimestampMixin, Base):
     __tablename__ = "domain_pack_versions"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     pack_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     version: Mapped[str] = mapped_column(String(64), nullable=False)
     schema_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     manifest: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    __table_args__ = (
-        UniqueConstraint("pack_name", "version", name="uq_domain_pack_version"),
-    )
+    __table_args__ = (UniqueConstraint("pack_name", "version", name="uq_domain_pack_version"),)
 
 
 class EvalCase(TimestampMixin, TenantMixin, Base):
     __tablename__ = "eval_cases"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     eval_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     input_data: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     expected_output: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
@@ -387,9 +356,7 @@ class EvalCase(TimestampMixin, TenantMixin, Base):
 class EvalRun(TimestampMixin, TenantMixin, Base):
     __tablename__ = "eval_runs"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     eval_case_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("eval_cases.id", ondelete="CASCADE"), nullable=False
     )
@@ -407,9 +374,7 @@ class EvalRun(TimestampMixin, TenantMixin, Base):
 class NotificationEvent(TimestampMixin, TenantMixin, Base):
     __tablename__ = "notification_events"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     channel: Mapped[str] = mapped_column(String(64), nullable=False)  # email, slack, webhook
     recipient: Mapped[str] = mapped_column(String(512), nullable=False)
     subject: Mapped[str] = mapped_column(String(512), nullable=False)

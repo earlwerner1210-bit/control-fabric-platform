@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, UploadFile
@@ -39,7 +39,7 @@ async def upload_document(
     content = await file.read()
     doc_id = str(uuid.uuid4())
     checksum = hashlib.sha256(content).hexdigest()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     doc = {
         "id": doc_id,
@@ -82,7 +82,7 @@ async def parse_document(
 
     doc["status"] = "parsed"
     doc["document_type"] = "contract"
-    doc["updated_at"] = datetime.now(timezone.utc)
+    doc["updated_at"] = datetime.now(UTC)
     metrics.increment("documents.parsed")
 
     return ParseResponse(
@@ -107,7 +107,7 @@ async def embed_document(
         raise NotFoundError(detail=f"Document {document_id} not found")
 
     doc["status"] = "embedded"
-    doc["updated_at"] = datetime.now(timezone.utc)
+    doc["updated_at"] = datetime.now(UTC)
     metrics.increment("documents.embedded")
 
     return EmbedResponse(
@@ -131,7 +131,9 @@ async def get_document(
 
     return DocumentResponse(
         id=uuid.UUID(doc["id"]),
-        tenant_id=uuid.UUID(doc["tenant_id"]) if isinstance(doc["tenant_id"], str) else doc["tenant_id"],
+        tenant_id=uuid.UUID(doc["tenant_id"])
+        if isinstance(doc["tenant_id"], str)
+        else doc["tenant_id"],
         title=doc.get("title"),
         filename=doc["filename"],
         content_type=doc["content_type"],
@@ -149,9 +151,7 @@ async def list_documents(
     ctx: TenantContext = Depends(get_current_user),
 ) -> PaginatedResponse[DocumentResponse]:
     """List documents for the current tenant with pagination."""
-    tenant_docs = [
-        d for d in _DOCUMENTS.values() if str(d.get("tenant_id")) == str(ctx.tenant_id)
-    ]
+    tenant_docs = [d for d in _DOCUMENTS.values() if str(d.get("tenant_id")) == str(ctx.tenant_id)]
     total = len(tenant_docs)
 
     start = (page - 1) * page_size
@@ -161,7 +161,9 @@ async def list_documents(
     items = [
         DocumentResponse(
             id=uuid.UUID(d["id"]),
-            tenant_id=uuid.UUID(d["tenant_id"]) if isinstance(d["tenant_id"], str) else d["tenant_id"],
+            tenant_id=uuid.UUID(d["tenant_id"])
+            if isinstance(d["tenant_id"], str)
+            else d["tenant_id"],
             title=d.get("title"),
             filename=d["filename"],
             content_type=d["content_type"],

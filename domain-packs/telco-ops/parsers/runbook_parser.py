@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Optional
 
 from ..schemas.telco_schemas import ParsedRunbook, RunbookStep
 from ..taxonomy.telco_taxonomy import IncidentSeverity
@@ -39,10 +38,14 @@ _DATETIME_PATTERN = re.compile(
 )
 
 _FIELD_PATTERNS = {
-    "runbook_id": re.compile(r"(?:runbook|document|id|ref)\s*[:=]?\s*(RB[- ]?[\w\-]+|\w+-\d+)", re.I),
+    "runbook_id": re.compile(
+        r"(?:runbook|document|id|ref)\s*[:=]?\s*(RB[- ]?[\w\-]+|\w+-\d+)", re.I
+    ),
     "title": re.compile(r"(?:title|name|runbook)\s*[:=]\s*(.+?)(?:\n|$)", re.I),
     "owner": re.compile(r"(?:owner|author|maintainer)\s*[:=]\s*(.+?)(?:\n|$)", re.I),
-    "description": re.compile(r"(?:description|purpose|overview)\s*[:=]\s*(.+?)(?:\n\n|\Z)", re.I | re.DOTALL),
+    "description": re.compile(
+        r"(?:description|purpose|overview)\s*[:=]\s*(.+?)(?:\n\n|\Z)", re.I | re.DOTALL
+    ),
 }
 
 _PREREQUISITE_PATTERN = re.compile(
@@ -96,7 +99,7 @@ class RunbookParser:
         last_updated = None
         date_match = re.search(r"(?:last\s+updated|modified|revised)\s*[:=]?\s*", text, re.I)
         if date_match:
-            dt_match = _DATETIME_PATTERN.search(text[date_match.end():date_match.end() + 50])
+            dt_match = _DATETIME_PATTERN.search(text[date_match.end() : date_match.end() + 50])
             if dt_match:
                 try:
                     last_updated = datetime.fromisoformat(dt_match.group(1).replace("Z", "+00:00"))
@@ -138,10 +141,12 @@ class RunbookParser:
 
             # Extract expected outcome
             expected = ""
-            outcome_match = re.search(r"(?:expected|outcome|result|verify)\s*[:=]\s*(.+?)(?:\n|$)", step_text, re.I)
+            outcome_match = re.search(
+                r"(?:expected|outcome|result|verify)\s*[:=]\s*(.+?)(?:\n|$)", step_text, re.I
+            )
             if outcome_match:
                 expected = outcome_match.group(1).strip()
-                step_text = step_text[:outcome_match.start()].strip()
+                step_text = step_text[: outcome_match.start()].strip()
 
             # Extract rollback
             rollback = ""
@@ -195,7 +200,7 @@ class RunbookParser:
             return [s.strip() for s in match.group(1).split(",") if s.strip()]
         return []
 
-    def _extract_field(self, text: str, field_name: str) -> Optional[str]:
+    def _extract_field(self, text: str, field_name: str) -> str | None:
         """Extract a named field value from text."""
         pattern = _FIELD_PATTERNS.get(field_name)
         if pattern:

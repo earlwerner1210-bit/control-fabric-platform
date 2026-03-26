@@ -8,7 +8,6 @@ import pytest
 
 from app.domain_packs.contract_margin.compiler import ContractCompiler, ContractCompileResult
 from app.domain_packs.contract_margin.schemas import (
-    ClauseSegment,
     ClauseType,
     ContractType,
     ExtractedClause,
@@ -18,7 +17,6 @@ from app.domain_packs.contract_margin.schemas import (
     ScopeType,
     SLAEntry,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -176,9 +174,14 @@ class TestCompileFullContract:
             assert "type" in obj
             assert "payload" in obj
             assert obj["type"] in (
-                "clause", "sla_entry", "rate_card_entry",
-                "obligation", "penalty_condition", "scope_boundary",
-                "billing_gate", "recovery_recommendation",
+                "clause",
+                "sla_entry",
+                "rate_card_entry",
+                "obligation",
+                "penalty_condition",
+                "scope_boundary",
+                "billing_gate",
+                "recovery_recommendation",
             )
 
     def test_control_objects_have_control_ids(
@@ -203,9 +206,7 @@ class TestCompileClausesByType:
     ):
         result = compiler.compile(full_contract)
 
-        obligation_clauses = [
-            c for c in result.clauses if c["clause_type"] == "obligation"
-        ]
+        obligation_clauses = [c for c in result.clauses if c["clause_type"] == "obligation"]
         assert len(obligation_clauses) >= 2  # CL-001 and CL-004
         for oc in obligation_clauses:
             assert oc["risk_level"] == "medium"
@@ -215,9 +216,7 @@ class TestCompileClausesByType:
     ):
         result = compiler.compile(full_contract)
 
-        penalty_clauses = [
-            c for c in result.clauses if c["clause_type"] == "penalty"
-        ]
+        penalty_clauses = [c for c in result.clauses if c["clause_type"] == "penalty"]
         assert len(penalty_clauses) >= 1
         for pc in penalty_clauses:
             assert pc["risk_level"] == "high"
@@ -227,9 +226,7 @@ class TestCompileClausesByType:
     ):
         result = compiler.compile(full_contract)
 
-        scope_clauses = [
-            c for c in result.clauses if c["clause_type"] == "scope"
-        ]
+        scope_clauses = [c for c in result.clauses if c["clause_type"] == "scope"]
         assert len(scope_clauses) >= 1
 
     def test_obligations_compiled_from_clauses(
@@ -263,10 +260,7 @@ class TestCompileClausesByType:
         """SLA entries with penalty_percentage should auto-generate penalty conditions."""
         result = compiler.compile(full_contract)
 
-        sla_penalties = [
-            p for p in result.penalties
-            if p["clause_id"].startswith("sla-")
-        ]
+        sla_penalties = [p for p in result.penalties if p["clause_id"].startswith("sla-")]
         # P1 and P2 SLAs have penalty percentages
         assert len(sla_penalties) >= 2
         for sp in sla_penalties:
@@ -277,15 +271,11 @@ class TestCompileClausesByType:
 class TestCompileSLAEntries:
     """test_compile_sla_entries: Verify SLA entries are compiled with correct fields."""
 
-    def test_sla_entry_count(
-        self, compiler: ContractCompiler, full_contract: ParsedContract
-    ):
+    def test_sla_entry_count(self, compiler: ContractCompiler, full_contract: ParsedContract):
         result = compiler.compile(full_contract)
         assert len(result.sla_entries) == 3
 
-    def test_sla_entry_fields(
-        self, compiler: ContractCompiler, full_contract: ParsedContract
-    ):
+    def test_sla_entry_fields(self, compiler: ContractCompiler, full_contract: ParsedContract):
         result = compiler.compile(full_contract)
 
         for sla in result.sla_entries:
@@ -322,9 +312,7 @@ class TestCompileSLAEntries:
         assert p2[0]["severity"] == "error"
         assert p2[0]["has_penalty_clause"] is True
 
-    def test_p3_sla_no_penalty(
-        self, compiler: ContractCompiler, full_contract: ParsedContract
-    ):
+    def test_p3_sla_no_penalty(self, compiler: ContractCompiler, full_contract: ParsedContract):
         result = compiler.compile(full_contract)
 
         p3 = [s for s in result.sla_entries if s["priority"] == "P3"]
@@ -343,15 +331,11 @@ class TestCompileSLAEntries:
 class TestCompileRateCard:
     """test_compile_rate_card: Verify rate card entries compile correctly."""
 
-    def test_rate_card_count(
-        self, compiler: ContractCompiler, full_contract: ParsedContract
-    ):
+    def test_rate_card_count(self, compiler: ContractCompiler, full_contract: ParsedContract):
         result = compiler.compile(full_contract)
         assert len(result.rate_card_entries) == 2
 
-    def test_rate_card_fields(
-        self, compiler: ContractCompiler, full_contract: ParsedContract
-    ):
+    def test_rate_card_fields(self, compiler: ContractCompiler, full_contract: ParsedContract):
         result = compiler.compile(full_contract)
 
         for rc in result.rate_card_entries:
@@ -376,9 +360,7 @@ class TestCompileRateCard:
         assert sm[0]["has_minimum_charge"] is True
         assert sm[0]["minimum_charge"] == 250.0
 
-    def test_emergency_repair_rate(
-        self, compiler: ContractCompiler, full_contract: ParsedContract
-    ):
+    def test_emergency_repair_rate(self, compiler: ContractCompiler, full_contract: ParsedContract):
         result = compiler.compile(full_contract)
 
         er = [r for r in result.rate_card_entries if r["activity"] == "emergency_repair"]
@@ -429,7 +411,9 @@ class TestCompileEmptyContract:
         contract = ParsedContract(
             document_type="contract",
             clauses=[
-                ExtractedClause(id="CL-1", type=ClauseType.penalty, text="Penalty clause.", section="5.1"),
+                ExtractedClause(
+                    id="CL-1", type=ClauseType.penalty, text="Penalty clause.", section="5.1"
+                ),
             ],
         )
         result = compiler.compile(contract)
@@ -442,41 +426,29 @@ class TestCompileEmptyContract:
 class TestCompileScopeBoundaries:
     """test_compile_scope_boundaries: Verify scope boundaries compile correctly."""
 
-    def test_scope_boundary_count(
-        self, compiler: ContractCompiler, full_contract: ParsedContract
-    ):
+    def test_scope_boundary_count(self, compiler: ContractCompiler, full_contract: ParsedContract):
         result = compiler.compile(full_contract)
         assert len(result.scope_boundaries) == 2
 
-    def test_in_scope_boundary(
-        self, compiler: ContractCompiler, full_contract: ParsedContract
-    ):
+    def test_in_scope_boundary(self, compiler: ContractCompiler, full_contract: ParsedContract):
         result = compiler.compile(full_contract)
 
-        in_scope = [
-            s for s in result.scope_boundaries if s["scope_type"] == "in_scope"
-        ]
+        in_scope = [s for s in result.scope_boundaries if s["scope_type"] == "in_scope"]
         assert len(in_scope) == 1
         assert in_scope[0]["is_restrictive"] is False
         assert in_scope[0]["activity_count"] == 2
         assert "network_maintenance" in in_scope[0]["activities"]
 
-    def test_out_of_scope_boundary(
-        self, compiler: ContractCompiler, full_contract: ParsedContract
-    ):
+    def test_out_of_scope_boundary(self, compiler: ContractCompiler, full_contract: ParsedContract):
         result = compiler.compile(full_contract)
 
-        out_scope = [
-            s for s in result.scope_boundaries if s["scope_type"] == "out_of_scope"
-        ]
+        out_scope = [s for s in result.scope_boundaries if s["scope_type"] == "out_of_scope"]
         assert len(out_scope) == 1
         assert out_scope[0]["is_restrictive"] is True
         assert out_scope[0]["has_conditions"] is True
         assert "Requires separate PO" in out_scope[0]["conditions"]
 
-    def test_scope_boundary_fields(
-        self, compiler: ContractCompiler, full_contract: ParsedContract
-    ):
+    def test_scope_boundary_fields(self, compiler: ContractCompiler, full_contract: ParsedContract):
         result = compiler.compile(full_contract)
 
         for sb in result.scope_boundaries:

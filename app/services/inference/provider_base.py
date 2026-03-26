@@ -36,8 +36,6 @@ class BaseInferenceProvider(ABC):
         ...
 
     @abstractmethod
-    async def explain(
-        self, context: str, question: str, system_prompt: str | None = None
-    ) -> str:
+    async def explain(self, context: str, question: str, system_prompt: str | None = None) -> str:
         """Generate an evidence-backed explanation."""
         ...

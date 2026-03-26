@@ -7,7 +7,7 @@ import uuid
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import TenantContext, decode_access_token, build_tenant_context
+from app.core.security import TenantContext, build_tenant_context, decode_access_token
 from app.db.session import get_db
 
 
@@ -37,8 +37,12 @@ async def get_current_user(
 
 def require_role(*roles: str):
     """Dependency factory that checks for required roles."""
+
     async def _check(ctx: TenantContext = Depends(get_current_user)) -> TenantContext:
         if not any(r in ctx.roles for r in roles):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+            )
         return ctx
+
     return _check

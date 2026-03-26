@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 import pytest
 
 from services.escalation_engine import (
     EscalationRuleEngine,
-    EscalationResult,
 )
 
 
@@ -34,7 +32,7 @@ class TestEscalationRuleEngine:
             "affected_services": [],
         }
         # Use a time shortly after reporting
-        now = datetime(2024, 3, 14, 14, 10, tzinfo=timezone.utc)
+        now = datetime(2024, 3, 14, 14, 10, tzinfo=UTC)
         result = engine.evaluate(incident, current_time=now)
         assert result.should_escalate is True
         assert result.recommended_level >= 2
@@ -51,7 +49,7 @@ class TestEscalationRuleEngine:
             "acknowledged_at": "2024-03-14T14:05:00Z",
             "affected_services": [],
         }
-        now = datetime(2024, 3, 14, 14, 10, tzinfo=timezone.utc)
+        now = datetime(2024, 3, 14, 14, 10, tzinfo=UTC)
         result = engine.evaluate(incident, current_time=now)
         # P1 auto-escalate rule should not fire since already at level 2
         p1_actions = [a for a in result.actions if "auto_escalate" in a.action]
@@ -70,7 +68,7 @@ class TestEscalationRuleEngine:
             "affected_services": [],
         }
         # P2 resolution SLA is 480 min (8 hours), set time 9 hours after
-        now = datetime(2024, 3, 14, 15, 0, tzinfo=timezone.utc)
+        now = datetime(2024, 3, 14, 15, 0, tzinfo=UTC)
         result = engine.evaluate(incident, current_time=now)
         assert result.should_escalate is True
         assert result.sla_status == "breached"
@@ -88,7 +86,7 @@ class TestEscalationRuleEngine:
             "affected_services": [],
         }
         # At 50% of P2 resolution (240 min = 4 hours after)
-        now = datetime(2024, 3, 14, 10, 0, tzinfo=timezone.utc)
+        now = datetime(2024, 3, 14, 10, 0, tzinfo=UTC)
         result = engine.evaluate(incident, current_time=now)
         assert result.sla_status == "at_risk"
 
@@ -105,7 +103,7 @@ class TestEscalationRuleEngine:
             "affected_services": [],
         }
         # Only 30 minutes in, P3 has 1440 min resolution
-        now = datetime(2024, 3, 14, 14, 30, tzinfo=timezone.utc)
+        now = datetime(2024, 3, 14, 14, 30, tzinfo=UTC)
         result = engine.evaluate(incident, current_time=now)
         assert result.should_escalate is False
         assert result.sla_status == "within_sla"
@@ -125,7 +123,7 @@ class TestEscalationRuleEngine:
                 {"service_id": "SVC-001", "customer_count": 150},
             ],
         }
-        now = datetime(2024, 3, 14, 14, 10, tzinfo=timezone.utc)
+        now = datetime(2024, 3, 14, 14, 10, tzinfo=UTC)
         result = engine.evaluate(incident, current_time=now)
         assert result.should_escalate is True
         assert result.recommended_level >= 3
@@ -145,7 +143,7 @@ class TestEscalationRuleEngine:
             "affected_services": [],
         }
         # P2 response SLA is 120 min, test at 100 min (20 min remaining < 30)
-        now = datetime(2024, 3, 14, 15, 40, tzinfo=timezone.utc)
+        now = datetime(2024, 3, 14, 15, 40, tzinfo=UTC)
         result = engine.evaluate(incident, current_time=now)
         assert result.should_escalate is True
         team_lead = [a for a in result.actions if "team_lead" in a.action]

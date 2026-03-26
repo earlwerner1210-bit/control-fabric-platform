@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps.auth import get_current_user
@@ -51,7 +51,9 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     svc = AuthService(db)
     user = await svc.register(body.email, body.password, body.full_name, body.tenant_id)
-    return UserResponse(id=user.id, email=user.email, full_name=user.full_name, tenant_id=user.tenant_id)
+    return UserResponse(
+        id=user.id, email=user.email, full_name=user.full_name, tenant_id=user.tenant_id
+    )
 
 
 @router.get("/me", response_model=UserResponse)
@@ -61,4 +63,6 @@ async def get_me(
 ):
     svc = AuthService(db)
     user = await svc.get_user(ctx.user_id)
-    return UserResponse(id=user.id, email=user.email, full_name=user.full_name, tenant_id=user.tenant_id)
+    return UserResponse(
+        id=user.id, email=user.email, full_name=user.full_name, tenant_id=user.tenant_id
+    )

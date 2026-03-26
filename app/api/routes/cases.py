@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps.auth import get_current_user
 from app.core.security import TenantContext
-from app.db.models import AuditEvent, ValidationResult, WorkflowCase, WorkflowStatus
+from app.db.models import ValidationResult, WorkflowCase
 from app.db.session import get_db
 from app.schemas.audit import AuditEventResponse
 from app.schemas.common import PaginatedResponse
@@ -228,7 +228,11 @@ async def list_cases(
     count_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
     total = count_result.scalar() or 0
 
-    stmt = stmt.offset((page - 1) * page_size).limit(page_size).order_by(WorkflowCase.created_at.desc())
+    stmt = (
+        stmt.offset((page - 1) * page_size)
+        .limit(page_size)
+        .order_by(WorkflowCase.created_at.desc())
+    )
     result = await db.execute(stmt)
     cases = result.scalars().all()
 

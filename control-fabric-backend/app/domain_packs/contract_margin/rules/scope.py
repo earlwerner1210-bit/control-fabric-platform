@@ -7,7 +7,7 @@ out-of-scope work, unmet conditions, and scope gaps.
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any
 
 from app.domain_packs.contract_margin.schemas.contract import (
     ScopeBoundary,
@@ -31,9 +31,7 @@ class ScopeConflictDetector:
             - ``severity``: ``high``, ``medium``, or ``low``
             - ``description``: human-readable explanation
         """
-        in_scope_activities = self._collect_activities_by_type(
-            scope_boundaries, ScopeType.in_scope
-        )
+        in_scope_activities = self._collect_activities_by_type(scope_boundaries, ScopeType.in_scope)
         out_of_scope_activities = self._collect_activities_by_type(
             scope_boundaries, ScopeType.out_of_scope
         )
@@ -53,15 +51,17 @@ class ScopeConflictDetector:
 
             # Check explicit out-of-scope
             if self._activity_matches(activity_lower, out_of_scope_activities):
-                conflicts.append({
-                    "activity": activity_name,
-                    "conflict_type": "out_of_scope",
-                    "severity": "high",
-                    "description": (
-                        f"Activity '{activity_name}' is explicitly listed as out of scope "
-                        f"in the contract boundaries."
-                    ),
-                })
+                conflicts.append(
+                    {
+                        "activity": activity_name,
+                        "conflict_type": "out_of_scope",
+                        "severity": "high",
+                        "description": (
+                            f"Activity '{activity_name}' is explicitly listed as out of scope "
+                            f"in the contract boundaries."
+                        ),
+                    }
+                )
                 continue
 
             # Check conditional scope
@@ -79,16 +79,18 @@ class ScopeConflictDetector:
                     for b in conditional_boundaries
                 )
                 if not is_conditional_listed:
-                    conflicts.append({
-                        "activity": activity_name,
-                        "conflict_type": "scope_gap",
-                        "severity": "medium",
-                        "description": (
-                            f"Activity '{activity_name}' is not listed in any scope boundary "
-                            f"(in-scope, out-of-scope, or conditional). This may indicate "
-                            f"scope creep or an incomplete contract schedule."
-                        ),
-                    })
+                    conflicts.append(
+                        {
+                            "activity": activity_name,
+                            "conflict_type": "scope_gap",
+                            "severity": "medium",
+                            "description": (
+                                f"Activity '{activity_name}' is not listed in any scope boundary "
+                                f"(in-scope, out-of-scope, or conditional). This may indicate "
+                                f"scope creep or an incomplete contract schedule."
+                            ),
+                        }
+                    )
 
         return conflicts
 

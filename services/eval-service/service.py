@@ -57,7 +57,11 @@ class EvalService:
                 actual_output=actual_output,
                 score=score,
                 passed=case_passed,
-                detail={"metrics": metrics, "provider": model_provider, "batch_run_id": str(batch_run_id)},
+                detail={
+                    "metrics": metrics,
+                    "provider": model_provider,
+                    "batch_run_id": str(batch_run_id),
+                },
             )
             self.db.add(run)
             runs.append(run)
@@ -71,7 +75,10 @@ class EvalService:
         avg_score = total_score / len(cases) if cases else 0.0
         logger.info(
             "Eval batch %s: %d/%d passed (avg score=%.2f)",
-            batch_run_id, passed_count, len(cases), avg_score,
+            batch_run_id,
+            passed_count,
+            len(cases),
+            avg_score,
         )
 
         return {
@@ -79,7 +86,10 @@ class EvalService:
             "total": len(cases),
             "passed": passed_count,
             "failed": len(cases) - passed_count,
-            "metrics": {"avg_score": round(avg_score, 4), "pass_rate": round(passed_count / len(cases), 4) if cases else 0},
+            "metrics": {
+                "avg_score": round(avg_score, 4),
+                "pass_rate": round(passed_count / len(cases), 4) if cases else 0,
+            },
             "results": runs,
         }
 
@@ -134,9 +144,7 @@ class EvalService:
 
     async def get_eval_run(self, run_id: uuid.UUID, tenant_id: uuid.UUID) -> list[EvalRun]:
         """Get all runs for a given batch run_id."""
-        result = await self.db.execute(
-            select(EvalRun).where(EvalRun.tenant_id == tenant_id)
-        )
+        result = await self.db.execute(select(EvalRun).where(EvalRun.tenant_id == tenant_id))
         all_runs = result.scalars().all()
         return [r for r in all_runs if (r.detail or {}).get("batch_run_id") == str(run_id)]
 

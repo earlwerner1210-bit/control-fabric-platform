@@ -5,13 +5,11 @@ from __future__ import annotations
 import pytest
 
 from services.validator_service.validator import (
-    ValidatorService,
     ValidationStatus,
-    ValidationSeverity,
-    RuleCheckResult,
-    required_fields_rule,
-    positive_amount_rule,
+    ValidatorService,
     confidence_threshold_rule,
+    positive_amount_rule,
+    required_fields_rule,
 )
 
 

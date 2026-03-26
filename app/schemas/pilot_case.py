@@ -41,8 +41,13 @@ class BusinessImpact(str, enum.Enum):
 class PilotCaseCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=500)
     description: str | None = None
-    workflow_type: str = Field(..., description="e.g. contract_compile, margin_diagnosis, work_order_readiness, incident_dispatch")
-    external_refs: dict[str, str] = Field(default_factory=dict, description="ticket_id, work_order_id, contract_ref, etc.")
+    workflow_type: str = Field(
+        ...,
+        description="e.g. contract_compile, margin_diagnosis, work_order_readiness, incident_dispatch",
+    )
+    external_refs: dict[str, str] = Field(
+        default_factory=dict, description="ticket_id, work_order_id, contract_ref, etc."
+    )
     tags: list[str] = Field(default_factory=list)
     category: str | None = None
     severity: CaseSeverity = CaseSeverity.MEDIUM
@@ -79,7 +84,9 @@ class PilotCaseListResponse(BaseModel):
 
 
 class PilotCaseArtifactCreate(BaseModel):
-    artifact_type: str = Field(..., description="document, chunk, control_object, model_output, validation_result")
+    artifact_type: str = Field(
+        ..., description="document, chunk, control_object, model_output, validation_result"
+    )
     artifact_id: uuid.UUID
     label: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)

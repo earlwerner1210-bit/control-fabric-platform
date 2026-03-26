@@ -52,7 +52,9 @@ class ReviewDecisionResponse(BaseModel):
 class ReviewerNoteCreate(BaseModel):
     note_type: str = Field(default="general", description="general, concern, suggestion, question")
     content: str = Field(..., min_length=1)
-    references: list[uuid.UUID] = Field(default_factory=list, description="IDs of related artifacts/evidence")
+    references: list[uuid.UUID] = Field(
+        default_factory=list, description="IDs of related artifacts/evidence"
+    )
 
 
 class ReviewerNoteResponse(BaseModel):

@@ -30,7 +30,9 @@ def services():
 
 
 def _create_case_at_review(case_svc: PilotCaseService) -> uuid.UUID:
-    case = case_svc.create_case(TENANT, PilotCaseCreate(title="Test", workflow_type="margin_diagnosis"), USER)
+    case = case_svc.create_case(
+        TENANT, PilotCaseCreate(title="Test", workflow_type="margin_diagnosis"), USER
+    )
     case_svc.transition_state(case.id, PilotCaseState.EVIDENCE_READY, USER)
     case_svc.transition_state(case.id, PilotCaseState.WORKFLOW_EXECUTED, USER)
     case_svc.transition_state(case.id, PilotCaseState.VALIDATION_COMPLETED, USER)
@@ -65,7 +67,9 @@ class TestApprove:
 
     def test_approve_invalid_state(self, services):
         case_svc, approval_svc = services
-        case = case_svc.create_case(TENANT, PilotCaseCreate(title="Test", workflow_type="test"), USER)
+        case = case_svc.create_case(
+            TENANT, PilotCaseCreate(title="Test", workflow_type="test"), USER
+        )
         with pytest.raises(InvalidTransitionError):
             approval_svc.approve(case.id, USER, ApprovalRequest(reasoning="Test"))
 
@@ -151,7 +155,9 @@ class TestEscalate:
             result = approval_svc.escalate(
                 case_id,
                 USER,
-                EscalationRequest(escalation_route=route, escalation_reason=f"Testing {route.value}"),
+                EscalationRequest(
+                    escalation_route=route, escalation_reason=f"Testing {route.value}"
+                ),
             )
             assert result.escalation_route == route
 
@@ -168,7 +174,8 @@ class TestGetRecords:
         case_svc, approval_svc = services
         case_id = _create_case_at_review(case_svc)
         approval_svc.override(
-            case_id, USER,
+            case_id,
+            USER,
             OverrideRequest(override_reason=OverrideReason.OTHER, override_detail="Test"),
         )
         overrides = approval_svc.get_overrides(case_id)
@@ -178,8 +185,11 @@ class TestGetRecords:
         case_svc, approval_svc = services
         case_id = _create_case_at_review(case_svc)
         approval_svc.escalate(
-            case_id, USER,
-            EscalationRequest(escalation_route=EscalationRoute.DOMAIN_EXPERT, escalation_reason="Need expert"),
+            case_id,
+            USER,
+            EscalationRequest(
+                escalation_route=EscalationRoute.DOMAIN_EXPERT, escalation_reason="Need expert"
+            ),
         )
         escalations = approval_svc.get_escalations(case_id)
         assert len(escalations) == 1

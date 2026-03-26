@@ -105,8 +105,16 @@ class TestAddDecision:
 
     def test_multiple_decisions(self, svc: ReviewService):
         svc.create_review(CASE_ID, ReviewRequest())
-        svc.add_decision(CASE_ID, REVIEWER, ReviewDecisionCreate(outcome=ReviewOutcome.WARN, reasoning="Initial review"))
-        svc.add_decision(CASE_ID, REVIEWER, ReviewDecisionCreate(outcome=ReviewOutcome.ACCEPT, reasoning="After clarification"))
+        svc.add_decision(
+            CASE_ID,
+            REVIEWER,
+            ReviewDecisionCreate(outcome=ReviewOutcome.WARN, reasoning="Initial review"),
+        )
+        svc.add_decision(
+            CASE_ID,
+            REVIEWER,
+            ReviewDecisionCreate(outcome=ReviewOutcome.ACCEPT, reasoning="After clarification"),
+        )
         review = svc.get_review(CASE_ID)
         assert len(review.decisions) == 2
 
@@ -150,8 +158,12 @@ class TestGetSummary:
 
     def test_summary_with_decisions(self, svc: ReviewService):
         svc.create_review(CASE_ID, ReviewRequest())
-        svc.add_decision(CASE_ID, REVIEWER, ReviewDecisionCreate(outcome=ReviewOutcome.WARN, reasoning="Initial"))
-        svc.add_decision(CASE_ID, REVIEWER, ReviewDecisionCreate(outcome=ReviewOutcome.ACCEPT, reasoning="Final"))
+        svc.add_decision(
+            CASE_ID, REVIEWER, ReviewDecisionCreate(outcome=ReviewOutcome.WARN, reasoning="Initial")
+        )
+        svc.add_decision(
+            CASE_ID, REVIEWER, ReviewDecisionCreate(outcome=ReviewOutcome.ACCEPT, reasoning="Final")
+        )
         summary = svc.get_summary(CASE_ID)
         assert summary.total_decisions == 2
         assert summary.latest_outcome == ReviewOutcome.ACCEPT

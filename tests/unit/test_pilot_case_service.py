@@ -192,7 +192,9 @@ class TestStateTransition:
         svc.transition_state(case.id, PilotCaseState.WORKFLOW_EXECUTED, USER)
         svc.transition_state(case.id, PilotCaseState.VALIDATION_COMPLETED, USER)
         svc.transition_state(case.id, PilotCaseState.UNDER_REVIEW, USER)
-        svc.transition_state(case.id, PilotCaseState.OVERRIDDEN, USER, reason="Commercial truth differs")
+        svc.transition_state(
+            case.id, PilotCaseState.OVERRIDDEN, USER, reason="Commercial truth differs"
+        )
         updated = svc.get_case(case.id)
         assert updated.state == PilotCaseState.OVERRIDDEN
 

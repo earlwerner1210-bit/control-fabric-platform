@@ -26,7 +26,9 @@ class TestCreateBundle:
         data = EvidenceBundleCreate(
             pilot_case_id=CASE_ID,
             items=[
-                EvidenceItem(evidence_type="document", source_id=uuid.uuid4(), source_label="MSA Contract"),
+                EvidenceItem(
+                    evidence_type="document", source_id=uuid.uuid4(), source_label="MSA Contract"
+                ),
                 EvidenceItem(evidence_type="chunk", source_id=uuid.uuid4(), confidence=0.95),
             ],
             chain_stages=["contract_basis", "work_authorization"],
@@ -85,7 +87,9 @@ class TestEvidenceTrace:
     def test_trace_with_conflicts(self, svc: EvidenceService):
         trace = svc.store_trace(
             CASE_ID,
-            cross_plane_conflicts=[{"conflict": "rate_mismatch", "planes": ["contract", "billing"]}],
+            cross_plane_conflicts=[
+                {"conflict": "rate_mismatch", "planes": ["contract", "billing"]}
+            ],
         )
         assert len(trace.cross_plane_conflicts) == 1
 

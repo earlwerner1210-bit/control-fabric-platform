@@ -35,7 +35,9 @@ def _case_data(**kwargs):
 class TestExportCase:
     def test_export_json(self, svc: ExportService):
         result = svc.export_case(
-            CASE_ID, USER, _case_data(),
+            CASE_ID,
+            USER,
+            _case_data(),
             CaseExportRequest(format=ExportFormat.JSON),
         )
         assert result.pilot_case_id == CASE_ID
@@ -45,7 +47,9 @@ class TestExportCase:
 
     def test_export_markdown(self, svc: ExportService):
         result = svc.export_case(
-            CASE_ID, USER, _case_data(),
+            CASE_ID,
+            USER,
+            _case_data(),
             CaseExportRequest(format=ExportFormat.MARKDOWN),
         )
         assert "markdown" in result.content
@@ -55,7 +59,9 @@ class TestExportCase:
     def test_export_with_evidence(self, svc: ExportService):
         evidence = {"completeness_score": 0.95, "chain_stages": ["contract_basis"]}
         result = svc.export_case(
-            CASE_ID, USER, _case_data(),
+            CASE_ID,
+            USER,
+            _case_data(),
             CaseExportRequest(include_evidence=True),
             evidence=evidence,
         )
@@ -63,7 +69,9 @@ class TestExportCase:
 
     def test_export_without_evidence(self, svc: ExportService):
         result = svc.export_case(
-            CASE_ID, USER, _case_data(),
+            CASE_ID,
+            USER,
+            _case_data(),
             CaseExportRequest(include_evidence=False),
         )
         assert "evidence" not in result.content
@@ -71,16 +79,24 @@ class TestExportCase:
     def test_export_with_review(self, svc: ExportService):
         review = {"decisions": [{"outcome": "accept"}], "notes": []}
         result = svc.export_case(
-            CASE_ID, USER, _case_data(),
+            CASE_ID,
+            USER,
+            _case_data(),
             CaseExportRequest(include_review=True),
             review=review,
         )
         assert "review" in result.content
 
     def test_export_with_baseline(self, svc: ExportService):
-        baseline = {"expected_outcome": "billable", "platform_outcome": "billable", "match_type": "exact_match"}
+        baseline = {
+            "expected_outcome": "billable",
+            "platform_outcome": "billable",
+            "match_type": "exact_match",
+        }
         result = svc.export_case(
-            CASE_ID, USER, _case_data(),
+            CASE_ID,
+            USER,
+            _case_data(),
             CaseExportRequest(include_baseline=True, format=ExportFormat.MARKDOWN),
             baseline=baseline,
         )
@@ -91,7 +107,9 @@ class TestExportCase:
 class TestGetExports:
     def test_get_exports(self, svc: ExportService):
         svc.export_case(CASE_ID, USER, _case_data(), CaseExportRequest())
-        svc.export_case(CASE_ID, USER, _case_data(), CaseExportRequest(format=ExportFormat.MARKDOWN))
+        svc.export_case(
+            CASE_ID, USER, _case_data(), CaseExportRequest(format=ExportFormat.MARKDOWN)
+        )
         exports = svc.get_exports(CASE_ID)
         assert len(exports) == 2
 
@@ -107,9 +125,24 @@ class TestPilotReport:
 
     def test_report_with_cases(self, svc: ExportService):
         cases = [
-            {"id": uuid.uuid4(), "title": "Case 1", "state": "approved", "workflow_type": "margin_diagnosis"},
-            {"id": uuid.uuid4(), "title": "Case 2", "state": "overridden", "workflow_type": "contract_compile"},
-            {"id": uuid.uuid4(), "title": "Case 3", "state": "approved", "workflow_type": "margin_diagnosis"},
+            {
+                "id": uuid.uuid4(),
+                "title": "Case 1",
+                "state": "approved",
+                "workflow_type": "margin_diagnosis",
+            },
+            {
+                "id": uuid.uuid4(),
+                "title": "Case 2",
+                "state": "overridden",
+                "workflow_type": "contract_compile",
+            },
+            {
+                "id": uuid.uuid4(),
+                "title": "Case 3",
+                "state": "approved",
+                "workflow_type": "margin_diagnosis",
+            },
         ]
         report = svc.generate_pilot_report(cases)
         assert report.total_cases == 3

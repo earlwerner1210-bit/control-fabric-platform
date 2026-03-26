@@ -85,7 +85,8 @@ class PilotCaseService:
         page_size: int = 20,
     ) -> tuple[list[PilotCaseResponse], int]:
         results = [
-            c for c in self._cases.values()
+            c
+            for c in self._cases.values()
             if c["tenant_id"] == tenant_id
             and (state is None or c["state"] == state)
             and (workflow_type is None or c["workflow_type"] == workflow_type)
@@ -143,14 +144,16 @@ class PilotCaseService:
         case["assigned_reviewer_id"] = reviewer_id
         case["updated_at"] = now
 
-        self._transitions.setdefault(case_id, []).append({
-            "timestamp": now,
-            "event_type": "reviewer_assigned",
-            "actor_id": assigned_by,
-            "from_state": None,
-            "to_state": None,
-            "details": {"reviewer_id": str(reviewer_id), "notes": notes},
-        })
+        self._transitions.setdefault(case_id, []).append(
+            {
+                "timestamp": now,
+                "event_type": "reviewer_assigned",
+                "actor_id": assigned_by,
+                "from_state": None,
+                "to_state": None,
+                "details": {"reviewer_id": str(reviewer_id), "notes": notes},
+            }
+        )
 
         return PilotCaseAssignResponse(**assignment)
 
@@ -177,14 +180,16 @@ class PilotCaseService:
         case["state"] = target_state
         case["updated_at"] = now
 
-        self._transitions.setdefault(case_id, []).append({
-            "timestamp": now,
-            "event_type": "state_transition",
-            "actor_id": actor_id,
-            "from_state": current.value if isinstance(current, PilotCaseState) else current,
-            "to_state": target_state.value,
-            "details": {"reason": reason, **(metadata or {})},
-        })
+        self._transitions.setdefault(case_id, []).append(
+            {
+                "timestamp": now,
+                "event_type": "state_transition",
+                "actor_id": actor_id,
+                "from_state": current.value if isinstance(current, PilotCaseState) else current,
+                "to_state": target_state.value,
+                "details": {"reason": reason, **(metadata or {})},
+            }
+        )
 
         return result
 

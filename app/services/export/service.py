@@ -85,12 +85,14 @@ class ExportService:
             wt = c.get("workflow_type", "unknown")
             by_workflow[wt] = by_workflow.get(wt, 0) + 1
 
-            decision_summaries.append(DecisionSummaryExport(
-                pilot_case_id=c.get("id", uuid.uuid4()),
-                title=c.get("title", ""),
-                workflow_type=wt,
-                state=state_str,
-            ))
+            decision_summaries.append(
+                DecisionSummaryExport(
+                    pilot_case_id=c.get("id", uuid.uuid4()),
+                    title=c.get("title", ""),
+                    workflow_type=wt,
+                    state=state_str,
+                )
+            )
 
         return PilotReportSummary(
             generated_at=datetime.now(UTC),

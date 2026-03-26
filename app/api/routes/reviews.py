@@ -24,7 +24,9 @@ _review_service = ReviewService()
 DEMO_USER = uuid.UUID("00000000-0000-0000-0000-000000000098")
 
 
-@router.post("/{pilot_case_id}/review", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{pilot_case_id}/review", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_review(pilot_case_id: uuid.UUID, data: ReviewRequest):
     return _review_service.create_review(pilot_case_id, data)
 
@@ -37,7 +39,11 @@ async def get_review(pilot_case_id: uuid.UUID):
     return review
 
 
-@router.post("/{pilot_case_id}/review/decision", response_model=ReviewDecisionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{pilot_case_id}/review/decision",
+    response_model=ReviewDecisionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_review_decision(pilot_case_id: uuid.UUID, data: ReviewDecisionCreate):
     try:
         return _review_service.add_decision(pilot_case_id, DEMO_USER, data)
@@ -45,7 +51,11 @@ async def add_review_decision(pilot_case_id: uuid.UUID, data: ReviewDecisionCrea
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/{pilot_case_id}/review/note", response_model=ReviewerNoteResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{pilot_case_id}/review/note",
+    response_model=ReviewerNoteResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_reviewer_note(pilot_case_id: uuid.UUID, data: ReviewerNoteCreate):
     try:
         return _review_service.add_note(pilot_case_id, DEMO_USER, data)

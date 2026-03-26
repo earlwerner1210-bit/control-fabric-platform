@@ -136,7 +136,14 @@ class BaselineComparisonService:
 
         # Check for positive/negative mismatches
         positive_signals = {"billable", "approved", "ready", "compliant", "pass", "escalate"}
-        negative_signals = {"not_billable", "rejected", "blocked", "non_compliant", "fail", "no_escalation"}
+        negative_signals = {
+            "not_billable",
+            "rejected",
+            "blocked",
+            "non_compliant",
+            "fail",
+            "no_escalation",
+        }
 
         expected_positive = any(s in expected_lower for s in positive_signals)
         final_positive = any(s in final_lower for s in positive_signals)

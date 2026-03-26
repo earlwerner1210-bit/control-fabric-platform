@@ -31,7 +31,12 @@ DEMO_USER = uuid.UUID("00000000-0000-0000-0000-000000000098")
     status_code=status.HTTP_201_CREATED,
 )
 async def export_case(pilot_case_id: uuid.UUID, data: CaseExportRequest):
-    case_data = {"id": pilot_case_id, "title": "Exported Case", "workflow_type": "unknown", "state": "exported"}
+    case_data = {
+        "id": pilot_case_id,
+        "title": "Exported Case",
+        "workflow_type": "unknown",
+        "state": "exported",
+    }
     return _export_service.export_case(pilot_case_id, DEMO_USER, case_data, data)
 
 

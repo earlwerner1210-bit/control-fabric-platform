@@ -75,7 +75,11 @@ class TestApprovedMarginCase:
         # Create case
         case = s["case"].create_case(
             TENANT,
-            PilotCaseCreate(title="Margin Case Alpha", workflow_type="margin_diagnosis", severity=CaseSeverity.HIGH),
+            PilotCaseCreate(
+                title="Margin Case Alpha",
+                workflow_type="margin_diagnosis",
+                severity=CaseSeverity.HIGH,
+            ),
             USER,
         )
         case_id = case.id
@@ -84,56 +88,87 @@ class TestApprovedMarginCase:
         s["case"].assign_reviewer(case_id, REVIEWER, USER, notes="Senior margin reviewer")
 
         # Store evidence
-        bundle = s["evidence"].create_bundle(EvidenceBundleCreate(
-            pilot_case_id=case_id,
-            items=[
-                EvidenceItem(evidence_type="document", source_id=uuid.uuid4(), source_label="MSA Contract"),
-                EvidenceItem(evidence_type="chunk", source_id=uuid.uuid4(), confidence=0.92),
-            ],
-            chain_stages=["contract_basis", "work_authorization", "execution_evidence"],
-            completeness_score=0.92,
-        ))
+        bundle = s["evidence"].create_bundle(
+            EvidenceBundleCreate(
+                pilot_case_id=case_id,
+                items=[
+                    EvidenceItem(
+                        evidence_type="document",
+                        source_id=uuid.uuid4(),
+                        source_label="MSA Contract",
+                    ),
+                    EvidenceItem(evidence_type="chunk", source_id=uuid.uuid4(), confidence=0.92),
+                ],
+                chain_stages=["contract_basis", "work_authorization", "execution_evidence"],
+                completeness_score=0.92,
+            )
+        )
 
         # Store baseline expectation
-        s["baseline"].store_expectation(case_id, BaselineExpectation(
-            expected_outcome="billable",
-            expected_confidence=0.95,
-            source="human_expert",
-        ))
+        s["baseline"].store_expectation(
+            case_id,
+            BaselineExpectation(
+                expected_outcome="billable",
+                expected_confidence=0.95,
+                source="human_expert",
+            ),
+        )
 
         # Advance to review
         _advance_to_review(s["case"], case_id)
 
         # Create review and add decision
-        s["review"].create_review(case_id, ReviewRequest(
-            model_output_summary={"verdict": "billable", "confidence": 0.92},
-            evidence_bundle_id=bundle.id,
-        ))
-        s["review"].add_decision(case_id, REVIEWER, ReviewDecisionCreate(
-            outcome=ReviewOutcome.ACCEPT,
-            reasoning="Correct billability determination",
-            confidence=0.95,
-        ))
+        s["review"].create_review(
+            case_id,
+            ReviewRequest(
+                model_output_summary={"verdict": "billable", "confidence": 0.92},
+                evidence_bundle_id=bundle.id,
+            ),
+        )
+        s["review"].add_decision(
+            case_id,
+            REVIEWER,
+            ReviewDecisionCreate(
+                outcome=ReviewOutcome.ACCEPT,
+                reasoning="Correct billability determination",
+                confidence=0.95,
+            ),
+        )
 
         # Approve
-        s["approval"].approve(case_id, REVIEWER, ApprovalRequest(
-            reasoning="Verified against contract terms",
-            business_impact_notes="Standard rate card applies",
-        ))
+        s["approval"].approve(
+            case_id,
+            REVIEWER,
+            ApprovalRequest(
+                reasoning="Verified against contract terms",
+                business_impact_notes="Standard rate card applies",
+            ),
+        )
 
         # Compare baseline
         comparison = s["baseline"].compare(case_id, platform_outcome="billable")
         assert comparison.match_type == BaselineMatchType.EXACT_MATCH
 
         # Record KPI
-        s["kpi"].record_measurement(case_id, KpiMeasurementCreate(
-            metric_name="time_to_decision", metric_value=2.5, metric_unit="hours",
-        ))
+        s["kpi"].record_measurement(
+            case_id,
+            KpiMeasurementCreate(
+                metric_name="time_to_decision",
+                metric_value=2.5,
+                metric_unit="hours",
+            ),
+        )
 
         # Export
         export = s["export"].export_case(
-            case_id, USER,
-            {"id": case_id, "title": "Margin Case Alpha", "workflow_type": "margin_diagnosis", "state": "approved"},
+            case_id,
+            USER,
+            {
+                "id": case_id,
+                "title": "Margin Case Alpha",
+                "workflow_type": "margin_diagnosis",
+                "state": "approved",
+            },
             CaseExportRequest(format=ExportFormat.MARKDOWN),
         )
         assert "markdown" in export.content
@@ -162,22 +197,37 @@ class TestOverriddenMarginCase:
         )
         _advance_to_review(s["case"], case.id)
 
-        s["review"].create_review(case.id, ReviewRequest(
-            model_output_summary={"verdict": "billable", "confidence": 0.88},
-        ))
-        s["review"].add_decision(case.id, REVIEWER, ReviewDecisionCreate(
-            outcome=ReviewOutcome.REJECT,
-            reasoning="Commercial truth differs from model output",
-        ))
+        s["review"].create_review(
+            case.id,
+            ReviewRequest(
+                model_output_summary={"verdict": "billable", "confidence": 0.88},
+            ),
+        )
+        s["review"].add_decision(
+            case.id,
+            REVIEWER,
+            ReviewDecisionCreate(
+                outcome=ReviewOutcome.REJECT,
+                reasoning="Commercial truth differs from model output",
+            ),
+        )
 
-        s["approval"].override(case.id, REVIEWER, OverrideRequest(
-            override_reason=OverrideReason.MODEL_ACCEPTABLE_COMMERCIAL_DIFFERS,
-            override_detail="Contract clause 4.2 applies differently",
-            corrected_outcome={"verdict": "not_billable", "reason": "clause_4_2"},
-        ))
+        s["approval"].override(
+            case.id,
+            REVIEWER,
+            OverrideRequest(
+                override_reason=OverrideReason.MODEL_ACCEPTABLE_COMMERCIAL_DIFFERS,
+                override_detail="Contract clause 4.2 applies differently",
+                corrected_outcome={"verdict": "not_billable", "reason": "clause_4_2"},
+            ),
+        )
 
-        s["baseline"].store_expectation(case.id, BaselineExpectation(expected_outcome="not_billable"))
-        comparison = s["baseline"].compare(case.id, platform_outcome="billable", reviewer_outcome="not_billable")
+        s["baseline"].store_expectation(
+            case.id, BaselineExpectation(expected_outcome="not_billable")
+        )
+        comparison = s["baseline"].compare(
+            case.id, platform_outcome="billable", reviewer_outcome="not_billable"
+        )
         assert comparison.match_type == BaselineMatchType.EXACT_MATCH
 
         final = s["case"].get_case(case.id)
@@ -197,25 +247,37 @@ class TestEscalatedFieldCase:
         _advance_to_review(s["case"], case.id)
 
         s["review"].create_review(case.id, ReviewRequest())
-        s["review"].add_decision(case.id, REVIEWER, ReviewDecisionCreate(
-            outcome=ReviewOutcome.ESCALATE,
-            reasoning="Requires commercial lead sign-off",
-        ))
+        s["review"].add_decision(
+            case.id,
+            REVIEWER,
+            ReviewDecisionCreate(
+                outcome=ReviewOutcome.ESCALATE,
+                reasoning="Requires commercial lead sign-off",
+            ),
+        )
 
-        s["approval"].escalate(case.id, REVIEWER, EscalationRequest(
-            escalation_route=EscalationRoute.COMMERCIAL_LEAD,
-            escalation_reason="High-value contract exception",
-            urgency="urgent",
-        ))
+        s["approval"].escalate(
+            case.id,
+            REVIEWER,
+            EscalationRequest(
+                escalation_route=EscalationRoute.COMMERCIAL_LEAD,
+                escalation_reason="High-value contract exception",
+                urgency="urgent",
+            ),
+        )
         assert s["case"].get_case(case.id).state == PilotCaseState.ESCALATED
 
         # Return to review after escalation
         s["case"].transition_state(case.id, PilotCaseState.UNDER_REVIEW, USER)
-        s["review"].add_decision(case.id, REVIEWER, ReviewDecisionCreate(
-            outcome=ReviewOutcome.ACCEPT,
-            reasoning="Commercial lead approved",
-            confidence=0.98,
-        ))
+        s["review"].add_decision(
+            case.id,
+            REVIEWER,
+            ReviewDecisionCreate(
+                outcome=ReviewOutcome.ACCEPT,
+                reasoning="Commercial lead approved",
+                confidence=0.98,
+            ),
+        )
 
         # Final approval
         s["approval"].approve(case.id, REVIEWER, ApprovalRequest(reasoning="Escalation resolved"))
@@ -232,23 +294,35 @@ class TestFeedbackLoop:
 
     def test_feedback_aggregation(self, services):
         s = services
-        case1 = s["case"].create_case(TENANT, PilotCaseCreate(title="C1", workflow_type="margin_diagnosis"), USER)
-        case2 = s["case"].create_case(TENANT, PilotCaseCreate(title="C2", workflow_type="contract_compile"), USER)
+        case1 = s["case"].create_case(
+            TENANT, PilotCaseCreate(title="C1", workflow_type="margin_diagnosis"), USER
+        )
+        case2 = s["case"].create_case(
+            TENANT, PilotCaseCreate(title="C2", workflow_type="contract_compile"), USER
+        )
 
-        s["feedback"].submit_feedback(case1.id, USER, FeedbackEntryCreate(
-            category=FeedbackCategory.RULE_ACCURACY,
-            severity=FeedbackSeverity.CRITICAL,
-            title="Rate card rule broken",
-            description="Weekend rates not applied",
-            affected_component="rule_engine",
-        ))
-        s["feedback"].submit_feedback(case2.id, USER, FeedbackEntryCreate(
-            category=FeedbackCategory.EVIDENCE_GAP,
-            severity=FeedbackSeverity.HIGH,
-            title="Missing document",
-            description="Field completion certificate missing",
-            affected_component="evidence",
-        ))
+        s["feedback"].submit_feedback(
+            case1.id,
+            USER,
+            FeedbackEntryCreate(
+                category=FeedbackCategory.RULE_ACCURACY,
+                severity=FeedbackSeverity.CRITICAL,
+                title="Rate card rule broken",
+                description="Weekend rates not applied",
+                affected_component="rule_engine",
+            ),
+        )
+        s["feedback"].submit_feedback(
+            case2.id,
+            USER,
+            FeedbackEntryCreate(
+                category=FeedbackCategory.EVIDENCE_GAP,
+                severity=FeedbackSeverity.HIGH,
+                title="Missing document",
+                description="Field completion certificate missing",
+                affected_component="evidence",
+            ),
+        )
 
         summary = s["feedback"].get_summary()
         assert summary.total_entries == 2
@@ -267,7 +341,9 @@ class TestKpiAcrossCases:
             ("C3", "contract_compile", PilotCaseState.APPROVED),
             ("C4", "contract_compile", PilotCaseState.ESCALATED),
         ]:
-            case = s["case"].create_case(TENANT, PilotCaseCreate(title=title, workflow_type=wt), USER)
+            case = s["case"].create_case(
+                TENANT, PilotCaseCreate(title=title, workflow_type=wt), USER
+            )
             cases_data.append({"id": case.id, "state": final_state, "workflow_type": wt})
 
         summary = s["kpi"].compute_summary(cases_data)

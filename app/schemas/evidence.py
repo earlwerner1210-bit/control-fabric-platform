@@ -10,7 +10,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class EvidenceItem(BaseModel):
-    evidence_type: str = Field(..., description="document, chunk, control_object, rule_result, validation_result, model_output")
+    evidence_type: str = Field(
+        ...,
+        description="document, chunk, control_object, rule_result, validation_result, model_output",
+    )
     source_id: uuid.UUID
     source_label: str | None = None
     content_summary: str | None = None
@@ -21,7 +24,10 @@ class EvidenceItem(BaseModel):
 class EvidenceBundleCreate(BaseModel):
     pilot_case_id: uuid.UUID
     items: list[EvidenceItem] = Field(default_factory=list)
-    chain_stages: list[str] = Field(default_factory=list, description="e.g. contract_basis, work_authorization, execution_evidence, billing_evidence")
+    chain_stages: list[str] = Field(
+        default_factory=list,
+        description="e.g. contract_basis, work_authorization, execution_evidence, billing_evidence",
+    )
     completeness_score: float = Field(ge=0.0, le=1.0, default=0.0)
     metadata: dict[str, Any] = Field(default_factory=dict)
 

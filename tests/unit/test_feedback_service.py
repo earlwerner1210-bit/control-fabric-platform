@@ -72,12 +72,22 @@ class TestSubmitFeedback:
 class TestGetCaseFeedback:
     def test_get_feedback(self, svc: FeedbackService):
         svc.submit_feedback(
-            CASE_ID, USER,
-            FeedbackEntryCreate(category=FeedbackCategory.FALSE_POSITIVE, title="FP", description="False positive found"),
+            CASE_ID,
+            USER,
+            FeedbackEntryCreate(
+                category=FeedbackCategory.FALSE_POSITIVE,
+                title="FP",
+                description="False positive found",
+            ),
         )
         svc.submit_feedback(
-            CASE_ID, USER,
-            FeedbackEntryCreate(category=FeedbackCategory.MODEL_QUALITY, title="MQ", description="Model quality issue"),
+            CASE_ID,
+            USER,
+            FeedbackEntryCreate(
+                category=FeedbackCategory.MODEL_QUALITY,
+                title="MQ",
+                description="Model quality issue",
+            ),
         )
         entries = svc.get_case_feedback(CASE_ID)
         assert len(entries) == 2
@@ -93,7 +103,8 @@ class TestSummary:
 
     def test_summary_aggregation(self, svc: FeedbackService):
         svc.submit_feedback(
-            CASE_ID, USER,
+            CASE_ID,
+            USER,
             FeedbackEntryCreate(
                 category=FeedbackCategory.RULE_ACCURACY,
                 severity=FeedbackSeverity.CRITICAL,
@@ -103,7 +114,8 @@ class TestSummary:
             ),
         )
         svc.submit_feedback(
-            CASE_ID, USER,
+            CASE_ID,
+            USER,
             FeedbackEntryCreate(
                 category=FeedbackCategory.RULE_ACCURACY,
                 severity=FeedbackSeverity.HIGH,
@@ -113,7 +125,8 @@ class TestSummary:
             ),
         )
         svc.submit_feedback(
-            uuid.uuid4(), USER,
+            uuid.uuid4(),
+            USER,
             FeedbackEntryCreate(
                 category=FeedbackCategory.EVIDENCE_GAP,
                 severity=FeedbackSeverity.LOW,

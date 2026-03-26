@@ -49,10 +49,7 @@ class FeedbackService:
         self,
         pilot_case_id: uuid.UUID,
     ) -> list[FeedbackEntryResponse]:
-        return [
-            FeedbackEntryResponse(**e)
-            for e in self._entries.get(pilot_case_id, [])
-        ]
+        return [FeedbackEntryResponse(**e) for e in self._entries.get(pilot_case_id, [])]
 
     def get_summary(
         self,

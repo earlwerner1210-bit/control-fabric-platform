@@ -55,7 +55,11 @@ async def get_pilot_case(pilot_case_id: uuid.UUID):
     return case
 
 
-@router.post("/{pilot_case_id}/artifacts", response_model=PilotCaseArtifactResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{pilot_case_id}/artifacts",
+    response_model=PilotCaseArtifactResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_artifact(pilot_case_id: uuid.UUID, data: PilotCaseArtifactCreate):
     try:
         artifact = _case_service.add_artifact(

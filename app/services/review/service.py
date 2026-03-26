@@ -58,14 +58,8 @@ class ReviewService:
         if review is None:
             return None
 
-        decisions = [
-            ReviewDecisionResponse(**d)
-            for d in self._decisions.get(pilot_case_id, [])
-        ]
-        notes = [
-            ReviewerNoteResponse(**n)
-            for n in self._notes.get(pilot_case_id, [])
-        ]
+        decisions = [ReviewDecisionResponse(**d) for d in self._decisions.get(pilot_case_id, [])]
+        notes = [ReviewerNoteResponse(**n) for n in self._notes.get(pilot_case_id, [])]
 
         return ReviewResponse(
             pilot_case_id=pilot_case_id,

@@ -38,7 +38,9 @@ class ApprovalRequest(BaseModel):
 class OverrideRequest(BaseModel):
     override_reason: OverrideReason
     override_detail: str = Field(..., min_length=1)
-    corrected_outcome: dict[str, Any] = Field(default_factory=dict, description="The corrected decision payload")
+    corrected_outcome: dict[str, Any] = Field(
+        default_factory=dict, description="The corrected decision payload"
+    )
     business_impact_notes: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 

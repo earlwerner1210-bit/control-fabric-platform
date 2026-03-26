@@ -56,10 +56,26 @@ class TestComputeSummary:
 
     def test_summary_with_cases(self, svc: KpiService):
         cases = [
-            {"id": uuid.uuid4(), "state": PilotCaseState.APPROVED, "workflow_type": "margin_diagnosis"},
-            {"id": uuid.uuid4(), "state": PilotCaseState.APPROVED, "workflow_type": "margin_diagnosis"},
-            {"id": uuid.uuid4(), "state": PilotCaseState.OVERRIDDEN, "workflow_type": "contract_compile"},
-            {"id": uuid.uuid4(), "state": PilotCaseState.ESCALATED, "workflow_type": "margin_diagnosis"},
+            {
+                "id": uuid.uuid4(),
+                "state": PilotCaseState.APPROVED,
+                "workflow_type": "margin_diagnosis",
+            },
+            {
+                "id": uuid.uuid4(),
+                "state": PilotCaseState.APPROVED,
+                "workflow_type": "margin_diagnosis",
+            },
+            {
+                "id": uuid.uuid4(),
+                "state": PilotCaseState.OVERRIDDEN,
+                "workflow_type": "contract_compile",
+            },
+            {
+                "id": uuid.uuid4(),
+                "state": PilotCaseState.ESCALATED,
+                "workflow_type": "margin_diagnosis",
+            },
         ]
         summary = svc.compute_summary(cases)
         assert summary.total_cases == 4
@@ -89,9 +105,21 @@ class TestComputeSummary:
 class TestWorkflowBreakdown:
     def test_breakdown(self, svc: KpiService):
         cases = [
-            {"id": uuid.uuid4(), "state": PilotCaseState.APPROVED, "workflow_type": "margin_diagnosis"},
-            {"id": uuid.uuid4(), "state": PilotCaseState.OVERRIDDEN, "workflow_type": "margin_diagnosis"},
-            {"id": uuid.uuid4(), "state": PilotCaseState.APPROVED, "workflow_type": "contract_compile"},
+            {
+                "id": uuid.uuid4(),
+                "state": PilotCaseState.APPROVED,
+                "workflow_type": "margin_diagnosis",
+            },
+            {
+                "id": uuid.uuid4(),
+                "state": PilotCaseState.OVERRIDDEN,
+                "workflow_type": "margin_diagnosis",
+            },
+            {
+                "id": uuid.uuid4(),
+                "state": PilotCaseState.APPROVED,
+                "workflow_type": "contract_compile",
+            },
         ]
         breakdown = svc.compute_workflow_breakdown(cases)
         assert len(breakdown) == 2

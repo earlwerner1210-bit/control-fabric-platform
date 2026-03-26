@@ -44,10 +44,7 @@ class KpiService:
         self,
         pilot_case_id: uuid.UUID,
     ) -> list[KpiMeasurementResponse]:
-        return [
-            KpiMeasurementResponse(**m)
-            for m in self._measurements.get(pilot_case_id, [])
-        ]
+        return [KpiMeasurementResponse(**m) for m in self._measurements.get(pilot_case_id, [])]
 
     def compute_summary(
         self,
@@ -68,7 +65,9 @@ class KpiService:
             wt = c.get("workflow_type", "unknown")
             by_workflow[wt] = by_workflow.get(wt, 0) + 1
 
-        approved = by_state.get("approved", 0) + by_state.get("exported", 0) + by_state.get("closed", 0)
+        approved = (
+            by_state.get("approved", 0) + by_state.get("exported", 0) + by_state.get("closed", 0)
+        )
         overridden = by_state.get("overridden", 0)
         escalated = by_state.get("escalated", 0)
         resolved = approved + overridden + escalated
@@ -135,10 +134,14 @@ class KpiService:
         results = []
         for wt, wf_cases in by_workflow.items():
             total = len(wf_cases)
-            approved = sum(1 for c in wf_cases if self._state_str(c) in ("approved", "exported", "closed"))
+            approved = sum(
+                1 for c in wf_cases if self._state_str(c) in ("approved", "exported", "closed")
+            )
             overridden = sum(1 for c in wf_cases if self._state_str(c) == "overridden")
             escalated = sum(1 for c in wf_cases if self._state_str(c) == "escalated")
-            rejected = sum(1 for c in wf_cases if self._state_str(c) == "closed" and c.get("_rejected"))
+            rejected = sum(
+                1 for c in wf_cases if self._state_str(c) == "closed" and c.get("_rejected")
+            )
 
             fp = fn = em = 0
             for c in wf_cases:
@@ -157,19 +160,21 @@ class KpiService:
             compared = sum(1 for c in wf_cases if str(c.get("id", "")) in comp_by_case)
             exact_rate = em / compared if compared > 0 else 0.0
 
-            results.append(WorkflowKpiBreakdown(
-                workflow_type=wt,
-                total_cases=total,
-                approved=approved,
-                overridden=overridden,
-                escalated=escalated,
-                rejected=rejected,
-                avg_confidence=0.0,
-                avg_evidence_completeness=0.0,
-                exact_match_rate=exact_rate,
-                false_positive_count=fp,
-                false_negative_count=fn,
-            ))
+            results.append(
+                WorkflowKpiBreakdown(
+                    workflow_type=wt,
+                    total_cases=total,
+                    approved=approved,
+                    overridden=overridden,
+                    escalated=escalated,
+                    rejected=rejected,
+                    avg_confidence=0.0,
+                    avg_evidence_completeness=0.0,
+                    exact_match_rate=exact_rate,
+                    false_positive_count=fp,
+                    false_negative_count=fn,
+                )
+            )
         return results
 
     def _state_str(self, case: dict[str, Any]) -> str:

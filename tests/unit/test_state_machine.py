@@ -27,13 +27,19 @@ class TestValidTransitions:
         assert not sm.validate_transition(PilotCaseState.CREATED, PilotCaseState.APPROVED)
 
     def test_evidence_ready_to_workflow_executed(self, sm: CaseStateMachineService):
-        assert sm.validate_transition(PilotCaseState.EVIDENCE_READY, PilotCaseState.WORKFLOW_EXECUTED)
+        assert sm.validate_transition(
+            PilotCaseState.EVIDENCE_READY, PilotCaseState.WORKFLOW_EXECUTED
+        )
 
     def test_workflow_executed_to_validation_completed(self, sm: CaseStateMachineService):
-        assert sm.validate_transition(PilotCaseState.WORKFLOW_EXECUTED, PilotCaseState.VALIDATION_COMPLETED)
+        assert sm.validate_transition(
+            PilotCaseState.WORKFLOW_EXECUTED, PilotCaseState.VALIDATION_COMPLETED
+        )
 
     def test_validation_completed_to_under_review(self, sm: CaseStateMachineService):
-        assert sm.validate_transition(PilotCaseState.VALIDATION_COMPLETED, PilotCaseState.UNDER_REVIEW)
+        assert sm.validate_transition(
+            PilotCaseState.VALIDATION_COMPLETED, PilotCaseState.UNDER_REVIEW
+        )
 
     def test_under_review_to_approved(self, sm: CaseStateMachineService):
         assert sm.validate_transition(PilotCaseState.UNDER_REVIEW, PilotCaseState.APPROVED)
@@ -64,7 +70,9 @@ class TestValidTransitions:
         for state in PilotCaseState:
             if state == PilotCaseState.CLOSED:
                 continue
-            assert sm.validate_transition(state, PilotCaseState.CLOSED), f"{state} should be able to close"
+            assert sm.validate_transition(state, PilotCaseState.CLOSED), (
+                f"{state} should be able to close"
+            )
 
     def test_all_states_have_transitions_defined(self):
         for state in PilotCaseState:
@@ -74,7 +82,9 @@ class TestValidTransitions:
 class TestTransitionExecution:
     def test_valid_transition_returns_record(self, sm: CaseStateMachineService):
         actor = uuid.uuid4()
-        result = sm.transition(PilotCaseState.CREATED, PilotCaseState.EVIDENCE_READY, actor, reason="Evidence uploaded")
+        result = sm.transition(
+            PilotCaseState.CREATED, PilotCaseState.EVIDENCE_READY, actor, reason="Evidence uploaded"
+        )
         assert result["from_state"] == PilotCaseState.CREATED
         assert result["to_state"] == PilotCaseState.EVIDENCE_READY
         assert result["actor_id"] == actor

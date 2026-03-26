@@ -38,7 +38,9 @@ class FeedbackEntryCreate(BaseModel):
     severity: FeedbackSeverity = FeedbackSeverity.MEDIUM
     title: str = Field(..., min_length=1, max_length=300)
     description: str = Field(..., min_length=1)
-    affected_component: str | None = Field(None, description="parser, rule_engine, validator, inference, evidence, workflow")
+    affected_component: str | None = Field(
+        None, description="parser, rule_engine, validator, inference, evidence, workflow"
+    )
     suggested_improvement: str | None = None
     tags: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)

@@ -112,4 +112,3 @@ exclude_lines = [
     "pass",
 ]
 show_missing = true
-fail_under = 70

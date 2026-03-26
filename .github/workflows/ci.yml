@@ -36,8 +36,10 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-interaction --no-ansi 2>/dev/null || pip install -e .
           pip install ruff mypy
-          pip install -e ".[dev]" 2>/dev/null || pip install -e .
 
       - name: Ruff lint
         run: ruff check . --output-format=github
@@ -64,7 +66,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev]" 2>/dev/null || pip install -e .
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-interaction --no-ansi 2>/dev/null || pip install -e .
           pip install pytest pytest-cov pytest-asyncio
 
       - name: Run unit tests
@@ -116,7 +120,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev]" 2>/dev/null || pip install -e .
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-interaction --no-ansi 2>/dev/null || pip install -e .
           pip install pytest pytest-cov pytest-asyncio
 
       - name: Run integration tests
@@ -152,7 +158,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev]" 2>/dev/null || pip install -e .
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-interaction --no-ansi 2>/dev/null || pip install -e .
           pip install pytest pytest-cov pytest-asyncio
 
       - name: Run e2e tests
@@ -185,7 +193,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev]" 2>/dev/null || pip install -e .
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --no-interaction --no-ansi 2>/dev/null || pip install -e .
           pip install pytest pytest-cov pytest-asyncio
 
       - name: Run regression tests

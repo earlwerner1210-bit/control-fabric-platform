@@ -1,0 +1,135 @@
+{
+  "document_type": "contract",
+  "title": "SPEN Master Services Agreement – HV Network Maintenance",
+  "effective_date": "2024-01-01",
+  "expiry_date": "2027-12-31",
+  "parties": ["SP Energy Networks (SPEN)", "Acme Field Services Ltd"],
+  "contract_type": "master_services",
+  "governing_law": "Scotland",
+  "payment_terms": "30 days net",
+  "clauses": [
+    {
+      "id": "CL-001",
+      "type": "obligation",
+      "text": "The Provider shall maintain a minimum crew of two qualified engineers for all HV switching operations, each holding a valid ECS card and confined space accreditation.",
+      "section": "4.1",
+      "confidence": 0.95,
+      "risk_level": "high"
+    },
+    {
+      "id": "CL-002",
+      "type": "sla",
+      "text": "Response time for Priority 1 faults shall not exceed 2 hours from notification. Resolution time shall not exceed 8 hours.",
+      "section": "5.2",
+      "confidence": 0.92,
+      "risk_level": "critical"
+    },
+    {
+      "id": "CL-003",
+      "type": "penalty",
+      "text": "For each SLA breach, a penalty of 2% of the monthly invoice value shall apply, capped at 15% per calendar month. A 5-day cure period is granted before penalty accrual begins.",
+      "section": "6.1",
+      "confidence": 0.93,
+      "risk_level": "high"
+    },
+    {
+      "id": "CL-004",
+      "type": "rate",
+      "text": "All completed work orders must be submitted with photographic evidence and a signed daywork sheet within 5 business days of completion.",
+      "section": "7.3",
+      "confidence": 0.90,
+      "risk_level": "medium"
+    },
+    {
+      "id": "CL-005",
+      "type": "scope",
+      "text": "In-scope activities include HV switching, cable jointing (HV), overhead line inspection, and emergency fault response. Out-of-scope activities include metering installations and new customer connections.",
+      "section": "3.1",
+      "confidence": 0.97,
+      "risk_level": "medium"
+    },
+    {
+      "id": "CL-006",
+      "type": "evidence",
+      "text": "The Provider must retain CCTV footage, job completion photos, and signed client acceptance forms for a minimum of 24 months following work completion.",
+      "section": "8.4",
+      "confidence": 0.88,
+      "risk_level": "low"
+    }
+  ],
+  "sla_table": [
+    {
+      "priority": "critical",
+      "response_time_hours": 1.0,
+      "resolution_time_hours": 4.0,
+      "availability": 99.9,
+      "penalty_percentage": 5.0,
+      "measurement_window": "monthly"
+    },
+    {
+      "priority": "high",
+      "response_time_hours": 2.0,
+      "resolution_time_hours": 8.0,
+      "availability": 99.5,
+      "penalty_percentage": 2.0,
+      "measurement_window": "monthly"
+    },
+    {
+      "priority": "medium",
+      "response_time_hours": 8.0,
+      "resolution_time_hours": 24.0,
+      "availability": 99.0,
+      "penalty_percentage": 1.0,
+      "measurement_window": "quarterly"
+    }
+  ],
+  "rate_card": [
+    {
+      "activity": "HV Switching",
+      "unit": "each",
+      "rate": 450.00,
+      "currency": "GBP",
+      "effective_from": "2024-01-01",
+      "effective_to": "2025-12-31",
+      "multipliers": {"overtime": 1.5, "weekend": 2.0, "emergency": 1.75}
+    },
+    {
+      "activity": "Cable Jointing HV",
+      "unit": "each",
+      "rate": 1200.00,
+      "currency": "GBP",
+      "effective_from": "2024-01-01",
+      "effective_to": "2025-12-31",
+      "multipliers": {"overtime": 1.5, "weekend": 2.0}
+    },
+    {
+      "activity": "Overhead Line Inspection",
+      "unit": "metre",
+      "rate": 3.50,
+      "currency": "GBP",
+      "effective_from": "2024-01-01",
+      "effective_to": "2025-12-31",
+      "multipliers": {}
+    }
+  ],
+  "scope_boundaries": [
+    {
+      "scope_type": "in_scope",
+      "description": "Core HV network maintenance activities",
+      "activities": ["HV Switching", "Cable Jointing HV", "Overhead Line Inspection", "Emergency Fault Response"],
+      "conditions": []
+    },
+    {
+      "scope_type": "out_of_scope",
+      "description": "Activities excluded from this MSA",
+      "activities": ["Metering", "New Connection"],
+      "conditions": []
+    },
+    {
+      "scope_type": "conditional",
+      "description": "Civil reinstatement only when directly caused by HV works",
+      "activities": ["Reinstatement"],
+      "conditions": ["Directly caused by in-scope HV works", "Approved by SPEN project manager"]
+    }
+  ]
+}

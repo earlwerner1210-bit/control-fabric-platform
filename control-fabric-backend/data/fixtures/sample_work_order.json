@@ -1,0 +1,63 @@
+{
+  "work_order_id": "WO-2024-00847",
+  "contract_ref": "SPEN-MSA-2024-001",
+  "description": "HV switching operation at Edinburgh South substation – planned outage for cable replacement feed-in",
+  "work_category": "hv_switching",
+  "scheduled_date": "2024-06-15",
+  "location": "Edinburgh South Substation, EH16 4SA",
+  "crew_size": 2,
+  "special_requirements": [
+    "Confined space entry permit required",
+    "NRSWA S74 notice filed",
+    "Client isolation confirmation received"
+  ],
+  "status": "completed",
+  "completion_evidence": [
+    {
+      "type": "photo",
+      "description": "Pre-work isolation verification",
+      "timestamp": "2024-06-15T08:30:00Z",
+      "ref": "EVD-001"
+    },
+    {
+      "type": "photo",
+      "description": "Post-work reinstatement confirmation",
+      "timestamp": "2024-06-15T14:15:00Z",
+      "ref": "EVD-002"
+    },
+    {
+      "type": "signed_daywork_sheet",
+      "description": "Client-signed daywork sheet covering 6 hours on-site",
+      "timestamp": "2024-06-15T15:00:00Z",
+      "ref": "EVD-003"
+    },
+    {
+      "type": "client_acceptance",
+      "description": "SPEN site supervisor sign-off",
+      "timestamp": "2024-06-15T15:10:00Z",
+      "ref": "EVD-004"
+    }
+  ],
+  "billing_gates": [
+    {
+      "gate": "work_completed",
+      "status": "passed",
+      "timestamp": "2024-06-15T14:15:00Z"
+    },
+    {
+      "gate": "evidence_submitted",
+      "status": "passed",
+      "timestamp": "2024-06-15T15:10:00Z"
+    },
+    {
+      "gate": "client_accepted",
+      "status": "passed",
+      "timestamp": "2024-06-15T15:10:00Z"
+    },
+    {
+      "gate": "invoice_raised",
+      "status": "pending",
+      "timestamp": null
+    }
+  ]
+}

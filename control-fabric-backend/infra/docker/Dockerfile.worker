@@ -1,0 +1,48 @@
+# ── Stage 1: Builder ──────────────────────────────────────────────────────────
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+COPY README.md ./
+
+RUN python -m venv /build/venv && \
+    /build/venv/bin/pip install --upgrade pip && \
+    /build/venv/bin/pip install --no-cache-dir \
+        fastapi "pydantic>=2.7,<3" pydantic-settings \
+        "sqlalchemy[asyncio]>=2.0,<3" asyncpg pgvector \
+        "python-jose[cryptography]" "passlib[bcrypt]" \
+        "redis>=5.0,<6" "temporalio>=1.6,<2" "openai>=1.30,<2" \
+        structlog "opentelemetry-api>=1.24,<2" \
+        "prometheus-client>=0.20,<1" httpx
+
+# ── Stage 2: Runtime ─────────────────────────────────────────────────────────
+FROM python:3.12-slim AS runtime
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq5 && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /build/venv /app/venv
+
+ENV PATH="/app/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+COPY app/ /app/app/
+COPY temporal_worker/ /app/temporal_worker/
+
+# Create non-root user
+RUN groupadd --gid 1001 appuser && \
+    useradd --uid 1001 --gid 1001 --shell /bin/bash --create-home appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
+CMD ["python", "-m", "temporal_worker.worker"]

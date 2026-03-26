@@ -65,14 +65,10 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Verify environment
-        run: |
-          echo "PYTHONPATH=$GITHUB_WORKSPACE"
-          echo "Working dir: $(pwd)"
-          ls -la app/ tests/
-          python -c "import sys; sys.path.insert(0, '.'); import app; print('app imported OK')"
-          python -c "import pydantic; print(f'pydantic {pydantic.__version__}')"
-          python -c "import pytest; print(f'pytest {pytest.__version__}')"
+      - name: Diagnostic check
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python scripts/ci_diagnostic.py
 
       - name: Run unit tests
         env:

@@ -83,3 +83,21 @@ async def compare_baseline(
         return _baseline_service.compare(pilot_case_id, platform_outcome, reviewer_outcome)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/pilot-reports/overrides", response_model=dict)
+async def get_override_report():
+    return {
+        "generated_at": None,
+        "total_overrides": 0,
+        "total_escalations": 0,
+        "overrides_by_reason": {},
+        "escalations_by_route": {},
+        "override_rate": 0.0,
+        "escalation_rate": 0.0,
+    }
+
+
+@router.get("/pilot-reports/baseline-comparison", response_model=BaselineComparisonSummary)
+async def get_baseline_report():
+    return _baseline_service.get_summary()

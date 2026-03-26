@@ -26,7 +26,7 @@ def main():
     print(f"Executable: {sys.executable}")
     print(f"CWD: {os.getcwd()}")
     print(f"PYTHONPATH: {os.environ.get('PYTHONPATH', '<not set>')}")
-    print(f"sys.path:")
+    print("sys.path:")
     for p in sys.path:
         print(f"  {p}")
 

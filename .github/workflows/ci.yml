@@ -61,20 +61,11 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        id: install
         run: |
           pip install --upgrade pip
-          pip install -r requirements-dev.txt 2>&1 | tee /tmp/pip-install.log
-          echo "pip_exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
-
-      - name: Diagnostic check
-        id: diagnostic
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: python scripts/ci_diagnostic.py 2>&1 | tee /tmp/diagnostic.log
+          pip install -r requirements-dev.txt
 
       - name: Run unit tests
-        id: tests
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
@@ -83,35 +74,7 @@ jobs:
             --cov=app \
             --cov-report=xml:coverage-unit.xml \
             --cov-report=term-missing \
-            --junitxml=junit-unit.xml 2>&1 | tee /tmp/pytest.log
-
-      - name: Post failure details to PR
-        if: failure() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            let body = '## CI Unit Test Failure Details\n\n';
-            for (const [label, path] of [
-              ['pip install', '/tmp/pip-install.log'],
-              ['diagnostic', '/tmp/diagnostic.log'],
-              ['pytest', '/tmp/pytest.log']
-            ]) {
-              try {
-                const content = fs.readFileSync(path, 'utf8');
-                const lines = content.split('\n');
-                const tail = lines.slice(-80).join('\n');
-                body += `### ${label}\n\`\`\`\n${tail}\n\`\`\`\n\n`;
-              } catch (e) {
-                body += `### ${label}\n_No output (step did not run)_\n\n`;
-              }
-            }
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: body.slice(0, 65000)
-            });
+            --junitxml=junit-unit.xml
 
       - name: Upload coverage
         if: always()
@@ -163,9 +126,32 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
         run: |
           pytest tests/integration/ -v \
+            --tb=long \
             --cov=app \
             --cov-report=xml:coverage-integration.xml \
-            --junitxml=junit-integration.xml
+            --junitxml=junit-integration.xml 2>&1 | tee /tmp/pytest.log
+
+      - name: Post failure details to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## CI Integration Test Failure\n\n';
+            try {
+              const content = fs.readFileSync('/tmp/pytest.log', 'utf8');
+              const lines = content.split('\n');
+              const tail = lines.slice(-100).join('\n');
+              body += '```\n' + tail + '\n```\n';
+            } catch (e) {
+              body += '_No output captured_\n';
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 65000)
+            });
 
       - name: Upload coverage
         if: always()
@@ -197,9 +183,32 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           pytest tests/e2e/ -v \
+            --tb=long \
             --cov=app \
             --cov-report=xml:coverage-e2e.xml \
-            --junitxml=junit-e2e.xml
+            --junitxml=junit-e2e.xml 2>&1 | tee /tmp/pytest.log
+
+      - name: Post failure details to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## CI E2E Test Failure\n\n';
+            try {
+              const content = fs.readFileSync('/tmp/pytest.log', 'utf8');
+              const lines = content.split('\n');
+              const tail = lines.slice(-100).join('\n');
+              body += '```\n' + tail + '\n```\n';
+            } catch (e) {
+              body += '_No output captured_\n';
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 65000)
+            });
 
       - name: Upload coverage
         if: always()
@@ -231,9 +240,32 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           pytest tests/regression/ -v \
+            --tb=long \
             --cov=app \
             --cov-report=xml:coverage-regression.xml \
-            --junitxml=junit-regression.xml
+            --junitxml=junit-regression.xml 2>&1 | tee /tmp/pytest.log
+
+      - name: Post failure details to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## CI Regression Test Failure\n\n';
+            try {
+              const content = fs.readFileSync('/tmp/pytest.log', 'utf8');
+              const lines = content.split('\n');
+              const tail = lines.slice(-100).join('\n');
+              body += '```\n' + tail + '\n```\n';
+            } catch (e) {
+              body += '_No output captured_\n';
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 65000)
+            });
 
       - name: Upload coverage
         if: always()

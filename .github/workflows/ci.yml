@@ -69,12 +69,38 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
+          set +e
           pytest tests/unit/ -v \
             --tb=long \
             --cov=app \
             --cov-report=xml:coverage-unit.xml \
             --cov-report=term-missing \
-            --junitxml=junit-unit.xml
+            --junitxml=junit-unit.xml > /tmp/pytest.log 2>&1
+          rc=$?
+          cat /tmp/pytest.log
+          exit $rc
+
+      - name: Post failure details to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## CI Unit Test Failure\n\n';
+            try {
+              const content = fs.readFileSync('/tmp/pytest.log', 'utf8');
+              const lines = content.split('\n');
+              const tail = lines.slice(-100).join('\n');
+              body += '```\n' + tail + '\n```\n';
+            } catch (e) {
+              body += '_No output captured_\n';
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 65000)
+            });
 
       - name: Upload coverage
         if: always()
@@ -125,11 +151,15 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/control_fabric_test
           REDIS_URL: redis://localhost:6379/0
         run: |
+          set +e
           pytest tests/integration/ -v \
             --tb=long \
             --cov=app \
             --cov-report=xml:coverage-integration.xml \
-            --junitxml=junit-integration.xml 2>&1 | tee /tmp/pytest.log
+            --junitxml=junit-integration.xml > /tmp/pytest.log 2>&1
+          rc=$?
+          cat /tmp/pytest.log
+          exit $rc
 
       - name: Post failure details to PR
         if: failure() && github.event_name == 'pull_request'
@@ -182,11 +212,15 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
+          set +e
           pytest tests/e2e/ -v \
             --tb=long \
             --cov=app \
             --cov-report=xml:coverage-e2e.xml \
-            --junitxml=junit-e2e.xml 2>&1 | tee /tmp/pytest.log
+            --junitxml=junit-e2e.xml > /tmp/pytest.log 2>&1
+          rc=$?
+          cat /tmp/pytest.log
+          exit $rc
 
       - name: Post failure details to PR
         if: failure() && github.event_name == 'pull_request'
@@ -239,11 +273,15 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
+          set +e
           pytest tests/regression/ -v \
             --tb=long \
             --cov=app \
             --cov-report=xml:coverage-regression.xml \
-            --junitxml=junit-regression.xml 2>&1 | tee /tmp/pytest.log
+            --junitxml=junit-regression.xml > /tmp/pytest.log 2>&1
+          rc=$?
+          cat /tmp/pytest.log
+          exit $rc
 
       - name: Post failure details to PR
         if: failure() && github.event_name == 'pull_request'

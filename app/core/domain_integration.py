@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.core.audit import FabricAuditHook
 from app.core.reconciliation.rules import (
     BillingWithoutCompletionRule,
     MissingEvidenceRule,
@@ -265,8 +266,16 @@ def register_utilities_field(registry: FabricRegistry) -> None:
     )
 
 
-def register_all_domain_packs(registry: FabricRegistry) -> None:
+def register_all_domain_packs(
+    registry: FabricRegistry,
+    audit_hook: FabricAuditHook | None = None,
+) -> None:
     """Register all known domain packs."""
     register_contract_margin(registry)
     register_telco_ops(registry)
     register_utilities_field(registry)
+
+    if audit_hook:
+        for domain_name in ("contract_margin", "telco_ops", "utilities_field"):
+            kinds = registry.list_object_kinds(domain=domain_name)
+            audit_hook.domain_pack_registered(domain=domain_name, kind_count=len(kinds))

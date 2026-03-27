@@ -69,6 +69,8 @@ class FabricRegistry:
         self._reconciliation_rules: dict[str, ReconciliationRuleSpec] = {}
         self._action_policies: dict[str, ActionPolicySpec] = {}
         self._validators: dict[str, Callable[..., Any]] = {}
+        self._payload_validators: dict[str, Callable[[dict[str, Any]], list[str]]] = {}
+        self._fabric_policy_hooks: dict[str, list[Callable[..., Any]]] = {}
 
     def register_object_kind(self, spec: ObjectKindSpec) -> None:
         if spec.kind_name in self._object_kinds:
@@ -138,3 +140,48 @@ class FabricRegistry:
 
     def get_validator(self, name: str) -> Callable[..., Any] | None:
         return self._validators.get(name)
+
+    def register_payload_validator(
+        self,
+        kind_name: str,
+        validator_fn: Callable[[dict[str, Any]], list[str]],
+    ) -> None:
+        """Register a payload validator for a specific object kind.
+
+        The validator receives the payload dict and returns a list of
+        validation error strings. Empty list means valid.
+        """
+        self._payload_validators[kind_name] = validator_fn
+
+    def validate_payload(self, kind_name: str, payload: dict[str, Any]) -> list[str]:
+        """Validate a payload against the kind's registered validator.
+
+        Returns list of error messages. Empty = valid.
+        Also checks required_payload_fields from the ObjectKindSpec.
+        """
+        errors: list[str] = []
+
+        if kind_name in self._object_kinds:
+            spec = self._object_kinds[kind_name]
+            for field in spec.required_payload_fields:
+                if field not in payload:
+                    errors.append(f"Missing required payload field: {field}")
+
+        validator = self._payload_validators.get(kind_name)
+        if validator:
+            errors.extend(validator(payload))
+
+        return errors
+
+    def register_fabric_policy_hook(
+        self,
+        kind_name: str,
+        hook_fn: Callable[..., Any],
+    ) -> None:
+        """Register a fabric policy hook for lifecycle events on a kind."""
+        if kind_name not in self._fabric_policy_hooks:
+            self._fabric_policy_hooks[kind_name] = []
+        self._fabric_policy_hooks[kind_name].append(hook_fn)
+
+    def get_fabric_policy_hooks(self, kind_name: str) -> list[Callable[..., Any]]:
+        return self._fabric_policy_hooks.get(kind_name, [])

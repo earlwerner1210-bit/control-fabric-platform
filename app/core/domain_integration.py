@@ -3,6 +3,23 @@
 from __future__ import annotations
 
 from app.core.audit import FabricAuditHook
+from app.core.reconciliation.domain_types import (
+    CrossPlaneMismatchCategory,
+    ExpectedPlaneCoverage,
+    ReconciliationMismatch,
+    ReconciliationRuleId,
+)
+from app.core.reconciliation.rule_model import (
+    CostAlignmentRule,
+    QuantityAlignmentRule,
+    ReconciliationRule,
+    ReconciliationRuleApplicability,
+    ReconciliationRuleCategory,
+    ReconciliationRuleExplanation,
+    ReconciliationRuleRegistry,
+    ReconciliationRuleResult,
+    ReconciliationRuleWeight,
+)
 from app.core.reconciliation.rules import (
     BillingWithoutCompletionRule,
     MissingEvidenceRule,
@@ -279,3 +296,344 @@ def register_all_domain_packs(
         for domain_name in ("contract_margin", "telco_ops", "utilities_field"):
             kinds = registry.list_object_kinds(domain=domain_name)
             audit_hook.domain_pack_registered(domain=domain_name, kind_count=len(kinds))
+
+
+# ── Wave 2: Domain pack reconciliation rule registration ──
+
+
+class ContractMarginCostRule(CostAlignmentRule):
+    """Contract-margin domain pack: cost alignment with tighter threshold."""
+
+    rule_id = ReconciliationRuleId("contract-margin-cost-alignment")
+    category = ReconciliationRuleCategory.COST_ALIGNMENT
+    weight = ReconciliationRuleWeight(
+        rule_id=ReconciliationRuleId("contract-margin-cost-alignment"),
+        weight=2.0,
+        is_hard_fail=False,
+    )
+    applicability = ReconciliationRuleApplicability(
+        applicable_planes=[PlaneType.COMMERCIAL, PlaneType.FIELD],
+        applicable_object_kinds=["rate_card_entry", "billable_event"],
+        requires_cross_plane=True,
+    )
+
+    def __init__(self) -> None:
+        super().__init__(cost_field="rate", threshold=0.005)
+
+
+class TelcoOpsStateAlignmentRule(ReconciliationRule):
+    """Telco-ops domain pack: service state alignment for SLA tracking."""
+
+    rule_id = ReconciliationRuleId("telco-ops-service-state-alignment")
+    category = ReconciliationRuleCategory.STATE_ALIGNMENT
+    weight = ReconciliationRuleWeight(
+        rule_id=ReconciliationRuleId("telco-ops-service-state-alignment"),
+        weight=1.5,
+        is_hard_fail=False,
+    )
+    applicability = ReconciliationRuleApplicability(
+        applicable_planes=[PlaneType.SERVICE],
+        applicable_object_kinds=["incident_state", "service_state"],
+    )
+
+    def evaluate(self, source, target, links) -> ReconciliationRuleResult:
+        src_sla = source.payload.get("sla_status")
+        tgt_sla = target.payload.get("sla_status")
+        if src_sla is not None and tgt_sla is not None and src_sla != tgt_sla:
+            return ReconciliationRuleResult(
+                rule_id=self.rule_id,
+                score_contribution=0.0,
+                matched=False,
+                mismatches=[
+                    ReconciliationMismatch(
+                        category=CrossPlaneMismatchCategory.STATE_CONFLICT,
+                        source_object_id=source.id,
+                        target_object_id=target.id,
+                        source_plane=source.plane,
+                        target_plane=target.plane,
+                        description=f"SLA status conflict: {src_sla} vs {tgt_sla}",
+                        expected_value=src_sla,
+                        actual_value=tgt_sla,
+                        rule_id=self.rule_id,
+                    )
+                ],
+                explanation=ReconciliationRuleExplanation(
+                    rule_id=self.rule_id,
+                    description=f"SLA status mismatch: {src_sla} vs {tgt_sla}",
+                    score_contribution=0.0,
+                    matched=False,
+                ),
+            )
+        score = 1.0 * self.weight.weight if src_sla == tgt_sla and src_sla is not None else 0.0
+        return ReconciliationRuleResult(
+            rule_id=self.rule_id,
+            score_contribution=score,
+            matched=score > 0.0,
+            explanation=ReconciliationRuleExplanation(
+                rule_id=self.rule_id,
+                description="SLA states aligned" if score > 0.0 else "SLA status not present",
+                score_contribution=score,
+                matched=score > 0.0,
+            ),
+        )
+
+
+class UtilitiesFieldCompletionRule(ReconciliationRule):
+    """Utilities-field domain pack: field completion vs billing alignment."""
+
+    rule_id = ReconciliationRuleId("utilities-field-completion-billing")
+    category = ReconciliationRuleCategory.QUANTITY_ALIGNMENT
+    weight = ReconciliationRuleWeight(
+        rule_id=ReconciliationRuleId("utilities-field-completion-billing"),
+        weight=1.8,
+        is_hard_fail=True,
+    )
+    applicability = ReconciliationRuleApplicability(
+        applicable_planes=[PlaneType.FIELD, PlaneType.COMMERCIAL],
+        applicable_object_kinds=["completion_certificate", "billable_event", "work_order"],
+        requires_cross_plane=True,
+    )
+
+    def evaluate(self, source, target, links) -> ReconciliationRuleResult:
+        is_completed = source.payload.get("is_completed", False) or target.payload.get(
+            "is_completed", False
+        )
+        is_billed = source.payload.get("is_billed", False) or target.payload.get(
+            "is_billed", False
+        )
+
+        if is_billed and not is_completed:
+            return ReconciliationRuleResult(
+                rule_id=self.rule_id,
+                score_contribution=0.0,
+                matched=False,
+                hard_fail=True,
+                mismatches=[
+                    ReconciliationMismatch(
+                        category=CrossPlaneMismatchCategory.QUANTITY_CONFLICT,
+                        source_object_id=source.id,
+                        target_object_id=target.id,
+                        source_plane=source.plane,
+                        target_plane=target.plane,
+                        description="Billing without field completion",
+                        rule_id=self.rule_id,
+                    )
+                ],
+                explanation=ReconciliationRuleExplanation(
+                    rule_id=self.rule_id,
+                    description="Billed without completion — hard fail",
+                    score_contribution=0.0,
+                    matched=False,
+                    hard_fail=True,
+                ),
+            )
+
+        if is_completed and is_billed:
+            return ReconciliationRuleResult(
+                rule_id=self.rule_id,
+                score_contribution=1.0 * self.weight.weight,
+                matched=True,
+                explanation=ReconciliationRuleExplanation(
+                    rule_id=self.rule_id,
+                    description="Completion and billing aligned",
+                    score_contribution=1.0 * self.weight.weight,
+                    matched=True,
+                ),
+            )
+
+        return ReconciliationRuleResult(
+            rule_id=self.rule_id,
+            score_contribution=0.0,
+            matched=False,
+            explanation=ReconciliationRuleExplanation(
+                rule_id=self.rule_id,
+                description="Completion/billing status not fully present",
+                score_contribution=0.0,
+                matched=False,
+            ),
+        )
+
+
+def register_domain_pack_reconciliation_rules(
+    rule_registry: ReconciliationRuleRegistry,
+) -> None:
+    """Register domain-pack-specific Wave 2 reconciliation rules."""
+    rule_registry.register_rule(ContractMarginCostRule())
+    rule_registry.register_rule(TelcoOpsStateAlignmentRule())
+    rule_registry.register_rule(UtilitiesFieldCompletionRule())
+
+
+def get_contract_margin_coverage_expectations() -> list[ExpectedPlaneCoverage]:
+    return [
+        ExpectedPlaneCoverage(
+            plane=PlaneType.COMMERCIAL,
+            expected_object_kinds=["rate_card_entry", "billable_event"],
+            min_objects_per_kind={"rate_card_entry": 1, "billable_event": 1},
+            require_cross_plane_links=True,
+        ),
+    ]
+
+
+def get_utilities_field_coverage_expectations() -> list[ExpectedPlaneCoverage]:
+    return [
+        ExpectedPlaneCoverage(
+            plane=PlaneType.FIELD,
+            expected_object_kinds=["work_order", "completion_certificate"],
+            min_objects_per_kind={"work_order": 1, "completion_certificate": 1},
+            require_cross_plane_links=True,
+        ),
+    ]
+
+
+def get_telco_ops_coverage_expectations() -> list[ExpectedPlaneCoverage]:
+    return [
+        ExpectedPlaneCoverage(
+            plane=PlaneType.SERVICE,
+            expected_object_kinds=["incident_state", "service_state"],
+            min_objects_per_kind={"incident_state": 1, "service_state": 1},
+            require_cross_plane_links=False,
+        ),
+    ]
+
+
+# ── Wave 3: Domain pack validation rule registration ──
+
+from app.core.validation.domain_types import (
+    ValidationFailure,
+    ValidationFailureCode,
+    ValidationResult,
+    ValidationRuleId,
+    ValidationWarning,
+    W3ValidationStatus,
+)
+from app.core.validation.rule_model import (
+    ValidationRuleApplicability,
+    ValidationRuleCategory,
+    ValidationRuleRegistry,
+    ValidationRuleWeight,
+    W3ValidationRule,
+)
+
+
+class ContractMarginEvidenceRule(W3ValidationRule):
+    """Contract-margin domain: requires clause_extraction and rate_comparison evidence."""
+
+    rule_id = ValidationRuleId("contract-margin-evidence")
+    category = ValidationRuleCategory.EVIDENCE_SUFFICIENCY
+    weight = ValidationRuleWeight(
+        rule_id=ValidationRuleId("contract-margin-evidence"), is_hard_fail=True
+    )
+    applicability = ValidationRuleApplicability(
+        applicable_object_kinds=["rate_card_entry", "billable_event"],
+    )
+
+    def validate(self, objects, graph_service, context):
+        required = {"clause_extraction", "rate_comparison"}
+        failures: list[ValidationFailure] = []
+        for obj in objects:
+            present = {e.evidence_type for e in obj.evidence}
+            missing = required - present
+            if missing:
+                failures.append(
+                    ValidationFailure(
+                        code=ValidationFailureCode.EVIDENCE_INSUFFICIENT,
+                        object_id=obj.id,
+                        description=f"Object '{obj.label}' missing evidence types: {sorted(missing)}",
+                        rule_id=self.rule_id,
+                        metadata={"missing_types": sorted(missing)},
+                    )
+                )
+        return ValidationResult(
+            rule_id=self.rule_id,
+            status=W3ValidationStatus.FAILED if failures else W3ValidationStatus.PASSED,
+            passed=len(failures) == 0,
+            failures=failures,
+            explanation="Contract-margin evidence check",
+        )
+
+
+class TelcoOpsActionPreconditionRule(W3ValidationRule):
+    """Telco-ops domain: SLA escalation requires incident in active/enriched state."""
+
+    rule_id = ValidationRuleId("telco-ops-action-precondition")
+    category = ValidationRuleCategory.ACTION_PRECONDITION
+    weight = ValidationRuleWeight(
+        rule_id=ValidationRuleId("telco-ops-action-precondition"),
+        is_hard_fail=False,
+        is_blocking=False,
+    )
+    applicability = ValidationRuleApplicability(
+        applicable_object_kinds=["incident_state", "escalation_rule"],
+        applicable_action_types=["sla-escalation"],
+    )
+
+    def validate(self, objects, graph_service, context):
+        from app.core.types import ControlState
+
+        allowed = {ControlState.ACTIVE.value, ControlState.ENRICHED.value, ControlState.FROZEN.value}
+        warnings: list[ValidationWarning] = []
+        for obj in objects:
+            if obj.state.value not in allowed:
+                warnings.append(
+                    ValidationWarning(
+                        rule_id=self.rule_id,
+                        object_id=obj.id,
+                        description=f"Object '{obj.label}' is {obj.state.value}, expected active/enriched/frozen for SLA escalation",
+                    )
+                )
+        return ValidationResult(
+            rule_id=self.rule_id,
+            status=W3ValidationStatus.PASSED_WITH_WARNINGS if warnings else W3ValidationStatus.PASSED,
+            passed=True,
+            warnings=warnings,
+            explanation="Telco-ops action precondition check",
+        )
+
+
+class UtilitiesFieldGraphRule(W3ValidationRule):
+    """Utilities-field domain: work orders must have fulfills links."""
+
+    rule_id = ValidationRuleId("utilities-field-graph-completeness")
+    category = ValidationRuleCategory.GRAPH_COMPLETENESS
+    weight = ValidationRuleWeight(
+        rule_id=ValidationRuleId("utilities-field-graph-completeness"),
+        is_hard_fail=False,
+        is_blocking=False,
+    )
+    applicability = ValidationRuleApplicability(
+        applicable_object_kinds=["work_order", "completion_certificate"],
+    )
+
+    def validate(self, objects, graph_service, context):
+        from app.core.types import ControlLinkType
+
+        warnings: list[ValidationWarning] = []
+        for obj in objects:
+            if obj.object_kind == "work_order":
+                links = graph_service.get_links_for_object(
+                    obj.id, link_type=ControlLinkType.FULFILLS
+                )
+                if not links:
+                    warnings.append(
+                        ValidationWarning(
+                            rule_id=self.rule_id,
+                            object_id=obj.id,
+                            description=f"Work order '{obj.label}' has no fulfills links",
+                        )
+                    )
+        return ValidationResult(
+            rule_id=self.rule_id,
+            status=W3ValidationStatus.PASSED_WITH_WARNINGS if warnings else W3ValidationStatus.PASSED,
+            passed=True,
+            warnings=warnings,
+            explanation="Utilities-field graph completeness check",
+        )
+
+
+def register_domain_pack_validation_rules(
+    rule_registry: ValidationRuleRegistry,
+) -> None:
+    """Register domain-pack-specific Wave 3 validation rules."""
+    rule_registry.register_rule(ContractMarginEvidenceRule())
+    rule_registry.register_rule(TelcoOpsActionPreconditionRule())
+    rule_registry.register_rule(UtilitiesFieldGraphRule())

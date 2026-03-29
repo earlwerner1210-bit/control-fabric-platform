@@ -313,7 +313,7 @@ class TestCandidateScoring:
         svc = GraphService()
         src = _make_object(svc, "A", PlaneType.COMMERCIAL)
         tgt = _make_object(svc, "B", PlaneType.FIELD)
-        from app.core.control_link import ControlLink, build_control_link, ControlLinkCreate
+        from app.core.control_link import ControlLink, ControlLinkCreate, build_control_link
 
         link = build_control_link(
             TENANT,

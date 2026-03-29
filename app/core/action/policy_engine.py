@@ -115,9 +115,10 @@ class W3ActionPolicyEngine:
         )
         manifest.compute_hash()
 
-        if execution_mode == W3ActionExecutionMode.DRY_RUN:
-            status = W3ActionStatus.VALIDATED
-        elif execution_mode == W3ActionExecutionMode.DETERMINISTIC_AUTO_RELEASE:
+        if execution_mode in (
+            W3ActionExecutionMode.DRY_RUN,
+            W3ActionExecutionMode.DETERMINISTIC_AUTO_RELEASE,
+        ):
             status = W3ActionStatus.VALIDATED
         else:
             status = W3ActionStatus.PENDING_APPROVAL

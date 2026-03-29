@@ -29,6 +29,7 @@ from app.core.reconciliation.domain_types import (
     ReconciliationScope,
     ReconciliationScopeType,
     ReconciliationStatus,
+    ReconciliationSummary,
     ReconciliationTarget,
     new_case_id,
     new_run_id,

@@ -50,7 +50,6 @@ from app.core.validation.rule_model import (
     ValidationRuleTraceEntry,
     build_default_validation_rule_registry,
 )
-from app.core.types import ControlObjectId
 
 
 class ValidationChainExecutor:

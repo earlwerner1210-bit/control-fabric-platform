@@ -689,8 +689,7 @@ class CoverageExpectationRule(ReconciliationRule):
         has_cross_plane = any(
             link
             for link in links
-            if (link.source_id == source.id or link.target_id == source.id)
-            and link.is_cross_plane
+            if (link.source_id == source.id or link.target_id == source.id) and link.is_cross_plane
         )
         if has_cross_plane:
             return ReconciliationRuleResult(

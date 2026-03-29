@@ -167,13 +167,15 @@ class ValidationChainExecutor:
                 passed=result.passed,
             )
 
-            rule_traces.append({
-                "rule_id": rule.rule_id,
-                "category": rule.category.value,
-                "passed": result.passed,
-                "failure_count": len(result.failures),
-                "warning_count": len(result.warnings),
-            })
+            rule_traces.append(
+                {
+                    "rule_id": rule.rule_id,
+                    "category": rule.category.value,
+                    "passed": result.passed,
+                    "failure_count": len(result.failures),
+                    "warning_count": len(result.warnings),
+                }
+            )
 
         status = self._determine_status(all_failures, all_warnings)
         decision = self._determine_decision(status, all_failures, all_warnings)

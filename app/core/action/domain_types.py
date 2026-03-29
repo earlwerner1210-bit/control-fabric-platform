@@ -86,7 +86,9 @@ class W3ActionEvidenceManifest(BaseModel):
             "action_id": str(self.action_id),
             "evidence_refs": sorted(str(e.evidence_id) for e in self.evidence_refs),
             "validation_run_id": str(self.validation_run_id) if self.validation_run_id else "",
-            "validation_decision": self.validation_decision.value if self.validation_decision else "",
+            "validation_decision": self.validation_decision.value
+            if self.validation_decision
+            else "",
             "report_hash": str(self.report_hash),
             "target_object_ids": sorted(str(oid) for oid in self.target_object_ids),
         }
@@ -122,7 +124,9 @@ class W3ActionProposal(BaseModel):
         data = {
             "action_type": self.action_type.value,
             "target_object_ids": sorted(str(oid) for oid in self.target_object_ids),
-            "validation_decision": self.validation_decision.value if self.validation_decision else "",
+            "validation_decision": self.validation_decision.value
+            if self.validation_decision
+            else "",
             "report_hash": str(self.report_hash),
             "parameters": self.parameters,
         }

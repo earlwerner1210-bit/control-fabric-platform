@@ -120,9 +120,7 @@ class W3ValidationRule(ABC):
 class W3SchemaValidityRule(W3ValidationRule):
     rule_id = ValidationRuleId("w3-schema-validity")
     category = ValidationRuleCategory.SCHEMA_VALIDITY
-    weight = ValidationRuleWeight(
-        rule_id=ValidationRuleId("w3-schema-validity"), is_hard_fail=True
-    )
+    weight = ValidationRuleWeight(rule_id=ValidationRuleId("w3-schema-validity"), is_hard_fail=True)
     applicability = ValidationRuleApplicability()
 
     def validate(self, objects, graph_service, context):
@@ -191,9 +189,7 @@ class W3GraphCompletenessRule(W3ValidationRule):
             status=W3ValidationStatus.FAILED
             if failures
             else (
-                W3ValidationStatus.PASSED_WITH_WARNINGS
-                if warnings
-                else W3ValidationStatus.PASSED
+                W3ValidationStatus.PASSED_WITH_WARNINGS if warnings else W3ValidationStatus.PASSED
             ),
             passed=len(failures) == 0,
             failures=failures,
@@ -333,9 +329,7 @@ class W3PolicyComplianceRule(W3ValidationRule):
     )
     applicability = ValidationRuleApplicability()
 
-    def __init__(
-        self, policy_checks: list[tuple[str, Any]] | None = None
-    ) -> None:
+    def __init__(self, policy_checks: list[tuple[str, Any]] | None = None) -> None:
         self._policy_checks = policy_checks or []
 
     def validate(self, objects, graph_service, context):
@@ -373,14 +367,15 @@ class W3DeterministicReproducibilityRule(W3ValidationRule):
     def validate(self, objects, graph_service, context):
         warnings: list[ValidationWarning] = []
         for obj in objects:
-            if str(obj.provenance.creation_method) == "model_assisted" and not obj.provenance.model_id:
+            if (
+                str(obj.provenance.creation_method) == "model_assisted"
+                and not obj.provenance.model_id
+            ):
                 warnings.append(
                     ValidationWarning(
                         rule_id=self.rule_id,
                         object_id=obj.id,
-                        description=(
-                            f"Object '{obj.label}' is model-assisted but has no model_id"
-                        ),
+                        description=(f"Object '{obj.label}' is model-assisted but has no model_id"),
                     )
                 )
         return ValidationResult(
@@ -507,9 +502,7 @@ class W3ActionPreconditionRule(W3ValidationRule):
             status=W3ValidationStatus.FAILED
             if failures
             else (
-                W3ValidationStatus.PASSED_WITH_WARNINGS
-                if warnings
-                else W3ValidationStatus.PASSED
+                W3ValidationStatus.PASSED_WITH_WARNINGS if warnings else W3ValidationStatus.PASSED
             ),
             passed=len(failures) == 0,
             failures=failures,

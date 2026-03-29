@@ -228,10 +228,14 @@ class DuplicateDetector:
         for source_id, source_candidates in by_source.items():
             if len(source_candidates) < 2:
                 continue
-            sorted_candidates = sorted(source_candidates, key=lambda c: float(c.score), reverse=True)
+            sorted_candidates = sorted(
+                source_candidates, key=lambda c: float(c.score), reverse=True
+            )
             top_score = float(sorted_candidates[0].score)
             close_matches = [
-                c for c in sorted_candidates if abs(float(c.score) - top_score) <= self._gap_threshold
+                c
+                for c in sorted_candidates
+                if abs(float(c.score) - top_score) <= self._gap_threshold
             ]
             if len(close_matches) > 1:
                 from app.core.types import ControlObjectId
@@ -259,12 +263,20 @@ class DuplicateDetector:
         for source_id, source_candidates in by_source.items():
             from app.core.types import ControlObjectId
 
-            sorted_candidates = sorted(source_candidates, key=lambda c: float(c.score), reverse=True)
-            top_score = MatchScore(float(sorted_candidates[0].score)) if sorted_candidates else MatchScore(0.0)
+            sorted_candidates = sorted(
+                source_candidates, key=lambda c: float(c.score), reverse=True
+            )
+            top_score = (
+                MatchScore(float(sorted_candidates[0].score))
+                if sorted_candidates
+                else MatchScore(0.0)
+            )
             ambiguity_gap = 0.0
             is_ambiguous = False
             if len(sorted_candidates) >= 2:
-                ambiguity_gap = abs(float(sorted_candidates[0].score) - float(sorted_candidates[1].score))
+                ambiguity_gap = abs(
+                    float(sorted_candidates[0].score) - float(sorted_candidates[1].score)
+                )
                 is_ambiguous = ambiguity_gap <= self._gap_threshold
 
             rankings.append(
@@ -458,9 +470,7 @@ class ReconciliationAssembler:
                 outcomes.append(outcome)
 
         for mismatch in assembly_input.mismatches:
-            already_in_outcome = any(
-                m.id == mismatch.id for o in outcomes for m in o.mismatches
-            )
+            already_in_outcome = any(m.id == mismatch.id for o in outcomes for m in o.mismatches)
             if not already_in_outcome:
                 outcome = ReconciliationOutcome(
                     outcome_type=ReconciliationOutcomeType.MISMATCH_DETECTED,
@@ -482,9 +492,7 @@ class ReconciliationAssembler:
             1 for o in outcomes if o.outcome_type == ReconciliationOutcomeType.COVERAGE_GAP
         )
         total_insufficient = sum(
-            1
-            for o in outcomes
-            if o.outcome_type == ReconciliationOutcomeType.INSUFFICIENT_EVIDENCE
+            1 for o in outcomes if o.outcome_type == ReconciliationOutcomeType.INSUFFICIENT_EVIDENCE
         )
 
         outcome_counts: dict[str, int] = {}
@@ -508,10 +516,10 @@ class ReconciliationAssembler:
         return ReconciliationAssemblyOutput(outcomes=outcomes, summary=summary)
 
 
-def _find_object(
-    object_id: uuid.UUID, objects: list[ControlObject]
-) -> ControlObject | None:
-    target_bytes = object_id.bytes if hasattr(object_id, "bytes") else uuid.UUID(str(object_id)).bytes
+def _find_object(object_id: uuid.UUID, objects: list[ControlObject]) -> ControlObject | None:
+    target_bytes = (
+        object_id.bytes if hasattr(object_id, "bytes") else uuid.UUID(str(object_id)).bytes
+    )
     for obj in objects:
         if obj.id.bytes == target_bytes:
             return obj

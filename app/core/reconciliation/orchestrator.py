@@ -104,7 +104,9 @@ class ReconciliationCaseFactory:
             has_cost = any(
                 m.category == CrossPlaneMismatchCategory.COST_CONFLICT for m in outcome.mismatches
             )
-            return ReconciliationCasePriority.HIGH if has_cost else ReconciliationCasePriority.MEDIUM
+            return (
+                ReconciliationCasePriority.HIGH if has_cost else ReconciliationCasePriority.MEDIUM
+            )
         if outcome.outcome_type == ReconciliationOutcomeType.DISPUTED:
             return ReconciliationCasePriority.CRITICAL
         return ReconciliationCasePriority.MEDIUM
@@ -363,9 +365,8 @@ class ReconciliationOrchestrator:
         return ReconciliationExecutionResult(
             run=run,
             cases=cases,
-            summary=assembly_output.summary or ReconciliationSummary(
-                run_id=run.id, tenant_id=run.tenant_id
-            ),
+            summary=assembly_output.summary
+            or ReconciliationSummary(run_id=run.id, tenant_id=run.tenant_id),
             execution_plan=plan,
         )
 

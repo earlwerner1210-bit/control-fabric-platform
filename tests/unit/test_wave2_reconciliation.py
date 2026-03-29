@@ -117,9 +117,7 @@ class TestReconciliationRunCreation:
             tenant_id=TENANT,
         )
         target = ReconciliationTarget()
-        request = ReconciliationRequest(
-            tenant_id=TENANT, scope=scope, target=target
-        )
+        request = ReconciliationRequest(tenant_id=TENANT, scope=scope, target=target)
         run = ReconciliationRunFactory().create_run(request)
         assert run.status == ReconciliationStatus.PENDING
         assert run.tenant_id == TENANT
@@ -131,9 +129,7 @@ class TestReconciliationRunCreation:
             tenant_id=TENANT,
         )
         target = ReconciliationTarget()
-        request = ReconciliationRequest(
-            tenant_id=TENANT, scope=scope, target=target
-        )
+        request = ReconciliationRequest(tenant_id=TENANT, scope=scope, target=target)
         factory = ReconciliationRunFactory()
         r1 = factory.create_run(request)
         r2 = factory.create_run(request)
@@ -178,11 +174,15 @@ class TestCandidateGeneration:
     def test_generate_from_correlation_keys(self):
         svc = GraphService()
         src = _make_object(
-            svc, "Contract", PlaneType.COMMERCIAL,
+            svc,
+            "Contract",
+            PlaneType.COMMERCIAL,
             correlation_keys={"contract_ref": "C-100"},
         )
         tgt = _make_object(
-            svc, "Work Order", PlaneType.FIELD,
+            svc,
+            "Work Order",
+            PlaneType.FIELD,
             correlation_keys={"contract_ref": "C-100"},
         )
         gen = CandidateGenerator()
@@ -193,11 +193,15 @@ class TestCandidateGeneration:
     def test_generate_from_external_refs(self):
         svc = GraphService()
         src = _make_object(
-            svc, "CRM Entry", PlaneType.COMMERCIAL,
+            svc,
+            "CRM Entry",
+            PlaneType.COMMERCIAL,
             external_refs={"crm_id": "CRM-42"},
         )
         tgt = _make_object(
-            svc, "Field Entry", PlaneType.FIELD,
+            svc,
+            "Field Entry",
+            PlaneType.FIELD,
             external_refs={"crm_id": "CRM-42"},
         )
         gen = CandidateGenerator()
@@ -208,12 +212,16 @@ class TestCandidateGeneration:
     def test_no_duplicate_candidates(self):
         svc = GraphService()
         src = _make_object(
-            svc, "Obj", PlaneType.COMMERCIAL,
+            svc,
+            "Obj",
+            PlaneType.COMMERCIAL,
             correlation_keys={"ref": "X"},
             external_refs={"crm_id": "Y"},
         )
         tgt = _make_object(
-            svc, "Obj2", PlaneType.FIELD,
+            svc,
+            "Obj2",
+            PlaneType.FIELD,
             correlation_keys={"ref": "X"},
             external_refs={"crm_id": "Y"},
         )
@@ -226,12 +234,16 @@ class TestCandidateScoring:
     def test_score_breakdown_by_rule(self):
         svc = GraphService()
         src = _make_object(
-            svc, "A", PlaneType.COMMERCIAL,
+            svc,
+            "A",
+            PlaneType.COMMERCIAL,
             payload={"quantity": 10, "cost": 100},
             correlation_keys={"ref": "R1"},
         )
         tgt = _make_object(
-            svc, "B", PlaneType.FIELD,
+            svc,
+            "B",
+            PlaneType.FIELD,
             payload={"quantity": 10, "cost": 100},
             correlation_keys={"ref": "R1"},
         )
@@ -251,11 +263,15 @@ class TestCandidateScoring:
     def test_identity_correlation_scores_on_matching_keys(self):
         svc = GraphService()
         src = _make_object(
-            svc, "X", PlaneType.COMMERCIAL,
+            svc,
+            "X",
+            PlaneType.COMMERCIAL,
             correlation_keys={"contract_ref": "C1"},
         )
         tgt = _make_object(
-            svc, "Y", PlaneType.FIELD,
+            svc,
+            "Y",
+            PlaneType.FIELD,
             correlation_keys={"contract_ref": "C1"},
         )
         rule = IdentityCorrelationRule()
@@ -298,12 +314,8 @@ class TestCandidateScoring:
 
     def test_chronology_conflict_mismatch(self):
         svc = GraphService()
-        src = _make_object(
-            svc, "A", PlaneType.COMMERCIAL, payload={"effective_date": "2025-01-01"}
-        )
-        tgt = _make_object(
-            svc, "B", PlaneType.FIELD, payload={"effective_date": "2025-06-01"}
-        )
+        src = _make_object(svc, "A", PlaneType.COMMERCIAL, payload={"effective_date": "2025-01-01"})
+        tgt = _make_object(svc, "B", PlaneType.FIELD, payload={"effective_date": "2025-06-01"})
         rule = ChronologyAlignmentRule()
         result = rule.evaluate(src, tgt, [])
         assert len(result.mismatches) == 1
@@ -461,11 +473,17 @@ class TestIdentifierConflict:
     def test_identifier_conflict_detected(self):
         svc = GraphService()
         src = _make_object(
-            svc, "A", PlaneType.COMMERCIAL, domain="test",
+            svc,
+            "A",
+            PlaneType.COMMERCIAL,
+            domain="test",
             correlation_keys={"contract_ref": "C1"},
         )
         tgt = _make_object(
-            svc, "B", PlaneType.FIELD, domain="test",
+            svc,
+            "B",
+            PlaneType.FIELD,
+            domain="test",
             correlation_keys={"contract_ref": "C2"},
         )
         classifier = MismatchClassifier()
@@ -602,12 +620,18 @@ class TestFullReconciliationOrchestration:
         svc = GraphService(audit_hook=audit_hook)
 
         src = _make_object(
-            svc, "Contract Rate", PlaneType.COMMERCIAL, "test",
+            svc,
+            "Contract Rate",
+            PlaneType.COMMERCIAL,
+            "test",
             payload={"quantity": 10, "cost": 100},
             correlation_keys={"contract_ref": "C1"},
         )
         tgt = _make_object(
-            svc, "Field Rate", PlaneType.FIELD, "test",
+            svc,
+            "Field Rate",
+            PlaneType.FIELD,
+            "test",
             payload={"quantity": 10, "cost": 100},
             correlation_keys={"contract_ref": "C1"},
         )
@@ -645,12 +669,18 @@ class TestFullReconciliationOrchestration:
     def test_mismatch_detected_cross_plane(self):
         svc = GraphService()
         src = _make_object(
-            svc, "Src", PlaneType.COMMERCIAL, "test",
+            svc,
+            "Src",
+            PlaneType.COMMERCIAL,
+            "test",
             payload={"cost": 100},
             correlation_keys={"ref": "R1"},
         )
         tgt = _make_object(
-            svc, "Tgt", PlaneType.FIELD, "test",
+            svc,
+            "Tgt",
+            PlaneType.FIELD,
+            "test",
             payload={"cost": 999},
             correlation_keys={"ref": "R1"},
         )
@@ -663,29 +693,35 @@ class TestFullReconciliationOrchestration:
             tenant_id=TENANT,
         )
         result = orchestrator.execute(
-            ReconciliationRequest(
-                tenant_id=TENANT, scope=scope, target=ReconciliationTarget()
-            )
+            ReconciliationRequest(tenant_id=TENANT, scope=scope, target=ReconciliationTarget())
         )
         all_mismatches = [m for o in result.run.outcomes for m in o.mismatches]
         cost_mismatches = [
-            m for m in all_mismatches
-            if m.category == CrossPlaneMismatchCategory.COST_CONFLICT
+            m for m in all_mismatches if m.category == CrossPlaneMismatchCategory.COST_CONFLICT
         ]
         assert len(cost_mismatches) >= 1
 
     def test_three_plane_reconciliation(self):
         svc = GraphService()
         commercial = _make_object(
-            svc, "Contract", PlaneType.COMMERCIAL, "test",
+            svc,
+            "Contract",
+            PlaneType.COMMERCIAL,
+            "test",
             correlation_keys={"ref": "X"},
         )
         field = _make_object(
-            svc, "Work Order", PlaneType.FIELD, "test",
+            svc,
+            "Work Order",
+            PlaneType.FIELD,
+            "test",
             correlation_keys={"ref": "X"},
         )
         service = _make_object(
-            svc, "Incident", PlaneType.SERVICE, "test",
+            svc,
+            "Incident",
+            PlaneType.SERVICE,
+            "test",
             correlation_keys={"ref": "X"},
         )
 
@@ -697,9 +733,7 @@ class TestFullReconciliationOrchestration:
             tenant_id=TENANT,
         )
         result = orchestrator.execute(
-            ReconciliationRequest(
-                tenant_id=TENANT, scope=scope, target=ReconciliationTarget()
-            )
+            ReconciliationRequest(tenant_id=TENANT, scope=scope, target=ReconciliationTarget())
         )
         assert result.run.status == ReconciliationStatus.COMPLETED
 
@@ -711,9 +745,7 @@ class TestAuditEmission:
         _make_object(svc, "A", PlaneType.COMMERCIAL, "test", correlation_keys={"r": "1"})
         _make_object(svc, "B", PlaneType.FIELD, "test", correlation_keys={"r": "1"})
 
-        orchestrator = ReconciliationOrchestrator(
-            graph_service=svc, audit_hook=audit_hook
-        )
+        orchestrator = ReconciliationOrchestrator(graph_service=svc, audit_hook=audit_hook)
         scope = ReconciliationScope(
             scope_type=ReconciliationScopeType.BY_PLANE_COMBINATION,
             planes=[PlaneType.COMMERCIAL, PlaneType.FIELD],
@@ -721,17 +753,11 @@ class TestAuditEmission:
             tenant_id=TENANT,
         )
         orchestrator.execute(
-            ReconciliationRequest(
-                tenant_id=TENANT, scope=scope, target=ReconciliationTarget()
-            )
+            ReconciliationRequest(tenant_id=TENANT, scope=scope, target=ReconciliationTarget())
         )
 
-        started = audit_hook.get_events_by_type(
-            FabricAuditEventType.RECONCILIATION_RUN_STARTED
-        )
-        completed = audit_hook.get_events_by_type(
-            FabricAuditEventType.RECONCILIATION_RUN_COMPLETED
-        )
+        started = audit_hook.get_events_by_type(FabricAuditEventType.RECONCILIATION_RUN_STARTED)
+        completed = audit_hook.get_events_by_type(FabricAuditEventType.RECONCILIATION_RUN_COMPLETED)
         assert len(started) >= 1
         assert len(completed) >= 1
 
@@ -741,9 +767,7 @@ class TestAuditEmission:
         _make_object(svc, "A", PlaneType.COMMERCIAL, "test", correlation_keys={"r": "1"})
         _make_object(svc, "B", PlaneType.FIELD, "test", correlation_keys={"r": "1"})
 
-        orchestrator = ReconciliationOrchestrator(
-            graph_service=svc, audit_hook=audit_hook
-        )
+        orchestrator = ReconciliationOrchestrator(graph_service=svc, audit_hook=audit_hook)
         scope = ReconciliationScope(
             scope_type=ReconciliationScopeType.BY_PLANE_COMBINATION,
             planes=[PlaneType.COMMERCIAL, PlaneType.FIELD],
@@ -751,9 +775,7 @@ class TestAuditEmission:
             tenant_id=TENANT,
         )
         orchestrator.execute(
-            ReconciliationRequest(
-                tenant_id=TENANT, scope=scope, target=ReconciliationTarget()
-            )
+            ReconciliationRequest(tenant_id=TENANT, scope=scope, target=ReconciliationTarget())
         )
         events = audit_hook.get_events_by_type(
             FabricAuditEventType.RECONCILIATION_CANDIDATE_GENERATED
@@ -766,9 +788,7 @@ class TestAuditEmission:
         _make_object(svc, "A", PlaneType.COMMERCIAL, "test", correlation_keys={"r": "1"})
         _make_object(svc, "B", PlaneType.FIELD, "test", correlation_keys={"r": "1"})
 
-        orchestrator = ReconciliationOrchestrator(
-            graph_service=svc, audit_hook=audit_hook
-        )
+        orchestrator = ReconciliationOrchestrator(graph_service=svc, audit_hook=audit_hook)
         scope = ReconciliationScope(
             scope_type=ReconciliationScopeType.BY_PLANE_COMBINATION,
             planes=[PlaneType.COMMERCIAL, PlaneType.FIELD],
@@ -776,13 +796,9 @@ class TestAuditEmission:
             tenant_id=TENANT,
         )
         orchestrator.execute(
-            ReconciliationRequest(
-                tenant_id=TENANT, scope=scope, target=ReconciliationTarget()
-            )
+            ReconciliationRequest(tenant_id=TENANT, scope=scope, target=ReconciliationTarget())
         )
-        events = audit_hook.get_events_by_type(
-            FabricAuditEventType.RECONCILIATION_OUTCOME_HASHED
-        )
+        events = audit_hook.get_events_by_type(FabricAuditEventType.RECONCILIATION_OUTCOME_HASHED)
         assert len(events) >= 1
 
 
@@ -801,7 +817,9 @@ class TestDomainPackRuleRegistration:
         registry = build_default_rule_registry()
         rule = TelcoOpsStateAlignmentRule()
         registry.register_rule(rule)
-        assert registry.get_rule(ReconciliationRuleId("telco-ops-service-state-alignment")) is not None
+        assert (
+            registry.get_rule(ReconciliationRuleId("telco-ops-service-state-alignment")) is not None
+        )
 
     def test_utilities_field_rule_registers(self):
         from app.core.domain_integration import UtilitiesFieldCompletionRule
@@ -809,9 +827,10 @@ class TestDomainPackRuleRegistration:
         registry = build_default_rule_registry()
         rule = UtilitiesFieldCompletionRule()
         registry.register_rule(rule)
-        assert registry.get_rule(
-            ReconciliationRuleId("utilities-field-completion-billing")
-        ) is not None
+        assert (
+            registry.get_rule(ReconciliationRuleId("utilities-field-completion-billing"))
+            is not None
+        )
 
     def test_register_all_domain_pack_rules(self):
         from app.core.domain_integration import register_domain_pack_reconciliation_rules
@@ -850,10 +869,7 @@ class TestRuleRegistry:
         tgt = _make_object(svc, "B", PlaneType.COMMERCIAL)
         registry = build_default_rule_registry()
         applicable = registry.get_applicable_rules(src, tgt)
-        cross_plane_only = [
-            r for r in applicable
-            if r.applicability.requires_cross_plane
-        ]
+        cross_plane_only = [r for r in applicable if r.applicability.requires_cross_plane]
         assert len(cross_plane_only) == 0
 
     def test_rule_set_retrieval(self):

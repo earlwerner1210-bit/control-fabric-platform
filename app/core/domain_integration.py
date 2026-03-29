@@ -398,9 +398,7 @@ class UtilitiesFieldCompletionRule(ReconciliationRule):
         is_completed = source.payload.get("is_completed", False) or target.payload.get(
             "is_completed", False
         )
-        is_billed = source.payload.get("is_billed", False) or target.payload.get(
-            "is_billed", False
-        )
+        is_billed = source.payload.get("is_billed", False) or target.payload.get("is_billed", False)
 
         if is_billed and not is_completed:
             return ReconciliationRuleResult(
@@ -570,7 +568,11 @@ class TelcoOpsActionPreconditionRule(W3ValidationRule):
     def validate(self, objects, graph_service, context):
         from app.core.types import ControlState
 
-        allowed = {ControlState.ACTIVE.value, ControlState.ENRICHED.value, ControlState.FROZEN.value}
+        allowed = {
+            ControlState.ACTIVE.value,
+            ControlState.ENRICHED.value,
+            ControlState.FROZEN.value,
+        }
         warnings: list[ValidationWarning] = []
         for obj in objects:
             if obj.state.value not in allowed:
@@ -583,7 +585,9 @@ class TelcoOpsActionPreconditionRule(W3ValidationRule):
                 )
         return ValidationResult(
             rule_id=self.rule_id,
-            status=W3ValidationStatus.PASSED_WITH_WARNINGS if warnings else W3ValidationStatus.PASSED,
+            status=W3ValidationStatus.PASSED_WITH_WARNINGS
+            if warnings
+            else W3ValidationStatus.PASSED,
             passed=True,
             warnings=warnings,
             explanation="Telco-ops action precondition check",
@@ -623,7 +627,9 @@ class UtilitiesFieldGraphRule(W3ValidationRule):
                     )
         return ValidationResult(
             rule_id=self.rule_id,
-            status=W3ValidationStatus.PASSED_WITH_WARNINGS if warnings else W3ValidationStatus.PASSED,
+            status=W3ValidationStatus.PASSED_WITH_WARNINGS
+            if warnings
+            else W3ValidationStatus.PASSED,
             passed=True,
             warnings=warnings,
             explanation="Utilities-field graph completeness check",

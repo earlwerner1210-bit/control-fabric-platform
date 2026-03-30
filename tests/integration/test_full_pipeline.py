@@ -19,6 +19,7 @@ in sequence — the core artefact for the UK patent filing.
 from __future__ import annotations
 
 import json
+import logging.handlers
 
 import pytest
 
@@ -563,24 +564,14 @@ class TestGovernedOutputTaxonomy:
 
 class TestObjectSupersession:
     """
-    Demonstrates the SUPERSEDES relationship type as a governed output.
-
-    Patent Claim (Dependent): A typed SUPERSEDES relationship between
-    two control objects, created via the evidence-gated release mechanism,
-    formally records that one object replaces another. The superseded
-    object remains in the graph for audit purposes but is detectable
-    as superseded via graph traversal.
-
-    This demonstrates dependent claim candidate D from the patent brief:
-    object supersession as a governed, evidence-backed state change.
+    Patent Claim (Dependent D): Object supersession as a governed output.
+    The SUPERSEDES relationship type passes through the evidence-gated
+    release mechanism. Superseded objects are retained for audit.
     """
 
     def test_supersession_through_release_gate(self, platform) -> None:
-        """
-        A new control object formally supersedes an older one.
-        The SUPERSEDES edge is governed — passes through the release gate.
-        """
-        # Ingest the original (v1) control object
+        """New object formally supersedes old one via the release gate."""
+        # Ingest original object
         original_artefact = RawArtefact(
             source_system="policy-system",
             format=ArtefactFormat.JSON,
@@ -683,11 +674,7 @@ class TestObjectSupersession:
         assert len(supersession_actions) > 0
 
     def test_superseded_object_retained_for_audit(self, platform) -> None:
-        """
-        Patent Claim: The superseded object is never deleted.
-        It remains in the graph and registry for audit purposes.
-        The SUPERSEDES relationship is the governance record.
-        """
+        """Superseded object must never be deleted — retained in registry and graph."""
         a1 = RawArtefact(
             source_system="test",
             format=ArtefactFormat.JSON,
@@ -727,12 +714,8 @@ class TestObjectSupersession:
         )
         assert platform["registry"].get(o2.object_id) is not None, "Superseding object must exist"
 
-    def test_add_edge_warns_for_semantic_types(self, platform) -> None:
-        """
-        Verifies that calling add_edge() directly with a state-semantic
-        type still adds the edge (not blocked), but the governance warning
-        directs callers to add_governed_edge() instead.
-        """
+    def test_add_edge_warns_for_semantic_type_without_gate(self, platform) -> None:
+        """add_edge() without release_gate on semantic type logs a warning."""
         a1 = RawArtefact(
             source_system="test",
             format=ArtefactFormat.JSON,
@@ -757,6 +740,8 @@ class TestObjectSupersession:
             asserted_by="test",
         )
 
-        # Edge is added (not blocked) — warning is logged but doesn't prevent creation
+        # No exception — warning only (logger.warning, not Python warning)
         platform["graph"].add_edge(edge)
+
+        # Edge still added
         assert platform["graph"].get_edge(edge.edge_id) is not None

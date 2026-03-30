@@ -1,13 +1,8 @@
 """
 Control Fabric Platform — Reconciliation API Routes
 
-Exposes the CrossPlaneReconciliationEngine via REST.
-All reconciliation runs produce typed ReconciliationCase objects
-that cannot be suppressed or silently ignored.
-
-Patent Claim (Theme 2): The reconciliation engine detects semantic
-gaps, conflicts, and orphans across operational planes. Every detected
-anomaly is formally logged as an actionable case.
+Patent Claim (Theme 2): Cross-plane reconciliation engine exposed via REST.
+All detected cases are formally committed — none can be suppressed.
 
 Author: Control Fabric Platform
 Date: March 2026
@@ -37,19 +32,11 @@ _graph = ControlGraphStore()
 _engine = CrossPlaneReconciliationEngine(graph=_graph)
 
 
-@router.post(
-    "/run",
-    summary="Run full cross-plane reconciliation",
-    description=(
-        "Runs all enabled reconciliation rules against the current graph state. "
-        "Detects semantic gaps, conflicts, orphans, and coverage deficiencies. "
-        "All detected cases are formally committed — none can be suppressed."
-    ),
-)
+@router.post("/run", summary="Run full cross-plane reconciliation")
 def run_reconciliation() -> dict[str, Any]:
     """
-    Patent Claim (Theme 2): Detects semantic gaps, conflicts, and orphans
-    across all operational planes. Cases cannot be suppressed or bypassed.
+    Patent Claim (Theme 2): Detects semantic gaps, conflicts, and orphans.
+    Cases cannot be suppressed or bypassed.
     """
     cases = _engine.run_full_reconciliation()
 
@@ -67,7 +54,6 @@ def run_reconciliation() -> dict[str, Any]:
             "gap": len([c for c in cases if c.case_type == ReconciliationCaseType.GAP]),
             "conflict": len([c for c in cases if c.case_type == ReconciliationCaseType.CONFLICT]),
             "orphan": len([c for c in cases if c.case_type == ReconciliationCaseType.ORPHAN]),
-            "duplicate": len([c for c in cases if c.case_type == ReconciliationCaseType.DUPLICATE]),
         },
         "cases": [
             {
@@ -87,12 +73,8 @@ def run_reconciliation() -> dict[str, Any]:
     }
 
 
-@router.get(
-    "/cases",
-    summary="Get all open reconciliation cases",
-)
+@router.get("/cases", summary="Get all open reconciliation cases")
 def get_open_cases() -> dict[str, Any]:
-    """Returns all open reconciliation cases across all operational planes."""
     cases = _engine.get_open_cases()
     return {
         "open_case_count": len(cases),
@@ -110,14 +92,10 @@ def get_open_cases() -> dict[str, Any]:
     }
 
 
-@router.get(
-    "/cases/{case_id}",
-    summary="Get a specific reconciliation case",
-)
+@router.get("/cases/{case_id}", summary="Get a specific reconciliation case")
 def get_case(case_id: str) -> dict[str, Any]:
-    """Returns full detail for a specific reconciliation case."""
-    cases = _engine.get_open_cases()
-    case = next((c for c in cases if c.case_id == case_id), None)
+    all_cases = {c.case_id: c for c in _engine.get_open_cases()}
+    case = all_cases.get(case_id)
     if not case:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -143,18 +121,11 @@ def get_case(case_id: str) -> dict[str, Any]:
     }
 
 
-@router.post(
-    "/cases/{case_id}/resolve",
-    summary="Resolve a reconciliation case through the release gate",
-)
-def resolve_case(
-    case_id: str,
-    resolved_by: str,
-    resolution_note: str,
-) -> dict[str, Any]:
+@router.post("/cases/{case_id}/resolve", summary="Resolve a case through the release gate")
+def resolve_case(case_id: str, resolved_by: str, resolution_note: str) -> dict[str, Any]:
     """
     Patent Claim (Theme 3+4): Case resolution is a governed output.
-    It passes through the platform-wide release gate before committing.
+    Passes through the platform-wide release gate before committing.
     """
     from app.core.platform_action_release_gate import PlatformActionReleaseGate
 
@@ -173,18 +144,11 @@ def resolve_case(
             "gate_submissions": gate.total_submitted,
         }
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.get(
-    "/rules",
-    summary="List all active reconciliation rules",
-)
+@router.get("/rules", summary="List all active reconciliation rules")
 def get_rules() -> dict[str, Any]:
-    """Returns all active reconciliation rules across core and domain packs."""
     rules = build_core_reconciliation_rules()
     return {
         "rule_count": len(rules),

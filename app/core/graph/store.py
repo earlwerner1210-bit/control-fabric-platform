@@ -89,9 +89,9 @@ class ControlGraphStore:
         }
         if edge.relationship_type in STATE_SEMANTIC_TYPES:
             logger.warning(
-                "add_edge() called with state-semantic relationship type '%s' without "
-                "release_gate. Consider using add_governed_edge() to route through the "
-                "platform-wide validation chain. edge_id=%s source=%s target=%s",
+                "add_edge() called with state-semantic type '%s' without release_gate. "
+                "Use add_governed_edge() to route through the platform-wide validation chain. "
+                "edge_id=%s source=%s target=%s",
                 edge.relationship_type.value,
                 edge.edge_id[:8],
                 edge.source_object_id[:8],

@@ -7,18 +7,19 @@ from app.core.graph.domain_types import ControlObject
 from app.core.graph.store import ControlGraphStore
 from app.core.ingress.domain_types import ArtefactFormat, RawArtefact
 from app.core.ingress.normaliser import ArtefactNormaliser, NormalisationError
+from app.core.platform_action_release_gate import ActionStatus, PlatformActionReleaseGate
+from app.core.platform_validation_chain import ActionOrigin
 from app.core.registry.object_registry import ObjectRegistry
 
 logger = logging.getLogger(__name__)
 
 
 class IngestResult:
-    """Result of a full ingestion pipeline run."""
-
     def __init__(self) -> None:
         self.ingested_objects: list[ControlObject] = []
         self.errors: list[str] = []
         self.artefact_id: str = ""
+        self.evidence_package_ids: list[str] = []
 
     @property
     def success(self) -> bool:
@@ -30,25 +31,17 @@ class IngestResult:
 
 
 class IngestPipeline:
-    """
-    End-to-end ingestion pipeline: RawArtefact → ControlObject → Registry → Graph.
-
-    Patent Claim (Theme 1 — Layer 1): The pipeline captures heterogeneous
-    inputs, normalises them into typed control objects, stamps provenance,
-    registers them in the Object Registry, and adds them to the Control Graph.
-
-    This is the entry point of the entire Control Fabric Platform.
-    """
-
     def __init__(
         self,
         registry: ObjectRegistry,
         graph: ControlGraphStore,
         normaliser: ArtefactNormaliser | None = None,
+        release_gate: PlatformActionReleaseGate | None = None,
     ) -> None:
         self._registry = registry
         self._graph = graph
         self._normaliser = normaliser or ArtefactNormaliser()
+        self._release_gate = release_gate
 
     def ingest(
         self,
@@ -56,35 +49,39 @@ class IngestPipeline:
         operational_plane: str,
         ingested_by: str = "ingress-pipeline",
     ) -> IngestResult:
-        """
-        Ingest a raw artefact through the full pipeline.
-
-        Steps:
-        1. Normalise artefact into typed ControlObjects
-        2. Register each object in the Object Registry
-        3. Add each object to the Control Graph
-        4. Return IngestResult with all ingested objects
-        """
         result = IngestResult()
         result.artefact_id = artefact.artefact_id
 
-        logger.info(
-            "Ingesting artefact: %s from %s into plane=%s",
-            artefact.artefact_id[:8],
-            artefact.source_system,
-            operational_plane,
-        )
-
-        # Step 1: Normalise
         try:
             objects = self._normaliser.normalise_to_objects(artefact, operational_plane)
         except NormalisationError as e:
             result.errors.append(f"Normalisation failed: {e}")
             return result
 
-        # Step 2 + 3: Register and add to graph
         for obj in objects:
             try:
+                # If gate is present, validate ingestion through it
+                if self._release_gate is not None:
+                    gate_result = self._release_gate.submit(
+                        action_type="ingest_control_object",
+                        proposed_payload={
+                            "object_type": obj.object_type.value,
+                            "name": obj.name,
+                            "operational_plane": operational_plane,
+                            "source_system": artefact.source_system,
+                        },
+                        requested_by=ingested_by,
+                        origin=ActionOrigin.API_REQUEST,
+                        evidence_references=[artefact.content_hash],
+                        provenance_chain=[artefact.artefact_id],
+                    )
+                    if gate_result.status == ActionStatus.BLOCKED:
+                        result.errors.append(
+                            f"Gate blocked ingestion of '{obj.name}': {gate_result.failure_reason}"
+                        )
+                        continue
+                    result.evidence_package_ids.append(gate_result.package_id)
+
                 registered = self._registry.register(
                     obj,
                     registered_by=ingested_by,
@@ -92,11 +89,7 @@ class IngestPipeline:
                 )
                 self._graph.add_object(registered)
                 result.ingested_objects.append(registered)
-                logger.info(
-                    "Ingested: %s (%s)",
-                    registered.object_id[:8],
-                    registered.object_type.value,
-                )
+
             except Exception as e:
                 result.errors.append(f"Failed to register {obj.name}: {e}")
 
@@ -108,5 +101,4 @@ class IngestPipeline:
         operational_plane: str,
         ingested_by: str = "ingress-pipeline",
     ) -> list[IngestResult]:
-        """Ingest multiple artefacts — returns result per artefact."""
         return [self.ingest(a, operational_plane, ingested_by) for a in artefacts]

@@ -92,22 +92,51 @@ class ObjectRegistry:
         return obj
 
     def transition_state(
-        self, object_id: str, new_state: ControlObjectState, transitioned_by: str, reason: str
+        self,
+        object_id: str,
+        new_state: ControlObjectState,
+        transitioned_by: str,
+        reason: str,
+        release_gate: Any | None = None,
     ) -> ControlObject:
         """
         Transition an object to a new lifecycle state.
-        Returns the new versioned object.
+        If a release_gate is provided, the transition is validated
+        through the platform-wide deterministic validation chain first.
         """
         if object_id not in self._objects:
             raise RegistryError(f"Object {object_id} not found.")
 
         current = self._objects[object_id]
+
+        # If gate is present, validate transition through it
+        if release_gate is not None:
+            from app.core.platform_action_release_gate import ActionStatus
+            from app.core.platform_validation_chain import ActionOrigin
+
+            gate_result = release_gate.submit(
+                action_type="state_transition",
+                proposed_payload={
+                    "object_id": object_id,
+                    "current_state": current.state.value,
+                    "target_state": new_state.value,
+                    "reason": reason,
+                },
+                requested_by=transitioned_by,
+                origin=ActionOrigin.HUMAN_OPERATOR,
+                evidence_references=[current.object_hash],
+                provenance_chain=[object_id],
+            )
+            if gate_result.status == ActionStatus.BLOCKED:
+                raise RegistryError(
+                    f"Gate blocked state transition for {object_id}: {gate_result.failure_reason}"
+                )
+
         new_obj = current.transition_to(new_state)
         self.update(
             new_obj, transitioned_by, f"State transition: {current.state}→{new_state}: {reason}"
         )
         self._emit_event("state_changed", new_obj, transitioned_by, f"{current.state}→{new_state}")
-
         return new_obj
 
     def get(self, object_id: str) -> ControlObject | None:

@@ -59,20 +59,24 @@ from app.core.registry.schema_registry import SchemaRegistry
 
 @pytest.fixture
 def platform():
-    """Initialise the full platform stack."""
-    schema_registry = SchemaRegistry()
-    registry = ObjectRegistry(schema_registry=schema_registry)
+    """Initialise the full platform stack with release gate wired in."""
+    from app.core.platform_action_release_gate import PlatformActionReleaseGate
+
+    sr = SchemaRegistry()
+    registry = ObjectRegistry(schema_registry=sr)
     graph = ControlGraphStore()
-    pipeline = IngestPipeline(registry=registry, graph=graph)
-    domain_loader = DomainPackLoader(schema_registry=schema_registry)
+    release_gate = PlatformActionReleaseGate()
+    pipeline = IngestPipeline(registry=registry, graph=graph, release_gate=release_gate)
+    domain_loader = DomainPackLoader(schema_registry=sr)
     inference_engine = BoundedInferenceEngine(simulation_mode=True)
     return {
-        "schema_registry": schema_registry,
+        "schema_registry": sr,
         "registry": registry,
         "graph": graph,
         "pipeline": pipeline,
         "domain_loader": domain_loader,
         "inference_engine": inference_engine,
+        "release_gate": release_gate,
     }
 
 
@@ -342,5 +346,113 @@ class TestFullPipeline:
         assert evidence.final_status.value == "complete"
         assert len(evidence.chain_hash) == 64
 
-        # All five themes demonstrated in sequence
-        assert True, "Full pipeline test passed — all patent themes demonstrated"
+        # Theme 3+4 PLATFORM-WIDE: verify gate was exercised during ingestion
+        assert platform["release_gate"].total_submitted > 0, (
+            "Release gate must be exercised during ingestion"
+        )
+        assert platform["release_gate"].total_blocked == 0, (
+            "No actions should be blocked in a valid pipeline run"
+        )
+
+        # State transition through the gate (object is already ACTIVE, move to DEPRECATED)
+        platform["registry"].transition_state(
+            obj.object_id,
+            ControlObjectState.DEPRECATED,
+            transitioned_by="officer",
+            reason="superseded by newer mandate",
+            release_gate=platform["release_gate"],
+        )
+        deprecated = platform["registry"].get(obj.object_id)
+        assert deprecated.state == ControlObjectState.DEPRECATED
+
+        # Verify gate has evidence packages for all actions
+        audit_log = platform["release_gate"].get_audit_log()
+        assert len(audit_log) > 0
+        assert all(r.package_id != "none" for r in audit_log if r.status.value != "blocked")
+
+        assert True, "All 5 patent themes + platform-wide gate demonstrated"
+
+
+class TestPlatformGateWiring:
+    """
+    Proves the release gate is wired platform-wide —
+    not just inside the inference service.
+    """
+
+    def test_ingestion_passes_through_gate(self, platform) -> None:
+        """Every ingest call submits to the release gate."""
+        initial_count = platform["release_gate"].total_submitted
+        artefact = RawArtefact(
+            source_system="test",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps({"name": "Gated Control", "description": "risk control"}),
+            submitted_by="test-user",
+        )
+        result = platform["pipeline"].ingest(artefact, "risk")
+        assert result.success
+        assert platform["release_gate"].total_submitted > initial_count
+
+    def test_ingestion_produces_evidence_package(self, platform) -> None:
+        """Each ingested object has a corresponding evidence package."""
+        artefact = RawArtefact(
+            source_system="test",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps({"name": "Packaged Control", "description": "risk control"}),
+            submitted_by="test-user",
+        )
+        result = platform["pipeline"].ingest(artefact, "risk")
+        assert result.success
+        assert len(result.evidence_package_ids) > 0
+        pkg = platform["release_gate"].get_package(result.evidence_package_ids[0])
+        assert pkg is not None
+        assert pkg.verify_integrity() is True
+
+    def test_state_transition_passes_through_gate(self, platform) -> None:
+        """State transitions are validated through the release gate."""
+        artefact = RawArtefact(
+            source_system="test",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps({"name": "Transition Control", "description": "risk control"}),
+            submitted_by="test-user",
+        )
+        result = platform["pipeline"].ingest(artefact, "risk")
+        obj = result.ingested_objects[0]
+        before = platform["release_gate"].total_submitted
+        platform["registry"].transition_state(
+            obj.object_id,
+            ControlObjectState.ACTIVE,
+            transitioned_by="operator",
+            reason="ready",
+            release_gate=platform["release_gate"],
+        )
+        assert platform["release_gate"].total_submitted > before
+
+    def test_gate_audit_log_covers_all_actions(self, platform) -> None:
+        """
+        Patent Claim: The release gate audit log covers ALL actions
+        on the platform — ingestion, transitions, and inference.
+        """
+        # Ingest
+        artefact = RawArtefact(
+            source_system="test",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps({"name": "Audited Control", "description": "risk control"}),
+            submitted_by="test-user",
+        )
+        result = platform["pipeline"].ingest(artefact, "risk")
+        obj = result.ingested_objects[0]
+
+        # Transition
+        platform["registry"].transition_state(
+            obj.object_id,
+            ControlObjectState.ACTIVE,
+            transitioned_by="operator",
+            reason="ready",
+            release_gate=platform["release_gate"],
+        )
+
+        # Check audit log has entries for both action types
+        audit_log = platform["release_gate"].get_audit_log()
+        action_types = {r.status.value for r in audit_log}
+        assert len(audit_log) >= 2
+        assert platform["release_gate"].total_submitted >= 2

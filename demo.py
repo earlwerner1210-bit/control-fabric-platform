@@ -12,14 +12,6 @@ Date: March 2026
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
-
-# inference-gateway uses hyphens — not a valid Python package name
-sys.path.insert(0, str(Path(__file__).resolve().parent / "services" / "inference-gateway"))
-
-from core.engine import BoundedInferenceEngine
-from models.domain_types import HypothesisType, InferenceRequest
 
 from app.core.domain_pack_loader import (
     DomainPackLoader,
@@ -28,6 +20,8 @@ from app.core.domain_pack_loader import (
 )
 from app.core.graph.domain_types import ControlEdge, ControlObjectState, RelationshipType
 from app.core.graph.store import ControlGraphStore
+from app.core.inference.core.engine import BoundedInferenceEngine
+from app.core.inference.models.domain_types import HypothesisType, InferenceRequest
 from app.core.ingress.domain_types import ArtefactFormat, RawArtefact
 from app.core.ingress.pipeline import IngestPipeline
 from app.core.reconciliation.cross_plane_engine import CrossPlaneReconciliationEngine

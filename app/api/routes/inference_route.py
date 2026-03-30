@@ -1,16 +1,11 @@
 from __future__ import annotations
 
 import logging
-import sys
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, status
 
-# inference-gateway uses hyphens — not a valid Python package name
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "services" / "inference-gateway"))
-
-from core.engine import BoundedInferenceEngine  # noqa: E402
-from models.domain_types import InferenceRequest, InferenceResponse  # noqa: E402
+from app.core.inference.core.engine import BoundedInferenceEngine
+from app.core.inference.models.domain_types import InferenceRequest, InferenceResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/inference", tags=["inference"])

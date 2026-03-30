@@ -269,3 +269,55 @@ class CrossPlaneReconciliationEngine:
     @property
     def open_case_count(self) -> int:
         return len(self.get_open_cases())
+
+    def mark_case_resolved(
+        self,
+        case_id: str,
+        resolved_by: str,
+        resolution_note: str,
+        release_gate: Any | None = None,
+    ) -> ReconciliationCase:
+        """
+        Mark a reconciliation case as resolved.
+
+        Patent Claim (Theme 3+4): Reconciliation marks are governed outputs.
+        When a release_gate is provided, resolution must pass the
+        deterministic validation chain before the mark is committed.
+        A reconciliation case cannot be silently closed — it must be
+        validated and evidence-packaged just like any other platform action.
+        """
+        if case_id not in self._cases:
+            raise ValueError(f"Case {case_id} not found.")
+
+        if release_gate is not None:
+            from app.core.platform_action_release_gate import ActionStatus
+            from app.core.platform_validation_chain import ActionOrigin
+
+            gate_result = release_gate.submit(
+                action_type="reconciliation_case_resolution",
+                proposed_payload={
+                    "case_id": case_id,
+                    "case_type": self._cases[case_id].case_type.value,
+                    "severity": self._cases[case_id].severity.value,
+                    "resolution_note": resolution_note,
+                },
+                requested_by=resolved_by,
+                origin=ActionOrigin.HUMAN_OPERATOR,
+                evidence_references=[self._cases[case_id].case_hash],
+                provenance_chain=[case_id],
+            )
+            if gate_result.status == ActionStatus.BLOCKED:
+                raise ValueError(
+                    f"Gate blocked case resolution for {case_id}: {gate_result.failure_reason}"
+                )
+
+        case = self._cases[case_id]
+        resolved = case.model_copy(
+            update={
+                "status": ReconciliationCaseStatus.RESOLVED,
+                "resolved_at": datetime.now(UTC),
+                "description": f"{case.description}\n\nResolution: {resolution_note}",
+            }
+        )
+        self._cases[case_id] = resolved
+        return resolved

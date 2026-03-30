@@ -258,3 +258,52 @@ class ControlGraphStore:
             ) and not self.get_inbound_edges(obj.object_id, [required_relationship], at_time):
                 missing.append(obj)
         return missing
+
+    def add_governed_edge(
+        self,
+        edge: ControlEdge,
+        asserted_by: str,
+        release_gate: Any | None = None,
+    ) -> ControlEdge:
+        """
+        Add a typed relationship edge through the release gate.
+
+        Patent Claim (Theme 2+4): Graph link creation with state-semantic
+        relationship types (VIOLATES, CONFLICTS, SATISFIES) must pass the
+        deterministic validation chain — they are governed outputs, not
+        just data writes.
+
+        Non-semantic relationship types (REFERENCES) may bypass the gate.
+        """
+        STATE_SEMANTIC_TYPES = {
+            RelationshipType.VIOLATES,
+            RelationshipType.CONFLICTS,
+            RelationshipType.SATISFIES,
+            RelationshipType.SUPERSEDES,
+        }
+
+        if release_gate is not None and edge.relationship_type in STATE_SEMANTIC_TYPES:
+            from app.core.platform_action_release_gate import ActionStatus
+            from app.core.platform_validation_chain import ActionOrigin
+
+            gate_result = release_gate.submit(
+                action_type="graph_link_creation",
+                proposed_payload={
+                    "source_id": edge.source_object_id,
+                    "target_id": edge.target_object_id,
+                    "relationship_type": edge.relationship_type.value,
+                    "enforcement_weight": edge.enforcement_weight,
+                },
+                requested_by=asserted_by,
+                origin=ActionOrigin.HUMAN_OPERATOR,
+                evidence_references=edge.evidence_references or [edge.edge_hash],
+                provenance_chain=[edge.source_object_id, edge.target_object_id],
+            )
+            if gate_result.status == ActionStatus.BLOCKED:
+                raise GraphIntegrityError(
+                    f"Gate blocked edge creation ({edge.relationship_type.value}): "
+                    f"{gate_result.failure_reason}"
+                )
+
+        self.add_edge(edge)
+        return edge

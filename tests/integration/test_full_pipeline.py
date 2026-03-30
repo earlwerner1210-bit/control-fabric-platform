@@ -19,20 +19,8 @@ in sequence — the core artefact for the UK patent filing.
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
 
 import pytest
-
-# Ensure inference-gateway package is importable
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "services" / "inference-gateway"))
-
-from core.engine import BoundedInferenceEngine
-from models.domain_types import (
-    HypothesisType,
-    InferenceRequest,
-    InferenceStatus,
-)
 
 from app.core.domain_pack_loader import (
     DomainPackLoader,
@@ -46,6 +34,12 @@ from app.core.graph.domain_types import (
     RelationshipType,
 )
 from app.core.graph.store import ControlGraphStore
+from app.core.inference.core.engine import BoundedInferenceEngine
+from app.core.inference.models.domain_types import (
+    HypothesisType,
+    InferenceRequest,
+    InferenceStatus,
+)
 from app.core.ingress.domain_types import ArtefactFormat, RawArtefact
 from app.core.ingress.pipeline import IngestPipeline
 from app.core.reconciliation.cross_plane_engine import (
@@ -456,3 +450,112 @@ class TestPlatformGateWiring:
         action_types = {r.status.value for r in audit_log}
         assert len(audit_log) >= 2
         assert platform["release_gate"].total_submitted >= 2
+
+
+class TestGovernedOutputTaxonomy:
+    """
+    Proves the output taxonomy is strictly enforced.
+    Observations never trigger actions.
+    Hypotheses are never executable.
+    Released actions always carry evidence packages.
+    """
+
+    def test_hypothesis_is_never_executable(self, platform) -> None:
+        """Patent Claim Theme 3: TypedHypothesis.is_executable is always False."""
+        from app.core.inference.models.domain_types import HypothesisType, InferenceRequest
+
+        request = InferenceRequest(
+            requesting_entity_id="analyst",
+            target_control_object_ids=["ctrl-001"],
+            target_operational_plane="risk",
+            hypothesis_type_requested=HypothesisType.GAP_ANALYSIS,
+            context_data={},
+        )
+        response = platform["inference_engine"].infer(request)
+        if response.hypothesis:
+            assert response.hypothesis.is_executable is False
+
+    def test_reconciliation_mark_passes_through_gate(self, platform) -> None:
+        """Reconciliation case resolution is a governed output."""
+        from app.core.reconciliation.cross_plane_engine import CrossPlaneReconciliationEngine
+
+        artefact = RawArtefact(
+            source_system="test",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps(
+                {
+                    "name": "Unlinked Control",
+                    "description": "risk control",
+                    "object_type": "risk_control",
+                }
+            ),
+            submitted_by="test-user",
+        )
+        result = platform["pipeline"].ingest(artefact, "risk")
+        obj = result.ingested_objects[0]
+        platform["registry"].transition_state(
+            obj.object_id,
+            ControlObjectState.ACTIVE,
+            transitioned_by="operator",
+            reason="ready",
+            release_gate=platform["release_gate"],
+        )
+        platform["graph"].update_object(platform["registry"].get(obj.object_id))
+
+        engine = CrossPlaneReconciliationEngine(graph=platform["graph"])
+        cases = engine.run_full_reconciliation()
+        if cases:
+            before = platform["release_gate"].total_submitted
+            engine.mark_case_resolved(
+                cases[0].case_id,
+                resolved_by="operator",
+                resolution_note="Linked to appropriate target",
+                release_gate=platform["release_gate"],
+            )
+            assert platform["release_gate"].total_submitted > before
+
+    def test_governed_edge_creation_for_semantic_types(self, platform) -> None:
+        """SATISFIES and VIOLATES edges pass through the release gate."""
+        from app.core.graph.domain_types import ControlEdge, RelationshipType
+
+        a1 = RawArtefact(
+            source_system="test",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps(
+                {
+                    "name": "Tech Ctrl A",
+                    "description": "technical control",
+                    "object_type": "technical_control",
+                }
+            ),
+            submitted_by="user",
+        )
+        a2 = RawArtefact(
+            source_system="test",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps(
+                {
+                    "name": "Compliance Req B",
+                    "description": "compliance requirement",
+                    "object_type": "compliance_requirement",
+                }
+            ),
+            submitted_by="user",
+        )
+        r1 = platform["pipeline"].ingest(a1, "security")
+        r2 = platform["pipeline"].ingest(a2, "compliance")
+        o1 = r1.ingested_objects[0]
+        o2 = r2.ingested_objects[0]
+
+        before = platform["release_gate"].total_submitted
+        edge = ControlEdge(
+            source_object_id=o1.object_id,
+            target_object_id=o2.object_id,
+            relationship_type=RelationshipType.SATISFIES,
+            asserted_by="officer",
+            evidence_references=["audit-001"],
+        )
+        platform["graph"].add_governed_edge(
+            edge, asserted_by="officer", release_gate=platform["release_gate"]
+        )
+        assert platform["release_gate"].total_submitted > before

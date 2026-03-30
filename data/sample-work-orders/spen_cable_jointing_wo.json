@@ -1,0 +1,132 @@
+{
+  "work_order_id": "SPEN-WO-2026-0453",
+  "title": "11kV Cable Joint Repair — Dunfermline High Street XLPE Joint Failure",
+  "work_order_type": "repair",
+  "work_category": "cable_jointing",
+  "status": "dispatched",
+  "priority": "P2",
+  "contract_reference": "SPEN-VF-MSA-2025-001",
+  "scheme_ref": "SPEN-SCH-2026-0453",
+  "customer": "SP Energy Networks Limited",
+  "provider": "Vodafone Limited",
+  "description": "11kV XLPE cable joint replacement following partial discharge fault detected on Dunfermline Town Centre 11kV Feeder 2. Cable fault located by TDR at approximately 127 metres from Dunfermline East substation. Joint replacement required in carriageway on High Street. NRSWA S50 permit obtained from Fife Council Roads Department. Two-day works programme with traffic management.",
+  "activity_code": "SPEN-RC-CJ-001",
+  "location": {
+    "site_name": "High Street — Adjacent to Dunfermline City Chambers",
+    "address": "High Street, Dunfermline, Fife KY12 7DL",
+    "region": "SPD",
+    "district": "Fife",
+    "coordinates": {"lat": 56.0719, "lng": -3.4607},
+    "mpan": "18-0812-5543-016",
+    "substation_number": "DUNF-E-0112",
+    "feeder_reference": "Dunfermline Town Centre 11kV Feeder 2",
+    "cable_route_reference": "DUNF-CR-11kV-002",
+    "fault_location_metres_from_sub": 127,
+    "access_requirements": ["street_works_barriers", "traffic_management_chapter8"]
+  },
+  "engineer": {
+    "id": "VF-ENG-1203",
+    "name": "Craig Henderson",
+    "grade": "Approved Cable Jointer",
+    "skills": ["cable_jointing_hv", "cable_jointing_lv", "fault_location", "xlpe_jointing", "pilcswa_jointing"],
+    "certifications": [
+      {"type": "cable_jointer_approved", "issuer": "SP Energy Networks", "certificate_number": "SPEN-CJ-AP-3291", "expiry": "2027-04-30"},
+      {"type": "cscs_card", "issuer": "Construction Skills Certification Scheme", "category": "Skilled Worker", "card_number": "CSCS-4418976", "expiry": "2028-02-28"},
+      {"type": "cat_and_genny", "issuer": "Radiodetection", "certificate_number": "CAT4-22841", "expiry": "2027-08-15", "notes": "CAT4+ and Genny4 certified"},
+      {"type": "nrswa_unit_1_2_3", "issuer": "HAUC(UK)", "certificate_number": "NRSWA-SC-88412", "expiry": "2027-11-30", "notes": "Supervisor qualified — Units 1, 2, 3"},
+      {"type": "first_aid_at_work", "issuer": "British Red Cross", "certificate_number": "BRC-2025-66190", "expiry": "2028-01-10"},
+      {"type": "ecs_card", "issuer": "Electrotechnical Certification Scheme", "category": "Approved Electrician", "card_number": "ECS-6637281", "expiry": "2027-05-15"}
+    ],
+    "spen_competence_level": "ACJ",
+    "home_depot": "Pitreavie Depot, Dunfermline"
+  },
+  "required_skills": ["cable_jointing_hv", "xlpe_jointing", "cat_and_genny"],
+  "required_permits": [
+    {
+      "type": "nrswa_s50",
+      "status": "approved",
+      "permit_number": "FIFE-NRSWA-S50-2026-04281",
+      "issuing_authority": "Fife Council Roads and Transportation",
+      "works_reference": "FC-SW-2026-04281",
+      "road_category": 2,
+      "traffic_sensitive": true,
+      "working_hours_restriction": "09:30-15:30 weekdays only",
+      "valid_from": "2026-04-07T09:30:00Z",
+      "valid_to": "2026-04-08T15:30:00Z",
+      "reinstatement_guarantee_period_years": 2,
+      "noticing_requirements": {
+        "advance_notice_days": 10,
+        "notice_served_date": "2026-03-25",
+        "start_notice_required": true,
+        "close_notice_required": true
+      }
+    },
+    {
+      "type": "spen_safety_document",
+      "subtype": "permit_to_work",
+      "status": "approved",
+      "permit_number": "SPEN-PTW-2026-04-0453",
+      "issued_by": "Control Engineer — Fife District",
+      "valid_from": "2026-04-07T09:00:00Z",
+      "valid_to": "2026-04-08T16:00:00Z"
+    },
+    {
+      "type": "traffic_management_plan",
+      "status": "approved",
+      "permit_number": "TMP-FIFE-2026-0453",
+      "plan_type": "chapter_8_portable_signals",
+      "approved_by": "Fife Council Roads Safety Team"
+    }
+  ],
+  "schedule": {
+    "scheduled_date": "2026-04-07",
+    "time_window": "09:30-15:30",
+    "estimated_duration_hours": 12,
+    "duration_days": 2,
+    "day_1": "Excavation, cable identification, cable cutting and preparation",
+    "day_2": "Joint installation, testing, backfill and temporary reinstatement",
+    "timezone": "Europe/London"
+  },
+  "materials": [
+    {"item": "11kV XLPE heat-shrink joint kit (3-core, 95-300mm2)", "quantity": 1, "unit": "kits", "status": "in_stock", "manufacturer": "3M", "part_number": "QS-III 92-EB 632"},
+    {"item": "Heat-shrink cable termination boots (11kV)", "quantity": 6, "unit": "pieces", "status": "in_stock"},
+    {"item": "Copper compression connectors (185mm2)", "quantity": 3, "unit": "pieces", "status": "in_stock"},
+    {"item": "Silicone grease (joint preparation)", "quantity": 2, "unit": "tubes", "status": "in_stock"},
+    {"item": "11kV XLPE cable (3-core, 185mm2 aluminium)", "quantity": 4, "unit": "metres", "status": "in_stock", "notes": "Spare cable for re-making ends"},
+    {"item": "Gas torch and heat gun", "quantity": 1, "unit": "sets", "status": "in_stock"},
+    {"item": "Duct seal compound", "quantity": 2, "unit": "tubs", "status": "in_stock"},
+    {"item": "Warning tape (ELECTRICITY CABLE BELOW)", "quantity": 1, "unit": "rolls", "status": "in_stock"},
+    {"item": "Type 1 sub-base material", "quantity": 0.5, "unit": "tonnes", "status": "ordered"},
+    {"item": "Cold-lay bituminous material (temporary reinstatement)", "quantity": 4, "unit": "bags", "status": "in_stock"},
+    {"item": "Chapter 8 traffic management signs and barriers", "quantity": 1, "unit": "sets", "status": "in_stock"}
+  ],
+  "safety_requirements": {
+    "risk_assessment_ref": "SPEN-RA-2026-0453",
+    "method_statement_ref": "SPEN-MS-CJ-11kV-002",
+    "minimum_ppe": ["safety_helmet", "hi_vis_jacket", "safety_boots", "insulating_gloves", "safety_glasses"],
+    "minimum_crew_size": 3,
+    "crew_composition": ["approved_cable_jointer", "cable_jointer_mate", "traffic_management_operative"],
+    "lone_working_permitted": false,
+    "safety_briefing_required": true,
+    "point_of_work_risk_assessment": true,
+    "underground_hazards": ["other_utilities_present", "gas_main_adjacent"],
+    "cat_scan_required": true
+  },
+  "billable_items": [
+    {"description": "11kV cable joint — XLPE heat-shrink joint", "activity_code": "SPEN-RC-CJ-001", "rate": 485.00, "quantity": 1, "unit": "each"},
+    {"description": "Civils excavation — carriageway", "activity_code": "SPEN-RC-CIV-001", "rate": 95.00, "quantity": 3, "unit": "metre"},
+    {"description": "Reinstatement temporary — carriageway", "activity_code": "SPEN-RC-RST-001", "rate": 45.00, "quantity": 4.5, "unit": "sqm"}
+  ],
+  "nrswa_compliance": {
+    "works_category": "standard",
+    "reinstatement_type": "interim",
+    "permanent_reinstatement_due_date": "2026-07-06",
+    "inspection_units": 3,
+    "road_category": 2,
+    "traffic_sensitive_street": true,
+    "special_engineering_difficulty": false,
+    "protected_street": false,
+    "section_74_overrun_daily_charge": 2500.00
+  },
+  "notes": "Fault identified via partial discharge monitoring and confirmed by TDR. Adjacent gas main located at 0.8m offset — hand-dig zone applies within 600mm of gas main. Fife Council stipulates working hours 09:30-15:30 on this traffic-sensitive route. Permanent reinstatement to be scheduled as a separate work order within 90 days."
+}

@@ -1,0 +1,687 @@
+"""Workflow orchestrator – in-process workflow execution.
+
+In production, these would be dispatched to Temporal. For local dev and
+testing, they execute inline using the same service composition.
+"""
+
+from __future__ import annotations
+
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.logging import get_logger
+from app.db.models import CaseVerdict, Document, WorkflowCase, WorkflowStatus
+from app.domain_packs.contract_margin.parsers import ContractParser
+from app.domain_packs.contract_margin.rules import (
+    LeakageRuleEngine,
+    SPENBillabilityEngine,
+)
+from app.domain_packs.contract_margin.schemas import BillingGate, SPENRateCard
+from app.domain_packs.contract_margin.templates import ContractSummaryTemplate
+from app.domain_packs.telco_ops.parsers import IncidentParser
+from app.domain_packs.telco_ops.rules import (
+    ActionRuleEngine,
+    EscalationRuleEngine,
+    VodafoneClosureEngine,
+    VodafoneDispatchEngine,
+    VodafoneEscalationEngine,
+    VodafoneSLAEngine,
+)
+from app.domain_packs.telco_ops.schemas import (
+    VODAFONE_SLA_DEFINITIONS,
+    IncidentState,
+    ParsedIncident,
+    ServiceState,
+)
+from app.domain_packs.utilities_field.parsers import EngineerProfileParser, WorkOrderParser
+from app.domain_packs.utilities_field.rules import ReadinessRuleEngine, SPENReadinessEngine
+from app.schemas.workflows import (
+    ContractCompileInput,
+    ContractCompileOutput,
+    IncidentDispatchInput,
+    IncidentDispatchOutput,
+    MarginDiagnosisInput,
+    MarginDiagnosisOutput,
+    MarginVerdict,
+    ReadinessVerdict,
+    SPENBillabilityInput,
+    SPENBillabilityOutput,
+    SPENBillabilityVerdict,
+    SPENReadinessInput,
+    SPENReadinessOutput,
+    VodafoneIncidentTriageInput,
+    VodafoneIncidentTriageOutput,
+    WorkOrderReadinessInput,
+    WorkOrderReadinessOutput,
+)
+from app.services.audit.service import AuditService
+from app.services.compiler.service import CompilerService
+from app.services.inference.gateway import InferenceGateway
+from app.services.validation.service import ValidationService
+
+logger = get_logger("orchestrator")
+
+
+class WorkflowOrchestrator:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+        self.audit = AuditService(db)
+        self.compiler = CompilerService(db)
+        self.validator = ValidationService(db)
+        self.inference = InferenceGateway(db)
+
+    async def _create_case(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, workflow_type: str, input_payload: dict
+    ) -> WorkflowCase:
+        case = WorkflowCase(
+            id=uuid.uuid4(),
+            tenant_id=tenant_id,
+            workflow_type=workflow_type,
+            status=WorkflowStatus.running,
+            input_payload=input_payload,
+            initiated_by=user_id,
+        )
+        self.db.add(case)
+        await self.db.flush()
+        await self.audit.log_event(
+            tenant_id, "workflow_started", case.id, user_id, "user", "workflow_case", case.id
+        )
+        return case
+
+    async def _load_doc(self, doc_id: uuid.UUID, tenant_id: uuid.UUID) -> Document:
+        result = await self.db.execute(
+            select(Document).where(Document.id == doc_id, Document.tenant_id == tenant_id)
+        )
+        doc = result.scalar_one_or_none()
+        if not doc:
+            raise ValueError(f"Document {doc_id} not found")
+        return doc
+
+    # ── Contract Compile ────────────────────────────────────────
+
+    async def run_contract_compile(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, input_data: ContractCompileInput
+    ) -> ContractCompileOutput:
+        case = await self._create_case(
+            tenant_id, user_id, "contract_compile", input_data.model_dump(mode="json")
+        )
+        try:
+            doc = await self._load_doc(input_data.contract_document_id, tenant_id)
+            parser = ContractParser()
+            parsed = parser.parse_contract(doc.parsed_payload or doc.raw_text or "")
+
+            # Compile control objects
+            objects = await self.compiler.compile_contract(
+                tenant_id, parsed.model_dump(), doc.id, case.id
+            )
+            await self.audit.log_event(
+                tenant_id, "contract_compiled", case.id, detail=f"{len(objects)} objects created"
+            )
+
+            # Validate
+            output_payload = {
+                "verdict": "approved",
+                "evidence_object_ids": [str(o.id) for o in objects],
+            }
+            vr = await self.validator.validate_output(
+                tenant_id, case.id, "contract_margin", output_payload
+            )
+
+            summary = ContractSummaryTemplate.render(parsed, [o.id for o in objects])
+            case.output_payload = summary
+            case.status = WorkflowStatus.completed
+            case.verdict = (
+                CaseVerdict.approved if vr.status.value == "passed" else CaseVerdict.needs_review
+            )
+            await self.db.flush()
+
+            return ContractCompileOutput(
+                case_id=case.id,
+                status=case.status.value,
+                contract_summary=summary,
+                obligation_count=summary.get("obligation_count", 0),
+                penalty_count=summary.get("penalty_count", 0),
+                billable_event_count=summary.get("rate_card_entry_count", 0),
+                control_object_ids=[o.id for o in objects],
+                validation_status=vr.status.value,
+            )
+        except Exception as e:
+            case.status = WorkflowStatus.failed
+            case.error_message = str(e)
+            await self.db.flush()
+            await self.audit.log_event(tenant_id, "workflow_failed", case.id, detail=str(e))
+            return ContractCompileOutput(case_id=case.id, status="failed", errors=[str(e)])
+
+    # ── Work Order Readiness ────────────────────────────────────
+
+    async def run_work_order_readiness(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, input_data: WorkOrderReadinessInput
+    ) -> WorkOrderReadinessOutput:
+        case = await self._create_case(
+            tenant_id, user_id, "work_order_readiness", input_data.model_dump(mode="json")
+        )
+        try:
+            wo_doc = await self._load_doc(input_data.work_order_document_id, tenant_id)
+            eng_doc = await self._load_doc(input_data.engineer_profile_document_id, tenant_id)
+
+            wo_parser = WorkOrderParser()
+            eng_parser = EngineerProfileParser()
+            work_order = wo_parser.parse_work_order(wo_doc.parsed_payload or {})
+            engineer = eng_parser.parse_profile(eng_doc.parsed_payload or {})
+
+            # Compile objects
+            objects = await self.compiler.compile_work_order(
+                tenant_id, work_order.model_dump(), wo_doc.id, case.id
+            )
+            await self.audit.log_event(tenant_id, "work_order_compiled", case.id)
+
+            # Run readiness rules
+            engine = ReadinessRuleEngine()
+            decision = engine.evaluate(work_order, engineer)
+
+            # Get model explanation
+            explanation = await self.inference.explain(
+                context=f"Work order: {work_order.model_dump_json()}\nEngineer: {engineer.model_dump_json()}",
+                question=f"Why is this dispatch {decision.status.value}?",
+                tenant_id=tenant_id,
+                workflow_case_id=case.id,
+            )
+
+            # Validate
+            output_payload = {
+                "verdict": decision.status.value,
+                "reasons": decision.missing_prerequisites,
+                "missing_prerequisites": decision.missing_prerequisites,
+                "evidence_ids": [str(o.id) for o in objects],
+            }
+            vr = await self.validator.validate_output(
+                tenant_id, case.id, "utilities_field", output_payload
+            )
+
+            verdict_map = {
+                "ready": ReadinessVerdict.ready,
+                "blocked": ReadinessVerdict.blocked,
+                "conditional": ReadinessVerdict.warn,
+                "escalate": ReadinessVerdict.escalate,
+            }
+            case.output_payload = output_payload
+            case.status = WorkflowStatus.completed
+            await self.db.flush()
+
+            return WorkOrderReadinessOutput(
+                case_id=case.id,
+                verdict=verdict_map.get(decision.status.value, ReadinessVerdict.warn),
+                reasons=decision.missing_prerequisites,
+                missing_prerequisites=decision.missing_prerequisites,
+                skill_fit_summary=f"Matching: {decision.skill_fit.matching_skills}, Missing: {decision.skill_fit.missing_skills}"
+                if decision.skill_fit
+                else None,
+                compliance_blockers=[b.description for b in decision.blockers],
+                evidence_ids=[o.id for o in objects],
+                recommended_next_action=decision.recommendation,
+                explanation=explanation,
+            )
+        except Exception as e:
+            case.status = WorkflowStatus.failed
+            case.error_message = str(e)
+            await self.db.flush()
+            return WorkOrderReadinessOutput(
+                case_id=case.id, verdict=ReadinessVerdict.escalate, reasons=[str(e)]
+            )
+
+    # ── Incident Dispatch Reconciliation ────────────────────────
+
+    async def run_incident_dispatch(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, input_data: IncidentDispatchInput
+    ) -> IncidentDispatchOutput:
+        case = await self._create_case(
+            tenant_id, user_id, "incident_dispatch_reconcile", input_data.model_dump(mode="json")
+        )
+        try:
+            inc_doc = await self._load_doc(input_data.incident_document_id, tenant_id)
+            parser = IncidentParser()
+            incident = parser.parse_incident(inc_doc.parsed_payload or {})
+
+            # Compile
+            objects = await self.compiler.compile_incident(
+                tenant_id, incident.model_dump(), inc_doc.id, case.id
+            )
+            await self.audit.log_event(tenant_id, "incident_compiled", case.id)
+
+            # Escalation check
+            esc_engine = EscalationRuleEngine()
+            service_state_val = None
+            if input_data.service_state_payload and input_data.service_state_payload.get("state"):
+                try:
+                    service_state_val = ServiceState(input_data.service_state_payload["state"])
+                except ValueError:
+                    pass
+            escalation = esc_engine.evaluate(incident, service_state=service_state_val)
+
+            # Next action
+            action_engine = ActionRuleEngine()
+            has_runbook = input_data.runbook_document_id is not None
+            next_action = action_engine.evaluate(
+                incident.state,
+                service_state=service_state_val,
+                has_runbook=has_runbook,
+                has_assigned_owner=bool(incident.assigned_to),
+            )
+
+            # Model explanation
+            rationale = await self.inference.explain(
+                context=f"Incident: {incident.model_dump_json()}",
+                question="What is the recommended next action and why?",
+                tenant_id=tenant_id,
+                workflow_case_id=case.id,
+            )
+
+            # Validate
+            output_payload = {
+                "next_action": next_action.action,
+                "evidence_ids": [str(o.id) for o in objects],
+                "escalation_level": escalation.level.value if escalation.level else None,
+            }
+            await self.validator.validate_output(tenant_id, case.id, "telco_ops", output_payload)
+
+            case.output_payload = output_payload
+            case.status = WorkflowStatus.completed
+            await self.db.flush()
+
+            return IncidentDispatchOutput(
+                case_id=case.id,
+                next_action=next_action.action,
+                owner=escalation.owner or next_action.owner,
+                dispatch_required=next_action.action == "dispatch",
+                rationale=rationale,
+                escalation_level=escalation.level.value if escalation.level else None,
+                escalation_reason=escalation.reason if escalation.escalate else None,
+                evidence_ids=[o.id for o in objects],
+            )
+        except Exception as e:
+            case.status = WorkflowStatus.failed
+            case.error_message = str(e)
+            await self.db.flush()
+            return IncidentDispatchOutput(case_id=case.id, next_action="escalate", rationale=str(e))
+
+    # ── Margin Diagnosis ────────────────────────────────────────
+
+    async def run_margin_diagnosis(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, input_data: MarginDiagnosisInput
+    ) -> MarginDiagnosisOutput:
+        case = await self._create_case(
+            tenant_id, user_id, "margin_diagnosis", input_data.model_dump(mode="json")
+        )
+        try:
+            # Load contract
+            contract_objects = []
+            if input_data.contract_document_id:
+                doc = await self._load_doc(input_data.contract_document_id, tenant_id)
+                parser = ContractParser()
+                parsed = parser.parse_contract(doc.parsed_payload or {})
+                contract_objects = await self.compiler.compile_contract(
+                    tenant_id, parsed.model_dump(), doc.id, case.id
+                )
+
+            # Leakage detection
+            leakage_engine = LeakageRuleEngine()
+            co_dicts = [
+                {"control_type": o.control_type.value, "label": o.label, "payload": o.payload}
+                for o in contract_objects
+            ]
+            work_history = (
+                input_data.execution_history.get("work_history", [])
+                if input_data.execution_history
+                else []
+            )
+            triggers = leakage_engine.evaluate(co_dicts, work_history)
+
+            # Cross-plane reconciliation
+            from app.domain_packs.reconciliation import MarginDiagnosisReconciler
+
+            reconciler = MarginDiagnosisReconciler()
+
+            # Gather work order data if available
+            work_orders = []
+            if input_data.work_order_document_id:
+                wo_doc = await self._load_doc(input_data.work_order_document_id, tenant_id)
+                wo_parser = WorkOrderParser()
+                parsed_wo = wo_parser.parse_work_order(wo_doc.parsed_payload or {})
+                work_orders = [parsed_wo.model_dump()]
+
+            # Gather incident data if available
+            incidents = []
+            if input_data.incident_document_id:
+                inc_doc = await self._load_doc(input_data.incident_document_id, tenant_id)
+                inc_parser = IncidentParser()
+                parsed_inc = inc_parser.parse_incident(inc_doc.parsed_payload or {})
+                incidents = [parsed_inc.model_dump()]
+
+            diagnosis_bundle = reconciler.reconcile(
+                contract_objects=co_dicts,
+                work_orders=work_orders,
+                incidents=incidents,
+                work_history=work_history,
+            )
+
+            # Use reconciliation results to enhance verdict
+            if diagnosis_bundle.verdict == "penalty_risk":
+                verdict = MarginVerdict.penalty_risk
+            elif diagnosis_bundle.leakage_patterns:
+                verdict = MarginVerdict.under_recovery
+            elif diagnosis_bundle.all_conflicts:
+                verdict = MarginVerdict.unknown
+            elif not triggers:
+                verdict = MarginVerdict.billable
+            elif any(t.trigger_type == "penalty_exposure_unmitigated" for t in triggers):
+                verdict = MarginVerdict.penalty_risk
+            elif any(
+                t.trigger_type in ("unbilled_completed_work", "rate_below_contract")
+                for t in triggers
+            ):
+                verdict = MarginVerdict.under_recovery
+            else:
+                verdict = MarginVerdict.unknown
+
+            # Audit reconciliation findings
+            await self.audit.log_event(
+                tenant_id,
+                "margin_reconciliation_completed",
+                case.id,
+                detail=(
+                    f"verdict={diagnosis_bundle.verdict}, "
+                    f"leakage_patterns={len(diagnosis_bundle.leakage_patterns)}, "
+                    f"conflicts={len(diagnosis_bundle.all_conflicts)}, "
+                    f"contract_wo_links={len(diagnosis_bundle.contract_wo_links)}, "
+                    f"wo_incident_links={len(diagnosis_bundle.wo_incident_links)}"
+                ),
+            )
+
+            # Model narrative
+            summary = await self.inference.summarize(
+                text=f"Contract objects: {len(contract_objects)}, Leakage triggers: {[t.model_dump() for t in triggers]}",
+                tenant_id=tenant_id,
+                workflow_case_id=case.id,
+            )
+
+            # Validate
+            output_payload = {
+                "verdict": verdict.value,
+                "evidence_object_ids": [str(o.id) for o in contract_objects],
+                "confidence": 0.85,
+            }
+            await self.validator.validate_output(
+                tenant_id, case.id, "contract_margin", output_payload
+            )
+
+            case.output_payload = output_payload
+            case.status = WorkflowStatus.completed
+            await self.db.flush()
+
+            return MarginDiagnosisOutput(
+                case_id=case.id,
+                verdict=verdict,
+                leakage_drivers=[t.description for t in triggers],
+                recovery_recommendations=[
+                    t.description for t in triggers if t.severity in ("error", "critical")
+                ],
+                evidence_object_ids=[o.id for o in contract_objects],
+                executive_summary=summary,
+            )
+        except Exception as e:
+            case.status = WorkflowStatus.failed
+            case.error_message = str(e)
+            await self.db.flush()
+            return MarginDiagnosisOutput(
+                case_id=case.id, verdict=MarginVerdict.unknown, executive_summary=str(e)
+            )
+
+    # ── SPEN Work Order Readiness ───────────────────────────────
+
+    async def run_spen_readiness(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, input_data: SPENReadinessInput
+    ) -> SPENReadinessOutput:
+        case = await self._create_case(
+            tenant_id, user_id, "spen_readiness", input_data.model_dump(mode="json")
+        )
+        try:
+            wo_parser = WorkOrderParser()
+            eng_parser = EngineerProfileParser()
+            work_order = wo_parser.parse_work_order(input_data.work_order_payload)
+            engineer = eng_parser.parse_profile(input_data.engineer_payload)
+
+            engine = SPENReadinessEngine()
+            decision = engine.evaluate(
+                work_order=work_order,
+                engineer=engineer,
+                work_category=input_data.work_category,
+                crew_size=input_data.crew_size,
+            )
+
+            verdict_map = {
+                "ready": ReadinessVerdict.ready,
+                "blocked": ReadinessVerdict.blocked,
+                "conditional": ReadinessVerdict.warn,
+                "escalate": ReadinessVerdict.escalate,
+            }
+
+            output_payload = {
+                "verdict": decision.status.value,
+                "blockers": decision.missing_prerequisites,
+            }
+            case.output_payload = output_payload
+            case.status = WorkflowStatus.completed
+            await self.db.flush()
+
+            await self.audit.log_event(
+                tenant_id,
+                "spen_readiness_completed",
+                case.id,
+                detail=f"verdict={decision.status.value}, blockers={len(decision.blockers)}",
+            )
+
+            return SPENReadinessOutput(
+                case_id=case.id,
+                verdict=verdict_map.get(decision.status.value, ReadinessVerdict.warn),
+                gates=[
+                    {
+                        "blocker_type": b.blocker_type,
+                        "description": b.description,
+                        "severity": b.severity,
+                    }
+                    for b in decision.blockers
+                ],
+                blockers=decision.missing_prerequisites,
+                recommended_actions=[decision.recommendation] if decision.recommendation else [],
+            )
+        except Exception as e:
+            case.status = WorkflowStatus.failed
+            case.error_message = str(e)
+            await self.db.flush()
+            await self.audit.log_event(tenant_id, "workflow_failed", case.id, detail=str(e))
+            return SPENReadinessOutput(
+                case_id=case.id, verdict=ReadinessVerdict.escalate, blockers=[str(e)]
+            )
+
+    # ── SPEN Billability Check ──────────────────────────────────
+
+    async def run_spen_billability(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, input_data: SPENBillabilityInput
+    ) -> SPENBillabilityOutput:
+        case = await self._create_case(
+            tenant_id, user_id, "spen_billability", input_data.model_dump(mode="json")
+        )
+        try:
+            rate_card = [SPENRateCard(**rc) for rc in input_data.rate_card_payload]
+            billing_gates = [BillingGate(**bg) for bg in input_data.billing_gates_payload]
+
+            engine = SPENBillabilityEngine()
+            decision = engine.evaluate(
+                activity=input_data.activity_code,
+                work_category=input_data.work_category,
+                rate_card=rate_card,
+                billing_gates=billing_gates,
+                is_reattendance=input_data.is_reattendance,
+                reattendance_trigger=input_data.reattendance_trigger,
+                time_of_day=input_data.time_of_day,
+            )
+
+            verdict = (
+                SPENBillabilityVerdict.billable
+                if decision.billable
+                else SPENBillabilityVerdict.non_billable
+            )
+            unsatisfied_gates = [bg.gate_type.value for bg in billing_gates if not bg.satisfied]
+
+            output_payload = {
+                "verdict": verdict.value,
+                "billable": decision.billable,
+                "rate_applied": decision.rate_applied,
+            }
+            case.output_payload = output_payload
+            case.status = WorkflowStatus.completed
+            await self.db.flush()
+
+            await self.audit.log_event(
+                tenant_id,
+                "spen_billability_completed",
+                case.id,
+                detail=f"verdict={verdict.value}, rate={decision.rate_applied}",
+            )
+
+            return SPENBillabilityOutput(
+                case_id=case.id,
+                verdict=verdict,
+                billable=decision.billable,
+                rate_applied=decision.rate_applied,
+                reasons=decision.reasons,
+                missing_gates=unsatisfied_gates,
+            )
+        except Exception as e:
+            case.status = WorkflowStatus.failed
+            case.error_message = str(e)
+            await self.db.flush()
+            await self.audit.log_event(tenant_id, "workflow_failed", case.id, detail=str(e))
+            return SPENBillabilityOutput(
+                case_id=case.id,
+                verdict=SPENBillabilityVerdict.non_billable,
+                billable=False,
+                reasons=[str(e)],
+            )
+
+    # ── Vodafone Incident Triage ────────────────────────────────
+
+    async def run_vodafone_incident_triage(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, input_data: VodafoneIncidentTriageInput
+    ) -> VodafoneIncidentTriageOutput:
+        case = await self._create_case(
+            tenant_id, user_id, "vodafone_incident_triage", input_data.model_dump(mode="json")
+        )
+        try:
+            incident = ParsedIncident(**input_data.incident_payload)
+
+            # Determine service state
+            service_state_val: ServiceState | None = None
+            if input_data.service_state:
+                try:
+                    service_state_val = ServiceState(input_data.service_state)
+                except ValueError:
+                    pass
+
+            # Infer service domain from affected services or tags
+            service_domain = ""
+            if incident.affected_services:
+                service_domain = incident.affected_services[0]
+
+            # 1. SLA check
+            sla_engine = VodafoneSLAEngine()
+            # Estimate elapsed minutes from incident timeline
+            current_time_minutes = 0
+            if incident.timeline:
+                current_time_minutes = len(incident.timeline) * 15  # rough estimate
+            sla_status = sla_engine.check_sla_status(
+                incident, VODAFONE_SLA_DEFINITIONS, current_time_minutes
+            )
+
+            # 2. Escalation check
+            esc_engine = VodafoneEscalationEngine()
+            escalation = esc_engine.evaluate(
+                incident=incident,
+                sla_status=sla_status,
+                service_domain=service_domain,
+            )
+
+            # 3. Dispatch check
+            dispatch_engine = VodafoneDispatchEngine()
+            dispatch_result = dispatch_engine.should_dispatch(
+                incident=incident,
+                remote_remediation_attempted=incident.state in (IncidentState.investigating,),
+                has_runbook=False,
+                service_domain=service_domain,
+            )
+
+            # 4. Closure check
+            closure_engine = VodafoneClosureEngine()
+            closure_results = closure_engine.validate_closure(
+                incident=incident,
+                closure_gates=[],
+            )
+            closure_blockers = [r.message for r in closure_results if not r.passed]
+            closure_ready = len(closure_blockers) == 0
+
+            # Determine overall SLA status string
+            sla_status_str = sla_status.get("resolution_sla", "within")
+
+            # Aggregate recommended actions
+            recommended_actions: list[str] = []
+            if escalation.escalate:
+                recommended_actions.append(
+                    f"Escalate to {escalation.level.value if escalation.level else 'next level'}: {escalation.reason}"
+                )
+            if dispatch_result.action == "dispatch":
+                recommended_actions.append(f"Dispatch field engineer: {dispatch_result.reason}")
+            elif dispatch_result.action not in ("dispatch",):
+                recommended_actions.append(f"{dispatch_result.action}: {dispatch_result.reason}")
+            if closure_blockers:
+                recommended_actions.append(
+                    f"Resolve closure blockers: {', '.join(closure_blockers)}"
+                )
+
+            output_payload = {
+                "escalation_level": escalation.level.value if escalation.level else None,
+                "dispatch_required": dispatch_result.action == "dispatch",
+                "sla_status": sla_status_str,
+                "closure_ready": closure_ready,
+            }
+            case.output_payload = output_payload
+            case.status = WorkflowStatus.completed
+            await self.db.flush()
+
+            await self.audit.log_event(
+                tenant_id,
+                "vodafone_incident_triage_completed",
+                case.id,
+                detail=f"escalation={escalation.level}, dispatch={dispatch_result.action}, sla={sla_status_str}",
+            )
+
+            return VodafoneIncidentTriageOutput(
+                case_id=case.id,
+                escalation_level=escalation.level.value if escalation.level else None,
+                escalation_reason=escalation.reason if escalation.escalate else None,
+                dispatch_required=dispatch_result.action == "dispatch",
+                dispatch_reason=dispatch_result.reason
+                if dispatch_result.action == "dispatch"
+                else None,
+                sla_status=sla_status_str,
+                closure_ready=closure_ready,
+                closure_blockers=closure_blockers,
+                recommended_actions=recommended_actions,
+            )
+        except Exception as e:
+            case.status = WorkflowStatus.failed
+            case.error_message = str(e)
+            await self.db.flush()
+            await self.audit.log_event(tenant_id, "workflow_failed", case.id, detail=str(e))
+            return VodafoneIncidentTriageOutput(case_id=case.id, recommended_actions=[str(e)])

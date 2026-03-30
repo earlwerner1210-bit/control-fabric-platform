@@ -1,0 +1,118 @@
+{
+  "scenario": "sla_breach_penalty_exposure",
+  "description": "Fixture with multiple SLA breaches in one month hitting the 30% penalty cap",
+  "contract": {
+    "document_type": "managed_services_agreement",
+    "title": "Managed Field Services — SP Energy Networks",
+    "parties": ["SP Energy Networks Limited", "Vodafone Limited"],
+    "effective_date": "2025-04-01",
+    "expiry_date": "2030-03-31",
+    "clauses": [
+      {"id": "CL-001", "type": "sla", "text": "Emergency response: 2 hours. Urgent response: 4 hours. Planned work: schedule adherence 95%.", "section": "4.1"},
+      {"id": "CL-002", "type": "penalty", "text": "Failure to meet emergency response SLA: 5% of monthly invoice per breach. Cap: 30% monthly.", "section": "7.1"},
+      {"id": "CL-003", "type": "penalty", "text": "Failure to meet urgent response SLA: 3% of monthly invoice per breach. Cap: 15% monthly.", "section": "7.2"},
+      {"id": "CL-004", "type": "obligation", "text": "Service credits shall apply where Provider fails to meet SLA targets. Response time breach: 2% per breach capped at 10%. Resolution time breach: 5% per breach capped at 20%. Consecutive month failures where the same SLA is breached in 3 or more consecutive months, the cap increases to 30%.", "section": "7.3"},
+      {"id": "CL-005", "type": "scope", "text": "Provider shall deliver planned and emergency HV switching, cable jointing, LV fault repair across the SPEN Central Belt licence area.", "section": "2.1"},
+      {"id": "CL-006", "type": "rate", "text": "HV Switching: £320.00 per operation. LV fault repair: £275.00 per operation.", "section": "5.1"}
+    ],
+    "sla_table": [
+      {"priority": "emergency", "response_time_hours": 2, "resolution_time_hours": 8, "availability": "24x7", "penalty_percentage": 5.0},
+      {"priority": "urgent", "response_time_hours": 4, "resolution_time_hours": 24, "availability": "24x7", "penalty_percentage": 3.0},
+      {"priority": "planned", "response_time_hours": 48, "resolution_time_hours": 168, "availability": "business_hours"}
+    ],
+    "rate_card": [
+      {"activity": "hv_switching", "unit": "each", "rate": 320.00, "currency": "GBP"},
+      {"activity": "lv_fault_repair", "unit": "each", "rate": 275.00, "currency": "GBP"}
+    ]
+  },
+  "breach_events": [
+    {
+      "incident_id": "VF-INC-2026-01101",
+      "title": "Emergency HV fault — Glasgow Central substation",
+      "priority": "emergency",
+      "sla_response_hours": 2,
+      "actual_response_hours": 3.5,
+      "breach": true,
+      "breach_type": "response_time",
+      "penalty_percentage": 5.0,
+      "date": "2026-03-05"
+    },
+    {
+      "incident_id": "VF-INC-2026-01102",
+      "title": "Emergency LV supply loss — Partick Cross",
+      "priority": "emergency",
+      "sla_response_hours": 2,
+      "actual_response_hours": 4.0,
+      "breach": true,
+      "breach_type": "response_time",
+      "penalty_percentage": 5.0,
+      "date": "2026-03-08"
+    },
+    {
+      "incident_id": "VF-INC-2026-01103",
+      "title": "Emergency cable fault — Dennistoun",
+      "priority": "emergency",
+      "sla_response_hours": 2,
+      "actual_response_hours": 2.5,
+      "breach": true,
+      "breach_type": "response_time",
+      "penalty_percentage": 5.0,
+      "date": "2026-03-12"
+    },
+    {
+      "incident_id": "VF-INC-2026-01104",
+      "title": "Emergency transformer failure — Springburn",
+      "priority": "emergency",
+      "sla_response_hours": 2,
+      "actual_response_hours": 5.0,
+      "breach": true,
+      "breach_type": "response_time",
+      "penalty_percentage": 5.0,
+      "date": "2026-03-15"
+    },
+    {
+      "incident_id": "VF-INC-2026-01105",
+      "title": "Emergency overhead line down — Maryhill",
+      "priority": "emergency",
+      "sla_response_hours": 2,
+      "actual_response_hours": 3.0,
+      "breach": true,
+      "breach_type": "response_time",
+      "penalty_percentage": 5.0,
+      "date": "2026-03-18"
+    },
+    {
+      "incident_id": "VF-INC-2026-01106",
+      "title": "Emergency LV fault — Govan",
+      "priority": "emergency",
+      "sla_response_hours": 2,
+      "actual_response_hours": 6.0,
+      "breach": true,
+      "breach_type": "response_time",
+      "penalty_percentage": 5.0,
+      "date": "2026-03-22"
+    },
+    {
+      "incident_id": "VF-INC-2026-01107",
+      "title": "Emergency cable fault — Bridgeton",
+      "priority": "emergency",
+      "sla_response_hours": 2,
+      "actual_response_hours": 2.8,
+      "breach": true,
+      "breach_type": "response_time",
+      "penalty_percentage": 5.0,
+      "date": "2026-03-25"
+    }
+  ],
+  "monthly_invoice_value": 85000.00,
+  "expected_outcomes": {
+    "total_breaches": 7,
+    "uncapped_penalty_percentage": 35.0,
+    "cap_percentage": 30.0,
+    "capped": true,
+    "penalty_exposure_value": 25500.00,
+    "penalty_after_cap": 25500.00,
+    "service_improvement_plan_triggered": true,
+    "material_breach_risk": true
+  }
+}

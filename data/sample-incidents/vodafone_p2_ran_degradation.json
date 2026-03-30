@@ -1,0 +1,106 @@
+{
+  "incident_id": "VF-INC-2026-00923",
+  "title": "RAN Degradation — Edinburgh South Cell Cluster Throughput Loss",
+  "priority": "P2",
+  "severity": 2,
+  "status": "investigating",
+  "category": "ran_degradation",
+  "subcategory": "sector_throughput_degradation",
+  "service_domain": "radio_access_network",
+  "reported_at": "2026-03-24T09:47:00Z",
+  "acknowledged_at": "2026-03-24T09:52:00Z",
+  "sla_response_deadline": "2026-03-24T10:17:00Z",
+  "sla_resolution_deadline": "2026-03-24T17:47:00Z",
+  "major_incident": false,
+  "mim_bridge_ref": null,
+  "noc_tier": "Tier 2 — RAN Operations",
+  "affected_services": [
+    {
+      "service_id": "VF-SVC-DATA-4G",
+      "name": "4G Mobile Broadband — Edinburgh South Cluster",
+      "impact": "degraded",
+      "customer_count": 8400,
+      "description": "Downlink throughput reduced by approximately 60% across 12 cell sites in Edinburgh South cluster. Average user throughput fallen from 45 Mbps to 18 Mbps. Packet loss elevated to 3.2%."
+    },
+    {
+      "service_id": "VF-SVC-DATA-5G",
+      "name": "5G NR — Edinburgh South Cluster",
+      "impact": "degraded",
+      "customer_count": 2100,
+      "description": "5G NSA anchor band (Band 1) affected. 5G users experiencing fallback to degraded 4G. Average 5G throughput fallen from 180 Mbps to 55 Mbps."
+    },
+    {
+      "service_id": "VF-SVC-VOLTE",
+      "name": "VoLTE — Edinburgh South Cells",
+      "impact": "minor",
+      "customer_count": 8400,
+      "description": "VoLTE MOS scores slightly degraded in affected area. Occasional call setup delays of 2-3 seconds. No call drops reported."
+    }
+  ],
+  "estimated_customer_impact": {
+    "total_affected_subscribers": 10500,
+    "consumer_subscribers": 9200,
+    "enterprise_subscribers": 800,
+    "mvno_subscribers": 500,
+    "geographic_area": "Edinburgh South — Morningside, Marchmont, Bruntsfield, Tollcross",
+    "affected_cell_sites": 12,
+    "revenue_at_risk_per_hour_gbp": 1200
+  },
+  "root_cause_hypothesis": "Suspected CPRI link degradation between BBU pool at Morningside Exchange and remote radio heads at multiple sites. Possibly related to overnight fibre maintenance by Openreach in the Morningside area. Investigating whether fibre patch panel disturbance has introduced excess attenuation on CPRI fronthaul links.",
+  "timeline": [
+    {"timestamp": "2026-03-24T09:47:00Z", "event": "Automated RAN performance alert — Edinburgh South cluster throughput anomaly detected by SON platform", "actor": "system"},
+    {"timestamp": "2026-03-24T09:48:00Z", "event": "12 cell sites flagged with downlink throughput KPI below threshold (< 25 Mbps average)", "actor": "system"},
+    {"timestamp": "2026-03-24T09:52:00Z", "event": "NOC Tier 1 operator acknowledged alert cluster. Incident VF-INC-2026-00923 created.", "actor": "NOC Tier 1 — Operator M. Fraser"},
+    {"timestamp": "2026-03-24T09:58:00Z", "event": "Escalated to Tier 2 RAN Operations. BBU and RRH alarm review initiated.", "actor": "NOC Tier 1"},
+    {"timestamp": "2026-03-24T10:05:00Z", "event": "Tier 2 identified CPRI link errors on 8 of 12 affected sites. All sites served from Morningside BBU pool.", "actor": "Tier 2 — A. MacDonald"},
+    {"timestamp": "2026-03-24T10:12:00Z", "event": "Openreach overnight works ticket identified: fibre maintenance at Morningside Exchange, completed 06:00. Possible fronthaul fibre disturbance.", "actor": "Tier 2 — A. MacDonald"},
+    {"timestamp": "2026-03-24T10:20:00Z", "event": "Field engineer dispatched to Morningside Exchange to inspect CPRI fronthaul fibre patch panel.", "actor": "RAN Field Operations"},
+    {"timestamp": "2026-03-24T10:45:00Z", "event": "Engineer on site. Visual inspection of patch panel — two CPRI fibre patches appear to have been reseated incorrectly during Openreach maintenance.", "actor": "VF-ENG-2187 — S. Campbell"}
+  ],
+  "escalation_history": [
+    {"level": 1, "escalated_to": "Tier 2 — RAN Operations", "timestamp": "2026-03-24T09:58:00Z", "reason": "Multiple cell site performance alerts — cluster pattern identified"}
+  ],
+  "assigned_team": "ran_operations",
+  "assigned_engineer": {
+    "id": "VF-ENG-2187",
+    "name": "Stuart Campbell",
+    "role": "RAN Field Engineer",
+    "tier": "Tier 2"
+  },
+  "region": "scotland_east",
+  "site": {
+    "name": "Morningside Exchange — BBU Pool Room",
+    "address": "1 Morningside Road, Edinburgh EH10 4AX",
+    "coordinates": {"lat": 55.9301, "lng": -3.2074},
+    "site_type": "ran_bbu_hotel",
+    "affected_remote_sites": [
+      {"site_id": "VF-SITE-EDI-0341", "name": "Morningside Clock Tower", "address": "Morningside Road, Edinburgh EH10 4QP", "sectors_affected": 3},
+      {"site_id": "VF-SITE-EDI-0342", "name": "Marchmont Crescent", "address": "15 Marchmont Crescent, Edinburgh EH9 1HN", "sectors_affected": 2},
+      {"site_id": "VF-SITE-EDI-0344", "name": "Bruntsfield Links", "address": "Bruntsfield Place, Edinburgh EH10 4HN", "sectors_affected": 3},
+      {"site_id": "VF-SITE-EDI-0345", "name": "Tollcross Primary School", "address": "117 Fountainbridge, Edinburgh EH3 9QG", "sectors_affected": 2},
+      {"site_id": "VF-SITE-EDI-0347", "name": "Holy Corner", "address": "Colinton Road, Edinburgh EH10 5DP", "sectors_affected": 3},
+      {"site_id": "VF-SITE-EDI-0348", "name": "Churchill Theatre", "address": "109 Morningside Road, Edinburgh EH10 4AX", "sectors_affected": 2},
+      {"site_id": "VF-SITE-EDI-0349", "name": "Barclay Church", "address": "1 Barclay Place, Edinburgh EH10 4HW", "sectors_affected": 3},
+      {"site_id": "VF-SITE-EDI-0350", "name": "Greenbank Crescent", "address": "Greenbank Crescent, Edinburgh EH10 5SW", "sectors_affected": 2},
+      {"site_id": "VF-SITE-EDI-0352", "name": "Comiston Road", "address": "210 Comiston Road, Edinburgh EH10 5QN", "sectors_affected": 3},
+      {"site_id": "VF-SITE-EDI-0353", "name": "Cluny Gardens", "address": "Cluny Gardens, Edinburgh EH10 6BQ", "sectors_affected": 2},
+      {"site_id": "VF-SITE-EDI-0355", "name": "Canaan Lane", "address": "45 Canaan Lane, Edinburgh EH10 4SG", "sectors_affected": 3},
+      {"site_id": "VF-SITE-EDI-0357", "name": "Blackford Hill", "address": "Observatory Road, Edinburgh EH9 3HJ", "sectors_affected": 2}
+    ]
+  },
+  "vodafone_fields": {
+    "major_incident": false,
+    "noc_tier": "Tier 2",
+    "sla_response_minutes": 30,
+    "sla_resolution_minutes": 480,
+    "ofcom_reportable": false,
+    "customer_communication_issued": false,
+    "third_party_cause_suspected": true,
+    "third_party_reference": "Openreach Ref: OR-WO-2026-EDI-44219",
+    "service_affecting": true,
+    "network_element_type": "CPRI_fronthaul"
+  },
+  "runbook_reference": "RB-VF-RAN-DEGRADATION-001",
+  "related_work_orders": [],
+  "notes": "Pattern consistent with CPRI fibre disturbance at BBU pool site. Openreach maintenance overnight may have inadvertently moved CPRI patch fibres while working on adjacent infrastructure. Engineer on site performing fibre re-patching and CPRI link verification. Expected resolution within 2 hours of engineer arrival. Formal complaint to Openreach to be raised via Access Services team regarding third-party damage to Vodafone infrastructure."
+}

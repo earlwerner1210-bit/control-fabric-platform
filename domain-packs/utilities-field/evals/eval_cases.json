@@ -1,0 +1,71 @@
+[
+  {
+    "id": "eval-uf-001",
+    "name": "ready_all_checks_pass",
+    "domain": "utilities-field",
+    "rule_type": "readiness",
+    "input": {
+      "work_order_id": "WO-TEST-001",
+      "required_skills": ["fiber_splicing"],
+      "engineer": {
+        "id": "ENG-001",
+        "skills": ["fiber_splicing", "otdr_testing"],
+        "certifications": [{"type": "fiber_optic_certified", "expiry": "2027-12-31"}]
+      },
+      "required_certifications": ["fiber_optic_certified"],
+      "required_permits": [{"type": "street_access", "status": "approved"}],
+      "materials": [{"item": "Fiber cable", "status": "in_stock"}],
+      "schedule": {"scheduled_date": "2024-04-01", "time_window": "08:00-12:00"}
+    },
+    "expected": {
+      "verdict": "ready",
+      "ready": true
+    }
+  },
+  {
+    "id": "eval-uf-002",
+    "name": "blocked_missing_permit",
+    "domain": "utilities-field",
+    "rule_type": "readiness",
+    "input": {
+      "work_order_id": "WO-TEST-002",
+      "required_skills": ["fiber_splicing"],
+      "engineer": {
+        "id": "ENG-001",
+        "skills": ["fiber_splicing"],
+        "certifications": []
+      },
+      "required_certifications": [],
+      "required_permits": [{"type": "building_access", "status": "pending"}],
+      "materials": [],
+      "schedule": {"scheduled_date": "2024-04-01"}
+    },
+    "expected": {
+      "verdict": "blocked",
+      "ready": false
+    }
+  },
+  {
+    "id": "eval-uf-003",
+    "name": "blocked_missing_skill",
+    "domain": "utilities-field",
+    "rule_type": "readiness",
+    "input": {
+      "work_order_id": "WO-TEST-003",
+      "required_skills": ["fiber_splicing", "confined_space"],
+      "engineer": {
+        "id": "ENG-002",
+        "skills": ["fiber_splicing"],
+        "certifications": []
+      },
+      "required_certifications": [],
+      "required_permits": [],
+      "materials": [],
+      "schedule": {"scheduled_date": "2024-04-01"}
+    },
+    "expected": {
+      "verdict": "blocked",
+      "ready": false
+    }
+  }
+]

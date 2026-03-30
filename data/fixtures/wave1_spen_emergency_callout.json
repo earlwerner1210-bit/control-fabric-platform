@@ -1,0 +1,199 @@
+{
+  "scenario": "spen_emergency_hv_callout",
+  "description": "SPEN emergency HV switching callout with overtime/weekend multipliers, emergency rate card, and billing gate enforcement (permit, safety form, as-built)",
+  "domain": "contract-margin",
+  "contract": {
+    "document_type": "managed_services_agreement",
+    "title": "Managed Field Services — SP Energy Networks",
+    "parties": ["SP Energy Networks Limited", "Vodafone Limited"],
+    "effective_date": "2025-04-01",
+    "expiry_date": "2030-03-31",
+    "clauses": [
+      {"id": "CL-001", "type": "scope", "text": "Provider shall deliver planned and emergency HV switching, cable jointing, LV fault repair, overhead line maintenance, metering, and new connections across the SPEN Central Belt licence area.", "section": "2.1"},
+      {"id": "CL-002", "type": "obligation", "text": "All HV switching operations require an HV Authorised Person with valid ECS card. Minimum two-person crew for all HV work.", "section": "3.1"},
+      {"id": "CL-003", "type": "rate", "text": "HV Switching: £320.00 per operation. Emergency multiplier: 1.5x. Overtime (18:00-06:00 weekdays): 1.3x. Weekend/Bank Holiday: 1.5x. Emergency weekend: 1.5x base then 1.5x weekend = 2.25x.", "section": "5.1"},
+      {"id": "CL-004", "type": "rate", "text": "Mobilisation charge: £85.00 flat rate per emergency callout. Applies once per callout regardless of number of operations performed.", "section": "5.3"},
+      {"id": "CL-005", "type": "obligation", "text": "Billing gates for emergency work: (1) HV switching permit closed out, (2) safety documentation form GS6 submitted, (3) as-built drawings submitted within 5 working days. All three gates must be satisfied before invoice submission.", "section": "6.1"},
+      {"id": "CL-006", "type": "sla", "text": "Emergency response: 2 hours from dispatch. Failure to attend within 2 hours: 5% monthly invoice penalty per breach.", "section": "4.1"},
+      {"id": "CL-007", "type": "obligation", "text": "Provider must submit post-incident report within 24 hours of emergency callout completion. Late submission: £250 deduction per occurrence.", "section": "3.8"}
+    ],
+    "sla_table": [
+      {"priority": "emergency", "response_time_hours": 2, "resolution_time_hours": 8, "availability": "24x7"},
+      {"priority": "urgent", "response_time_hours": 4, "resolution_time_hours": 24, "availability": "24x7"},
+      {"priority": "planned", "response_time_hours": 48, "resolution_time_hours": 168, "availability": "business_hours"}
+    ],
+    "rate_card": [
+      {"activity": "hv_switching", "unit": "each", "rate": 320.00, "currency": "GBP", "emergency_multiplier": 1.5, "overtime_multiplier": 1.3, "weekend_multiplier": 1.5},
+      {"activity": "cable_jointing_11kv", "unit": "each", "rate": 485.00, "currency": "GBP", "emergency_multiplier": 1.5},
+      {"activity": "mobilisation_emergency", "unit": "per_callout", "rate": 85.00, "currency": "GBP"},
+      {"activity": "lv_fault_repair", "unit": "each", "rate": 275.00, "currency": "GBP"}
+    ]
+  },
+  "work_orders": [
+    {
+      "work_order_id": "SPEN-WO-2026-0801",
+      "work_order_type": "emergency",
+      "work_category": "hv_switching",
+      "description": "Emergency 11kV RMU switching — loss of supply to 1,200 customers following cable fault at Shawlands substation",
+      "status": "completed",
+      "priority": "emergency",
+      "site": {"name": "Shawlands Primary Substation", "address": "Kilmarnock Road, Glasgow G41 3YL"},
+      "crew": [
+        {
+          "id": "ENG-101",
+          "name": "Alasdair MacGregor",
+          "role": "lead_hv_authorised_person",
+          "certifications": [
+            {"type": "hv_authorized_person", "expiry": "2027-06-30"},
+            {"type": "ecs_card", "expiry": "2027-12-31"}
+          ]
+        },
+        {
+          "id": "ENG-109",
+          "name": "Ross Patterson",
+          "role": "hv_switching_mate",
+          "certifications": [
+            {"type": "ecs_card", "expiry": "2027-12-31"},
+            {"type": "first_aid_at_work", "expiry": "2027-03-15"}
+          ]
+        }
+      ],
+      "timeline": {
+        "dispatch_time": "2026-03-21T22:15:00Z",
+        "arrival_time": "2026-03-21T23:05:00Z",
+        "work_start": "2026-03-21T23:20:00Z",
+        "work_complete": "2026-03-22T02:45:00Z",
+        "day_of_week": "saturday",
+        "time_category": "weekend_overnight"
+      },
+      "response_time_minutes": 50,
+      "sla_response_limit_minutes": 120,
+      "sla_met": true,
+      "billable_items": [
+        {"description": "Emergency HV switching — weekend overnight", "base_rate": 320.00, "emergency_multiplier": 1.5, "weekend_multiplier": 1.5, "applied_rate": 720.00, "quantity": 2, "unit": "each"},
+        {"description": "Mobilisation charge", "rate": 85.00, "quantity": 1, "unit": "per_callout"}
+      ],
+      "billing_gates": {
+        "permit_closed_out": true,
+        "safety_form_gs6_submitted": true,
+        "as_built_submitted": true,
+        "as_built_submission_date": "2026-03-25",
+        "as_built_deadline": "2026-03-27",
+        "post_incident_report_submitted": true,
+        "post_incident_report_date": "2026-03-22T14:00:00Z"
+      },
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "permit_closed_out": true
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-0802",
+      "work_order_type": "emergency",
+      "work_category": "hv_switching",
+      "description": "Emergency 11kV switching for transformer failure at Anniesland distribution substation",
+      "status": "completed",
+      "priority": "emergency",
+      "site": {"name": "Anniesland Distribution Substation", "address": "Crow Road, Glasgow G13 1JE"},
+      "crew": [
+        {
+          "id": "ENG-101",
+          "name": "Alasdair MacGregor",
+          "role": "lead_hv_authorised_person",
+          "certifications": [
+            {"type": "hv_authorized_person", "expiry": "2027-06-30"},
+            {"type": "ecs_card", "expiry": "2027-12-31"}
+          ]
+        },
+        {
+          "id": "ENG-115",
+          "name": "David Kerr",
+          "role": "hv_switching_mate",
+          "certifications": [
+            {"type": "ecs_card", "expiry": "2027-12-31"}
+          ]
+        }
+      ],
+      "timeline": {
+        "dispatch_time": "2026-03-22T19:30:00Z",
+        "arrival_time": "2026-03-22T20:45:00Z",
+        "work_start": "2026-03-22T21:00:00Z",
+        "work_complete": "2026-03-23T00:30:00Z",
+        "day_of_week": "sunday",
+        "time_category": "weekend_evening"
+      },
+      "response_time_minutes": 75,
+      "sla_response_limit_minutes": 120,
+      "sla_met": true,
+      "billable_items": [
+        {"description": "Emergency HV switching — weekend evening", "base_rate": 320.00, "emergency_multiplier": 1.5, "weekend_multiplier": 1.5, "applied_rate": 720.00, "quantity": 1, "unit": "each"},
+        {"description": "Mobilisation charge", "rate": 85.00, "quantity": 1, "unit": "per_callout"}
+      ],
+      "billing_gates": {
+        "permit_closed_out": true,
+        "safety_form_gs6_submitted": false,
+        "as_built_submitted": false,
+        "as_built_submission_date": null,
+        "as_built_deadline": "2026-03-27",
+        "post_incident_report_submitted": true,
+        "post_incident_report_date": "2026-03-23T18:00:00Z"
+      },
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "permit_closed_out": true
+      }
+    }
+  ],
+  "incidents": [
+    {
+      "incident_id": "SPEN-INC-2026-00321",
+      "title": "Loss of supply — 1,200 customers Shawlands area",
+      "priority": "P1",
+      "severity": 1,
+      "state": "resolved",
+      "category": "supply_interruption",
+      "affected_customers": 1200,
+      "root_cause": "11kV XLPE cable fault — moisture ingress at joint",
+      "linked_work_order": "SPEN-WO-2026-0801"
+    },
+    {
+      "incident_id": "SPEN-INC-2026-00322",
+      "title": "Transformer failure — Anniesland substation",
+      "priority": "P1",
+      "severity": 1,
+      "state": "resolved",
+      "category": "equipment_failure",
+      "affected_customers": 340,
+      "root_cause": "Ground-mounted transformer internal winding fault",
+      "linked_work_order": "SPEN-WO-2026-0802"
+    }
+  ],
+  "expected_outcomes": {
+    "wo_0801": {
+      "billable": true,
+      "base_value": 640.00,
+      "multiplied_value": 1440.00,
+      "mobilisation": 85.00,
+      "total_billable": 1525.00,
+      "multiplier_applied": "emergency_weekend_compound_2.25x",
+      "all_billing_gates_passed": true,
+      "sla_met": true
+    },
+    "wo_0802": {
+      "billable": false,
+      "reason": "billing_gates_not_satisfied",
+      "gates_failed": ["safety_form_gs6_submitted", "as_built_submitted"],
+      "potential_value": 805.00,
+      "mobilisation": 85.00,
+      "recommendation": "submit_gs6_and_as_built_to_unlock_billing",
+      "sla_met": true
+    },
+    "total_billable": 1525.00,
+    "total_blocked": 805.00,
+    "leakage_detected": true,
+    "leakage_type": "billing_gate_failure_blocking_emergency_revenue",
+    "emergency_multiplier_validation": "compound_multiplier_correctly_applied"
+  }
+}

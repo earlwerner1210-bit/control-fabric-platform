@@ -1,0 +1,88 @@
+{
+  "runbook_id": "RB-NET-DEGRADATION-001",
+  "title": "Network Degradation Response Runbook",
+  "version": "2.1",
+  "domain": "telco-ops",
+  "applicable_categories": ["network_degradation", "fiber_degradation", "link_failure"],
+  "steps": [
+    {
+      "step": 1,
+      "action": "Acknowledge incident and verify monitoring data",
+      "description": "Confirm alert validity by cross-referencing NMS, OTDR, and customer-reported symptoms.",
+      "role": "noc_operator",
+      "max_duration_minutes": 10,
+      "automated": false
+    },
+    {
+      "step": 2,
+      "action": "Assess service impact",
+      "description": "Identify all affected services and customers. Calculate business impact score.",
+      "role": "noc_operator",
+      "max_duration_minutes": 15,
+      "automated": true,
+      "automation_tool": "impact_analyzer"
+    },
+    {
+      "step": 3,
+      "action": "Initiate remote diagnostics",
+      "description": "Run OTDR tests, check BER trends, review recent alarm history on affected path.",
+      "role": "network_engineer",
+      "max_duration_minutes": 30,
+      "automated": false
+    },
+    {
+      "step": 4,
+      "action": "Determine response path",
+      "description": "Based on diagnostics, choose between remote fix, field dispatch, or traffic reroute.",
+      "role": "network_engineer",
+      "max_duration_minutes": 15,
+      "automated": false,
+      "decision_point": true,
+      "decision_options": [
+        {"option": "remote_fix", "condition": "Software/config issue identified, no physical damage"},
+        {"option": "field_dispatch", "condition": "Physical inspection or repair needed"},
+        {"option": "traffic_reroute", "condition": "Alternate path available, mitigation while investigating"}
+      ]
+    },
+    {
+      "step": 5,
+      "action": "Execute remediation",
+      "description": "Apply the chosen fix: push config changes, dispatch field crew, or reroute traffic.",
+      "role": "network_engineer",
+      "max_duration_minutes": 120,
+      "automated": false
+    },
+    {
+      "step": 6,
+      "action": "Verify service restoration",
+      "description": "Confirm all affected services have returned to normal BER and performance levels.",
+      "role": "noc_operator",
+      "max_duration_minutes": 30,
+      "automated": true,
+      "automation_tool": "service_health_checker"
+    },
+    {
+      "step": 7,
+      "action": "Close incident and document root cause",
+      "description": "Record root cause, actions taken, and any follow-up work orders needed.",
+      "role": "network_engineer",
+      "max_duration_minutes": 30,
+      "automated": false
+    }
+  ],
+  "escalation_criteria": [
+    {"condition": "SLA response deadline within 30 minutes and unacknowledged", "action": "escalate_to_team_lead", "escalation_level": 1},
+    {"condition": "SLA resolution at 50% elapsed and no root cause identified", "action": "escalate_to_senior_engineer", "escalation_level": 2},
+    {"condition": "SLA resolution at 75% elapsed and fix not applied", "action": "escalate_to_operations_manager", "escalation_level": 3},
+    {"condition": "Customer VIP flag set and impact > 100 services", "action": "escalate_to_management", "escalation_level": 3},
+    {"condition": "Priority P1", "action": "auto_escalate_to_senior_engineer", "escalation_level": 2}
+  ],
+  "required_skills": ["network_diagnostics", "otdr_testing", "fiber_splicing"],
+  "tools_required": ["nms_console", "otdr_equipment", "splice_kit"],
+  "sla_targets": {
+    "P1": {"response_minutes": 60, "resolution_minutes": 240},
+    "P2": {"response_minutes": 120, "resolution_minutes": 480},
+    "P3": {"response_minutes": 240, "resolution_minutes": 1440},
+    "P4": {"response_minutes": 480, "resolution_minutes": 4320}
+  }
+}

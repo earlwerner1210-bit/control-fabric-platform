@@ -1,0 +1,228 @@
+{
+  "scenario": "subcontractor_margin_leakage",
+  "description": "Subcontractor pass-through scenario where subcontractor rates exceed contracted rates, testing margin leakage detection, material cost pass-through, and recovery recommendations.",
+  "domain": "contract-margin",
+  "contract": {
+    "document_type": "managed_services_agreement",
+    "title": "Managed Field Services — SP Energy Networks",
+    "parties": ["SP Energy Networks Limited", "Vodafone Limited"],
+    "effective_date": "2025-04-01",
+    "expiry_date": "2030-03-31",
+    "clauses": [
+      {"id": "CL-001", "type": "scope", "text": "Provider shall deliver planned and emergency HV switching, cable jointing, LV fault repair, overhead line maintenance, metering, and new connections across the SPEN Central Belt licence area.", "section": "2.1"},
+      {"id": "CL-002", "type": "obligation", "text": "Provider may subcontract work with prior written approval from SPEN. Subcontractor must meet all competency requirements of this agreement.", "section": "3.14"},
+      {"id": "CL-003", "type": "rate", "text": "All work billed at agreed rate card regardless of whether performed by Provider staff or approved subcontractor. No subcontractor uplift or pass-through surcharge permitted.", "section": "5.4"},
+      {"id": "CL-004", "type": "obligation", "text": "Materials: Provider shall supply all standard materials at cost. Non-standard materials may be passed through at cost plus 8% handling. Material invoices must be attached to billing pack.", "section": "5.5"},
+      {"id": "CL-005", "type": "rate", "text": "Cable jointing 11kV: £507.80 per joint. Cable jointing LV: £298.40 per joint. HV switching: £335.04 per operation.", "section": "5.1"},
+      {"id": "CL-006", "type": "obligation", "text": "Subcontractor approval register must be maintained and updated quarterly. Unapproved subcontractors: work is non-billable and subject to contract breach notification.", "section": "3.15"},
+      {"id": "CL-007", "type": "obligation", "text": "Provider remains liable for all subcontractor work quality, safety compliance, and SLA adherence.", "section": "3.16"}
+    ],
+    "sla_table": [
+      {"priority": "emergency", "response_time_hours": 2, "resolution_time_hours": 8, "availability": "24x7"},
+      {"priority": "planned", "response_time_hours": 48, "resolution_time_hours": 168, "availability": "business_hours"}
+    ],
+    "rate_card": [
+      {"activity": "hv_switching", "unit": "each", "rate": 335.04, "currency": "GBP"},
+      {"activity": "cable_jointing_11kv", "unit": "each", "rate": 507.80, "currency": "GBP"},
+      {"activity": "cable_jointing_lv", "unit": "each", "rate": 298.40, "currency": "GBP"},
+      {"activity": "lv_fault_repair", "unit": "each", "rate": 287.93, "currency": "GBP"}
+    ]
+  },
+  "subcontractors": [
+    {
+      "subcontractor_id": "SUB-001",
+      "name": "Highland Cable Solutions Ltd",
+      "approved": true,
+      "approval_date": "2025-06-15",
+      "approval_expiry": "2026-06-15",
+      "specialisms": ["cable_jointing_11kv", "cable_jointing_lv"],
+      "rate_schedule": [
+        {"activity": "cable_jointing_11kv", "unit": "each", "subcontractor_rate": 575.00, "currency": "GBP"},
+        {"activity": "cable_jointing_lv", "unit": "each", "subcontractor_rate": 340.00, "currency": "GBP"}
+      ]
+    },
+    {
+      "subcontractor_id": "SUB-002",
+      "name": "Clyde Valley Electrical Services",
+      "approved": false,
+      "approval_status": "lapsed",
+      "approval_expiry": "2026-01-31",
+      "specialisms": ["lv_fault_repair"],
+      "rate_schedule": [
+        {"activity": "lv_fault_repair", "unit": "each", "subcontractor_rate": 310.00, "currency": "GBP"}
+      ]
+    }
+  ],
+  "work_orders": [
+    {
+      "work_order_id": "SPEN-WO-2026-1201",
+      "work_order_type": "planned",
+      "work_category": "cable_jointing_11kv",
+      "description": "11kV cable jointing — network reinforcement programme, Rutherglen section",
+      "status": "completed",
+      "performed_by": "subcontractor",
+      "subcontractor_id": "SUB-001",
+      "subcontractor_approved": true,
+      "site": {"name": "Rutherglen Main Road", "address": "Main Street, Rutherglen G73 2HY"},
+      "engineer": {
+        "id": "SUB-ENG-011",
+        "name": "Craig Dunlop",
+        "employer": "Highland Cable Solutions Ltd",
+        "skills": ["cable_jointing_11kv"],
+        "certifications": [
+          {"type": "ecs_card", "expiry": "2027-12-31"},
+          {"type": "cable_jointing_accredited", "expiry": "2027-08-31"}
+        ]
+      },
+      "schedule": {"scheduled_date": "2026-03-17", "completed_date": "2026-03-17"},
+      "billable_items": [
+        {"description": "11kV cable joint — straight joint", "contract_rate": 507.80, "quantity": 4, "unit": "each"}
+      ],
+      "subcontractor_costs": {
+        "labour": [
+          {"description": "11kV cable joint — straight joint", "subcontractor_rate": 575.00, "quantity": 4, "total": 2300.00}
+        ],
+        "materials": [
+          {"description": "11kV heat-shrink joint kit (Raychem EPKJ-24C)", "unit_cost": 185.00, "quantity": 4, "total": 740.00, "pass_through": true, "handling_markup": 0.08},
+          {"description": "11kV XLPE cable 185mm2 (12m lengths)", "unit_cost": 42.50, "quantity": 4, "total": 170.00, "pass_through": false, "standard_material": true}
+        ],
+        "total_subcontractor_cost": 3040.00,
+        "material_pass_through_cost": 799.20
+      },
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "material_invoices_attached": true
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-1202",
+      "work_order_type": "planned",
+      "work_category": "cable_jointing_lv",
+      "description": "LV cable jointing — new housing development connection, Cambuslang",
+      "status": "completed",
+      "performed_by": "subcontractor",
+      "subcontractor_id": "SUB-001",
+      "subcontractor_approved": true,
+      "site": {"name": "Westburn Gate Development", "address": "Westburn Road, Cambuslang G72 7NA"},
+      "engineer": {
+        "id": "SUB-ENG-012",
+        "name": "Brian Keane",
+        "employer": "Highland Cable Solutions Ltd",
+        "skills": ["cable_jointing_lv"],
+        "certifications": [
+          {"type": "ecs_card", "expiry": "2027-12-31"}
+        ]
+      },
+      "schedule": {"scheduled_date": "2026-03-19", "completed_date": "2026-03-19"},
+      "billable_items": [
+        {"description": "LV cable joint — straight joint", "contract_rate": 298.40, "quantity": 6, "unit": "each"}
+      ],
+      "subcontractor_costs": {
+        "labour": [
+          {"description": "LV cable joint", "subcontractor_rate": 340.00, "quantity": 6, "total": 2040.00}
+        ],
+        "materials": [
+          {"description": "LV resin joint kit (3M 92-A)", "unit_cost": 65.00, "quantity": 6, "total": 390.00, "pass_through": false, "standard_material": true}
+        ],
+        "total_subcontractor_cost": 2040.00,
+        "material_pass_through_cost": 0.00
+      },
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "material_invoices_attached": true
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-1203",
+      "work_order_type": "urgent",
+      "work_category": "lv_fault_repair",
+      "description": "LV fault repair — service cable failure at 12 Buchanan Drive, Cambuslang",
+      "status": "completed",
+      "performed_by": "subcontractor",
+      "subcontractor_id": "SUB-002",
+      "subcontractor_approved": false,
+      "site": {"name": "12 Buchanan Drive", "address": "12 Buchanan Drive, Cambuslang G72 8QJ"},
+      "engineer": {
+        "id": "SUB-ENG-021",
+        "name": "Paul McCormack",
+        "employer": "Clyde Valley Electrical Services",
+        "skills": ["lv_fault_repair"],
+        "certifications": [
+          {"type": "ecs_card", "expiry": "2027-12-31"}
+        ]
+      },
+      "schedule": {"scheduled_date": "2026-03-20", "completed_date": "2026-03-20"},
+      "billable_items": [
+        {"description": "LV fault repair — service cable", "contract_rate": 287.93, "quantity": 1, "unit": "each"}
+      ],
+      "subcontractor_costs": {
+        "labour": [
+          {"description": "LV fault repair", "subcontractor_rate": 310.00, "quantity": 1, "total": 310.00}
+        ],
+        "materials": [
+          {"description": "LV service cable 25mm2 (8m)", "unit_cost": 28.00, "quantity": 1, "total": 28.00, "pass_through": false, "standard_material": true}
+        ],
+        "total_subcontractor_cost": 310.00,
+        "material_pass_through_cost": 0.00
+      },
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "material_invoices_attached": false
+      }
+    }
+  ],
+  "expected_outcomes": {
+    "wo_1201": {
+      "billable": true,
+      "contract_revenue": 2031.20,
+      "subcontractor_labour_cost": 2300.00,
+      "material_cost_standard": 170.00,
+      "material_cost_pass_through": 799.20,
+      "total_cost": 3269.20,
+      "margin": -1238.00,
+      "margin_percentage": -60.95,
+      "margin_leakage_detected": true,
+      "leakage_type": "subcontractor_rate_exceeds_contract_rate",
+      "per_unit_loss": 67.20,
+      "recommendation": "renegotiate_subcontractor_rate_or_request_contract_rate_uplift"
+    },
+    "wo_1202": {
+      "billable": true,
+      "contract_revenue": 1790.40,
+      "subcontractor_labour_cost": 2040.00,
+      "material_cost_standard": 390.00,
+      "total_cost": 2430.00,
+      "margin": -639.60,
+      "margin_percentage": -35.72,
+      "margin_leakage_detected": true,
+      "leakage_type": "subcontractor_rate_exceeds_contract_rate",
+      "per_unit_loss": 41.60,
+      "recommendation": "renegotiate_subcontractor_rate_or_insource_lv_jointing"
+    },
+    "wo_1203": {
+      "billable": false,
+      "reason": "unapproved_subcontractor",
+      "contract_revenue_at_risk": 287.93,
+      "subcontractor_cost": 310.00,
+      "breach_notification_required": true,
+      "recommendation": "renew_subcontractor_approval_or_cease_using_SUB-002"
+    },
+    "summary": {
+      "total_contract_revenue": 4109.53,
+      "total_subcontractor_cost": 5699.20,
+      "total_margin": -1589.67,
+      "work_orders_with_negative_margin": 2,
+      "work_orders_non_billable_unapproved": 1,
+      "leakage_types": ["subcontractor_rate_exceeds_contract_rate", "unapproved_subcontractor"],
+      "recovery_recommendations": [
+        "Renegotiate Highland Cable Solutions rates to below contract rate card",
+        "Renew or terminate Clyde Valley Electrical Services subcontractor approval",
+        "Consider insourcing cable jointing to eliminate negative margin",
+        "Request contract rate card uplift at next annual review to reflect market subcontractor rates"
+      ]
+    }
+  }
+}

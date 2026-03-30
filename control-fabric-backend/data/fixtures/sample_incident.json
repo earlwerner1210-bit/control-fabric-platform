@@ -1,0 +1,75 @@
+{
+  "incident_id": "INC-2024-03291",
+  "contract_ref": "SPEN-MSA-2024-001",
+  "title": "P1 Power Outage – Glasgow North Grid Supply Point",
+  "priority": "critical",
+  "description": "Complete loss of supply affecting 12,000 customers following 33kV switchgear failure at Glasgow North GSP. Emergency fault response team mobilised.",
+  "reported_at": "2024-07-22T03:14:00Z",
+  "resolved_at": "2024-07-22T06:48:00Z",
+  "owner": "Acme Field Services Ltd",
+  "location": "Glasgow North GSP, G21 1AA",
+  "affected_customers": 12000,
+  "state_transitions": [
+    {
+      "from_state": null,
+      "to_state": "reported",
+      "timestamp": "2024-07-22T03:14:00Z",
+      "actor": "SPEN Control Room"
+    },
+    {
+      "from_state": "reported",
+      "to_state": "acknowledged",
+      "timestamp": "2024-07-22T03:22:00Z",
+      "actor": "Acme Dispatch"
+    },
+    {
+      "from_state": "acknowledged",
+      "to_state": "en_route",
+      "timestamp": "2024-07-22T03:35:00Z",
+      "actor": "Crew Alpha-7"
+    },
+    {
+      "from_state": "en_route",
+      "to_state": "on_site",
+      "timestamp": "2024-07-22T04:10:00Z",
+      "actor": "Crew Alpha-7"
+    },
+    {
+      "from_state": "on_site",
+      "to_state": "work_in_progress",
+      "timestamp": "2024-07-22T04:25:00Z",
+      "actor": "Crew Alpha-7"
+    },
+    {
+      "from_state": "work_in_progress",
+      "to_state": "resolved",
+      "timestamp": "2024-07-22T06:48:00Z",
+      "actor": "Crew Alpha-7"
+    }
+  ],
+  "sla_compliance": {
+    "response_target_hours": 1.0,
+    "response_actual_hours": 0.93,
+    "response_met": true,
+    "resolution_target_hours": 4.0,
+    "resolution_actual_hours": 3.57,
+    "resolution_met": true
+  },
+  "evidence": [
+    {
+      "type": "fault_report",
+      "description": "33kV switchgear failure root cause analysis",
+      "ref": "EVD-INC-001"
+    },
+    {
+      "type": "photo",
+      "description": "Failed switchgear component",
+      "ref": "EVD-INC-002"
+    },
+    {
+      "type": "restoration_confirmation",
+      "description": "Supply restoration confirmed by SPEN Control Room",
+      "ref": "EVD-INC-003"
+    }
+  ]
+}

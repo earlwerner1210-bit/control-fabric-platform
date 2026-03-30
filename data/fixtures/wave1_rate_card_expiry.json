@@ -1,0 +1,202 @@
+{
+  "scenario": "rate_card_expiry_mismatch_detection",
+  "description": "Contract with expired rate cards and active rate cards side by side. Work orders referencing both. Tests expired rate detection, rate mismatch leakage, and recovery recommendations.",
+  "domain": "contract-margin",
+  "contract": {
+    "document_type": "managed_services_agreement",
+    "title": "Managed Field Services — SP Energy Networks",
+    "parties": ["SP Energy Networks Limited", "Vodafone Limited"],
+    "effective_date": "2025-04-01",
+    "expiry_date": "2030-03-31",
+    "clauses": [
+      {"id": "CL-001", "type": "scope", "text": "Provider shall deliver planned and emergency HV switching, cable jointing, LV fault repair, overhead line maintenance, metering, and new connections across the SPEN Central Belt licence area.", "section": "2.1"},
+      {"id": "CL-002", "type": "rate", "text": "Rate cards are subject to annual review. Expired rate cards are superseded by the active rate card. Work billed against an expired rate card is subject to retrospective adjustment.", "section": "5.2"},
+      {"id": "CL-003", "type": "rate", "text": "Annual rate uplift: CPI + 1.5%, applied on 1 April each year. Uplift applies automatically unless renegotiated.", "section": "5.3"},
+      {"id": "CL-004", "type": "obligation", "text": "Provider must validate rate card version before invoice submission. Invoices referencing expired rate cards will be rejected.", "section": "6.2"},
+      {"id": "CL-005", "type": "obligation", "text": "Where work was performed under an expired rate card, Provider may resubmit at the active rate within 60 days of original invoice rejection.", "section": "6.3"}
+    ],
+    "sla_table": [
+      {"priority": "emergency", "response_time_hours": 2, "resolution_time_hours": 8, "availability": "24x7"},
+      {"priority": "planned", "response_time_hours": 48, "resolution_time_hours": 168, "availability": "business_hours"}
+    ],
+    "rate_cards": {
+      "expired": {
+        "version": "RC-2025-v1",
+        "effective_date": "2025-04-01",
+        "expiry_date": "2026-03-31",
+        "status": "expired",
+        "rates": [
+          {"activity": "hv_switching", "unit": "each", "rate": 320.00, "currency": "GBP"},
+          {"activity": "cable_jointing_11kv", "unit": "each", "rate": 485.00, "currency": "GBP"},
+          {"activity": "cable_jointing_lv", "unit": "each", "rate": 285.00, "currency": "GBP"},
+          {"activity": "lv_fault_repair", "unit": "each", "rate": 275.00, "currency": "GBP"},
+          {"activity": "metering_installation", "unit": "each", "rate": 165.00, "currency": "GBP"},
+          {"activity": "overhead_line_maintenance", "unit": "per_span", "rate": 580.00, "currency": "GBP"}
+        ]
+      },
+      "active": {
+        "version": "RC-2026-v1",
+        "effective_date": "2026-04-01",
+        "expiry_date": "2027-03-31",
+        "status": "active",
+        "uplift_applied": "CPI_3.2%_plus_1.5%_equals_4.7%",
+        "rates": [
+          {"activity": "hv_switching", "unit": "each", "rate": 335.04, "currency": "GBP"},
+          {"activity": "cable_jointing_11kv", "unit": "each", "rate": 507.80, "currency": "GBP"},
+          {"activity": "cable_jointing_lv", "unit": "each", "rate": 298.40, "currency": "GBP"},
+          {"activity": "lv_fault_repair", "unit": "each", "rate": 287.93, "currency": "GBP"},
+          {"activity": "metering_installation", "unit": "each", "rate": 172.76, "currency": "GBP"},
+          {"activity": "overhead_line_maintenance", "unit": "per_span", "rate": 607.26, "currency": "GBP"}
+        ]
+      }
+    }
+  },
+  "work_orders": [
+    {
+      "work_order_id": "SPEN-WO-2026-1001",
+      "work_order_type": "planned",
+      "work_category": "hv_switching",
+      "description": "Planned 11kV switching for cable replacement programme — Paisley Road West corridor",
+      "status": "completed",
+      "completed_date": "2026-04-08",
+      "site": {"name": "Paisley Road West Corridor", "address": "Paisley Road West, Glasgow G51 1EB"},
+      "engineer": {
+        "id": "ENG-101",
+        "name": "Alasdair MacGregor",
+        "skills": ["hv_switching"],
+        "certifications": [
+          {"type": "hv_authorized_person", "expiry": "2027-06-30"},
+          {"type": "ecs_card", "expiry": "2027-12-31"}
+        ]
+      },
+      "billed_rate_card_version": "RC-2025-v1",
+      "billable_items": [
+        {"description": "HV switching operation", "billed_rate": 320.00, "correct_rate": 335.04, "quantity": 3, "unit": "each"}
+      ],
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "permit_closed_out": true
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-1002",
+      "work_order_type": "planned",
+      "work_category": "cable_jointing_11kv",
+      "description": "11kV cable jointing — new section at Govan Cross",
+      "status": "completed",
+      "completed_date": "2026-04-10",
+      "site": {"name": "Govan Cross", "address": "Govan Road, Glasgow G51 2YQ"},
+      "engineer": {
+        "id": "ENG-113",
+        "name": "Malcolm Fraser",
+        "skills": ["cable_jointing_11kv", "cable_jointing_lv"],
+        "certifications": [
+          {"type": "ecs_card", "expiry": "2027-12-31"},
+          {"type": "cable_jointing_accredited", "expiry": "2027-08-31"}
+        ]
+      },
+      "billed_rate_card_version": "RC-2026-v1",
+      "billable_items": [
+        {"description": "11kV cable joint", "billed_rate": 507.80, "correct_rate": 507.80, "quantity": 2, "unit": "each"}
+      ],
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true,
+        "permit_closed_out": true
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-1003",
+      "work_order_type": "planned",
+      "work_category": "overhead_line_maintenance",
+      "description": "OHL vegetation clearance and conductor inspection — East Kilbride corridor",
+      "status": "completed",
+      "completed_date": "2026-04-15",
+      "site": {"name": "East Kilbride OHL Corridor", "address": "Eaglesham Road, East Kilbride G75 8RW"},
+      "engineer": {
+        "id": "ENG-112",
+        "name": "Gregor Muir",
+        "skills": ["overhead_line_maintenance"],
+        "certifications": [
+          {"type": "ecs_card", "expiry": "2027-12-31"},
+          {"type": "working_at_height", "expiry": "2027-09-15"}
+        ]
+      },
+      "billed_rate_card_version": "RC-2025-v1",
+      "billable_items": [
+        {"description": "OHL maintenance per span", "billed_rate": 580.00, "correct_rate": 607.26, "quantity": 5, "unit": "per_span"}
+      ],
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true
+      }
+    },
+    {
+      "work_order_id": "SPEN-WO-2026-1004",
+      "work_order_type": "urgent",
+      "work_category": "lv_fault_repair",
+      "description": "LV fault repair — cut-out failure at 55 Argyle Street, Glasgow",
+      "status": "completed",
+      "completed_date": "2026-04-12",
+      "site": {"name": "55 Argyle Street", "address": "55 Argyle Street, Glasgow G2 8AH"},
+      "engineer": {
+        "id": "ENG-102",
+        "name": "Jamie Campbell",
+        "skills": ["lv_fault_repair"],
+        "certifications": [{"type": "ecs_card", "expiry": "2027-12-31"}]
+      },
+      "billed_rate_card_version": "RC-2025-v1",
+      "billable_items": [
+        {"description": "LV fault repair", "billed_rate": 275.00, "correct_rate": 287.93, "quantity": 1, "unit": "each"}
+      ],
+      "completion_evidence": {
+        "daywork_sheet_signed": true,
+        "completion_certificate": true
+      }
+    }
+  ],
+  "expected_outcomes": {
+    "wo_1001": {
+      "expired_rate_card_used": true,
+      "billed_total": 960.00,
+      "correct_total": 1005.12,
+      "underbilled_amount": 45.12,
+      "invoice_rejection_risk": true,
+      "recommendation": "resubmit_at_active_rate_card_RC-2026-v1"
+    },
+    "wo_1002": {
+      "expired_rate_card_used": false,
+      "billed_total": 1015.60,
+      "correct_total": 1015.60,
+      "underbilled_amount": 0.00,
+      "invoice_rejection_risk": false,
+      "recommendation": "none"
+    },
+    "wo_1003": {
+      "expired_rate_card_used": true,
+      "billed_total": 2900.00,
+      "correct_total": 3036.30,
+      "underbilled_amount": 136.30,
+      "invoice_rejection_risk": true,
+      "recommendation": "resubmit_at_active_rate_card_RC-2026-v1"
+    },
+    "wo_1004": {
+      "expired_rate_card_used": true,
+      "billed_total": 275.00,
+      "correct_total": 287.93,
+      "underbilled_amount": 12.93,
+      "invoice_rejection_risk": true,
+      "recommendation": "resubmit_at_active_rate_card_RC-2026-v1"
+    },
+    "summary": {
+      "work_orders_with_expired_rates": 3,
+      "work_orders_with_active_rates": 1,
+      "total_underbilled": 194.35,
+      "total_at_risk_of_rejection": 4135.00,
+      "leakage_type": "expired_rate_card_underbilling",
+      "recovery_action": "resubmit_3_invoices_at_active_rate_card_within_60_day_window",
+      "resubmission_deadline": "2026-06-15"
+    }
+  }
+}

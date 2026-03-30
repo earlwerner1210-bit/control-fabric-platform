@@ -1,0 +1,43 @@
+"""Re-export key entity types for convenience."""
+
+from shared.db.models import (
+    AuditEvent,
+    CanonicalEntity,
+    ControlLink,
+    ControlObject,
+    ControlObjectType,
+    Document,
+    DocumentChunk,
+    DomainPackVersion,
+    EvalCase,
+    EvalRun,
+    ModelRun,
+    NotificationEvent,
+    PromptTemplate,
+    Role,
+    Tenant,
+    User,
+    ValidationResult,
+    WorkflowCase,
+)
+
+__all__ = [
+    "AuditEvent",
+    "CanonicalEntity",
+    "ControlLink",
+    "ControlObject",
+    "ControlObjectType",
+    "Document",
+    "DocumentChunk",
+    "DomainPackVersion",
+    "EvalCase",
+    "EvalRun",
+    "ModelRun",
+    "NotificationEvent",
+    "PromptTemplate",
+    "Role",
+    "Tenant",
+    "User",
+    "ValidationResult",
+    "WorkflowCase",
+]

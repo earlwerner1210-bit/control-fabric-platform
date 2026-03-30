@@ -1,0 +1,37 @@
+{
+  "incident_id": "INC-2024-0042",
+  "title": "Network Degradation - East Ring Fiber Path",
+  "priority": "P2",
+  "severity": 2,
+  "status": "investigating",
+  "category": "network_degradation",
+  "subcategory": "fiber_degradation",
+  "reported_at": "2024-03-14T14:30:00Z",
+  "acknowledged_at": "2024-03-14T14:35:00Z",
+  "sla_response_deadline": "2024-03-14T16:30:00Z",
+  "sla_resolution_deadline": "2024-03-14T22:30:00Z",
+  "affected_services": [
+    {"service_id": "SVC-001", "name": "Enterprise MPLS - TelcoCorp East", "impact": "degraded", "customer_count": 45},
+    {"service_id": "SVC-002", "name": "Metro Ethernet - DataCenter East", "impact": "degraded", "customer_count": 12}
+  ],
+  "root_cause_hypothesis": "Possible fiber bend or splice degradation on East Ring segment E3-E4",
+  "timeline": [
+    {"timestamp": "2024-03-14T14:30:00Z", "event": "Monitoring alert triggered - BER threshold exceeded on East Ring"},
+    {"timestamp": "2024-03-14T14:32:00Z", "event": "NOC operator acknowledged alert"},
+    {"timestamp": "2024-03-14T14:35:00Z", "event": "Incident created and assigned to Network Operations"},
+    {"timestamp": "2024-03-14T14:45:00Z", "event": "OTDR test initiated remotely - anomaly detected at 3.2km marker"},
+    {"timestamp": "2024-03-14T15:00:00Z", "event": "Field team dispatched to inspect splice point E3-E4"}
+  ],
+  "assigned_team": "network_operations",
+  "assigned_engineer": null,
+  "escalation_level": 0,
+  "region": "east",
+  "site": {
+    "name": "East Ring Splice Point E3-E4",
+    "address": "Along Highway 42, Sector 7",
+    "coordinates": {"lat": 41.9200, "lng": -87.5800}
+  },
+  "runbook_reference": "RB-NET-DEGRADATION-001",
+  "related_work_orders": [],
+  "notes": "Customer-facing impact confirmed. 57 services affected across 2 service groups. BER trending upward."
+}

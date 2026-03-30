@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-03-30T12:41:59.869529+00:00",
+  "mode": "quick",
+  "total_seconds": 0.03,
+  "results": [
+    {
+      "name": "release_gate_pass",
+      "iterations": 100,
+      "total_seconds": 0.0088,
+      "ops_per_second": 11386.7,
+      "avg_ms": 0.088,
+      "p99_ms": 0.165
+    },
+    {
+      "name": "release_gate_block",
+      "iterations": 100,
+      "total_seconds": 0.0116,
+      "ops_per_second": 8607.0,
+      "avg_ms": 0.116,
+      "p99_ms": 0.157
+    },
+    {
+      "name": "reconciliation",
+      "iterations": 10,
+      "total_seconds": 0.0023,
+      "ops_per_second": 4332.5,
+      "avg_ms": 0.231,
+      "p99_ms": 0.27
+    },
+    {
+      "name": "severity_scoring",
+      "iterations": 500,
+      "total_seconds": 0.0027,
+      "ops_per_second": 184376.5,
+      "avg_ms": 0.005,
+      "p99_ms": 0.014
+    },
+    {
+      "name": "explainability",
+      "iterations": 200,
+      "total_seconds": 0.0007,
+      "ops_per_second": 296236.6,
+      "avg_ms": 0.003,
+      "p99_ms": 0.01
+    }
+  ]
+}

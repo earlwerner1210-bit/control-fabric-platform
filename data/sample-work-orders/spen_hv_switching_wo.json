@@ -1,0 +1,104 @@
+{
+  "work_order_id": "SPEN-WO-2026-0451",
+  "title": "11kV RMU Switching — Glasgow South Feeder 7 Planned Maintenance",
+  "work_order_type": "maintenance",
+  "work_category": "hv_switching",
+  "status": "scheduled",
+  "priority": "P3",
+  "contract_reference": "SPEN-VF-MSA-2025-001",
+  "scheme_ref": "SPEN-SCH-2026-0451",
+  "customer": "SP Energy Networks Limited",
+  "provider": "Vodafone Limited",
+  "description": "11kV ring main unit switching for planned maintenance — Glasgow South 11kV Feeder 7. Isolation of RMU at Pollokshields East substation to enable transformer oil sampling and bushing inspection. Feeder 7 supplies approximately 1,200 domestic and 45 commercial customers via the Glasgow South 11kV ring. Load transfer to Feeder 4 required prior to isolation.",
+  "activity_code": "SPEN-RC-HV-001",
+  "location": {
+    "site_name": "Pollokshields East Primary Substation",
+    "address": "47 St Andrews Drive, Pollokshields, Glasgow G41 4LE",
+    "region": "SPD",
+    "district": "Glasgow South",
+    "coordinates": {"lat": 55.8350, "lng": -4.2740},
+    "mpan": "18-0946-2731-084",
+    "substation_number": "GLAS-S-0347",
+    "feeder_reference": "Glasgow South 11kV Feeder 7",
+    "access_requirements": ["substation_key_SPEN", "hv_authorisation_required"]
+  },
+  "engineer": {
+    "id": "VF-ENG-1147",
+    "name": "Alasdair MacGregor",
+    "grade": "Senior Authorised Person",
+    "skills": ["hv_switching", "hv_operations", "protection_systems", "safety_rule_compliance"],
+    "certifications": [
+      {"type": "hv_authorised_person", "issuer": "SP Energy Networks", "certificate_number": "SPEN-HV-AP-4821", "expiry": "2027-01-15"},
+      {"type": "ecs_card", "issuer": "Electrotechnical Certification Scheme", "category": "Installation Electrician", "card_number": "ECS-7729415", "expiry": "2027-06-30"},
+      {"type": "first_aid_at_work", "issuer": "St Andrew's First Aid", "certificate_number": "SAFA-2025-11847", "expiry": "2028-03-20"},
+      {"type": "confined_space_entry", "issuer": "City & Guilds", "certificate_number": "CG-6150-44218", "expiry": "2027-09-01"}
+    ],
+    "spen_competence_level": "SAP",
+    "home_depot": "Cathcart Depot, Glasgow"
+  },
+  "required_skills": ["hv_switching", "hv_authorised_person", "protection_systems"],
+  "required_permits": [
+    {
+      "type": "spen_safety_document",
+      "subtype": "sanction_for_test",
+      "status": "approved",
+      "permit_number": "SPEN-SFT-2026-03-0451",
+      "issued_by": "Control Engineer — Glasgow South",
+      "valid_from": "2026-04-02T07:00:00Z",
+      "valid_to": "2026-04-02T17:00:00Z"
+    },
+    {
+      "type": "spen_switching_programme",
+      "status": "approved",
+      "permit_number": "SPEN-SP-2026-03-0451",
+      "approved_by": "Network Control Centre — East Kilbride",
+      "switching_steps": 14
+    }
+  ],
+  "planned_outage": {
+    "outage_reference": "SPEN-OUT-2026-0451",
+    "outage_type": "planned",
+    "start_time": "2026-04-02T09:00:00Z",
+    "end_time": "2026-04-02T15:00:00Z",
+    "duration_hours": 6,
+    "affected_customers": 1245,
+    "affected_customer_types": {"domestic": 1200, "commercial": 45},
+    "load_transfer_feeder": "Glasgow South 11kV Feeder 4",
+    "load_transfer_capacity_confirmed": true,
+    "customer_notification_issued": true,
+    "notification_date": "2026-03-19",
+    "notification_method": "letter_and_sms"
+  },
+  "schedule": {
+    "scheduled_date": "2026-04-02",
+    "time_window": "07:00-17:00",
+    "estimated_duration_hours": 6,
+    "timezone": "Europe/London",
+    "pre_work_briefing_time": "07:00",
+    "switching_start_time": "09:00",
+    "target_restoration_time": "15:00"
+  },
+  "materials": [
+    {"item": "HV voltage indicator (Modiewark)", "quantity": 1, "unit": "pieces", "status": "in_stock"},
+    {"item": "Proving unit for voltage indicator", "quantity": 1, "unit": "pieces", "status": "in_stock"},
+    {"item": "HV earth leads (11kV rated)", "quantity": 3, "unit": "sets", "status": "in_stock"},
+    {"item": "Lock-out/tag-out padlocks", "quantity": 6, "unit": "pieces", "status": "in_stock"},
+    {"item": "Safety signage (Danger HV / Men Working)", "quantity": 4, "unit": "pieces", "status": "in_stock"},
+    {"item": "Insulating gloves (Class 2, 17kV rated)", "quantity": 2, "unit": "pairs", "status": "in_stock"},
+    {"item": "Arc flash PPE set (Category 2, 25 cal/cm2)", "quantity": 1, "unit": "sets", "status": "in_stock"}
+  ],
+  "safety_requirements": {
+    "risk_assessment_ref": "SPEN-RA-2026-0451",
+    "method_statement_ref": "SPEN-MS-HV-SWITCH-003",
+    "arc_flash_category": 2,
+    "minimum_ppe": ["arc_flash_suit", "insulating_gloves", "safety_helmet_with_visor", "safety_boots", "flame_retardant_clothing"],
+    "minimum_crew_size": 2,
+    "lone_working_permitted": false,
+    "safety_briefing_required": true,
+    "point_of_work_risk_assessment": true
+  },
+  "billable_items": [
+    {"description": "HV switching operations — 11kV RMU isolation and restoration", "activity_code": "SPEN-RC-HV-001", "rate": 320.00, "quantity": 2, "unit": "each", "notes": "Isolation switching + restoration switching"}
+  ],
+  "notes": "Feeder 7 ring configuration allows load transfer to Feeder 4. Control Engineer confirmation required before switching commences. All switching operations to be conducted via phone with Network Control Centre East Kilbride. Post-maintenance, protection relay settings to be verified before restoration."
+}

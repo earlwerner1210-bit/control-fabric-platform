@@ -1,0 +1,166 @@
+groups:
+  # -------------------------------------------------------------------
+  # API / HTTP alerts
+  # -------------------------------------------------------------------
+  - name: api_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(starlette_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(starlette_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "High 5xx error rate detected"
+          description: >-
+            More than 5% of requests returned 5xx status codes over the
+            last 5 minutes. Current value: {{ $value | humanizePercentage }}.
+          runbook_url: "https://runbooks.internal/api/high-error-rate"
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(starlette_request_duration_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High p95 request latency"
+          description: >-
+            The 95th percentile request latency has exceeded 2 seconds for
+            the last 5 minutes. Current p95: {{ $value | humanizeDuration }}.
+          runbook_url: "https://runbooks.internal/api/high-latency"
+
+  # -------------------------------------------------------------------
+  # Workflow alerts
+  # -------------------------------------------------------------------
+  - name: workflow_alerts
+    rules:
+      - alert: WorkflowFailureRate
+        expr: |
+          (
+            sum(rate(workflow_runs_total{status="failed"}[15m]))
+            /
+            sum(rate(workflow_runs_total[15m]))
+          ) > 0.10
+        for: 15m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Workflow failure rate exceeds 10%"
+          description: >-
+            More than 10% of workflow runs have failed over the last 15
+            minutes. Current failure rate: {{ $value | humanizePercentage }}.
+          runbook_url: "https://runbooks.internal/workflows/high-failure-rate"
+
+  # -------------------------------------------------------------------
+  # Database alerts
+  # -------------------------------------------------------------------
+  - name: database_alerts
+    rules:
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          (
+            sqlalchemy_pool_checked_out
+            /
+            sqlalchemy_pool_size
+          ) > 0.90
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: >-
+            More than 90% of the SQLAlchemy connection pool is in use for
+            the last 5 minutes. Checked out: {{ $value | humanizePercentage }}.
+          runbook_url: "https://runbooks.internal/db/pool-exhausted"
+
+  # -------------------------------------------------------------------
+  # Redis alerts
+  # -------------------------------------------------------------------
+  - name: redis_alerts
+    rules:
+      - alert: RedisHighMemory
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.80
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Redis memory usage above 80%"
+          description: >-
+            Redis is using more than 80% of its configured max memory.
+            Current usage: {{ $value | humanizePercentage }}.
+          runbook_url: "https://runbooks.internal/redis/high-memory"
+
+  # -------------------------------------------------------------------
+  # Celery alerts
+  # -------------------------------------------------------------------
+  - name: celery_alerts
+    rules:
+      - alert: CeleryQueueBacklog
+        expr: |
+          celery_queue_length > 100
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Celery task queue backlog exceeds 100"
+          description: >-
+            The Celery task queue has had more than 100 pending tasks for
+            the last 10 minutes. Queue: {{ $labels.queue_name }},
+            depth: {{ $value }}.
+          runbook_url: "https://runbooks.internal/celery/queue-backlog"
+
+  # -------------------------------------------------------------------
+  # Inference alerts
+  # -------------------------------------------------------------------
+  - name: inference_alerts
+    rules:
+      - alert: InferenceLatencyHigh
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(inference_request_duration_seconds_bucket[5m])) by (le, model)
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "Inference p99 latency exceeds 10s"
+          description: >-
+            The 99th percentile inference latency for model {{ $labels.model }}
+            has exceeded 10 seconds. Current p99: {{ $value | humanizeDuration }}.
+          runbook_url: "https://runbooks.internal/inference/high-latency"
+
+  # -------------------------------------------------------------------
+  # Infrastructure / disk alerts
+  # -------------------------------------------------------------------
+  - name: infra_alerts
+    rules:
+      - alert: DiskSpaceWarning
+        expr: |
+          (
+            1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})
+          ) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          team: infra
+        annotations:
+          summary: "Disk usage above 85%"
+          description: >-
+            Disk usage on {{ $labels.instance }} mount {{ $labels.mountpoint }}
+            is above 85%. Current usage: {{ $value | humanizePercentage }}.
+          runbook_url: "https://runbooks.internal/infra/disk-space"

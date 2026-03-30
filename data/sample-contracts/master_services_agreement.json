@@ -1,0 +1,27 @@
+{
+  "document_type": "master_services_agreement",
+  "title": "Master Services Agreement - TelcoCorp / FieldServices Ltd",
+  "effective_date": "2024-01-01",
+  "expiry_date": "2026-12-31",
+  "parties": ["TelcoCorp Inc.", "FieldServices Ltd"],
+  "clauses": [
+    {"id": "CL-001", "type": "obligation", "text": "Provider shall deliver all scheduled maintenance within 4 business hours of dispatch.", "section": "3.1"},
+    {"id": "CL-002", "type": "penalty", "text": "Failure to meet SLA response times shall incur a penalty of 5% of monthly invoice value per breach.", "section": "7.2"},
+    {"id": "CL-003", "type": "sla", "text": "Target resolution time for P1 incidents: 4 hours. P2: 8 hours. P3: 24 hours. P4: 72 hours.", "section": "4.1"},
+    {"id": "CL-004", "type": "scope", "text": "Services include: network maintenance, equipment installation, emergency repair, scheduled inspections.", "section": "2.1"},
+    {"id": "CL-005", "type": "rate", "text": "Standard rate: $125/hr. Emergency rate: $187.50/hr. Weekend/holiday: $200/hr.", "section": "5.1"},
+    {"id": "CL-006", "type": "obligation", "text": "All engineers must hold valid gas safety and confined space certifications.", "section": "6.3"}
+  ],
+  "sla_table": [
+    {"priority": "P1", "response_time_hours": 1, "resolution_time_hours": 4, "availability": "24x7"},
+    {"priority": "P2", "response_time_hours": 2, "resolution_time_hours": 8, "availability": "24x7"},
+    {"priority": "P3", "response_time_hours": 4, "resolution_time_hours": 24, "availability": "business_hours"},
+    {"priority": "P4", "response_time_hours": 8, "resolution_time_hours": 72, "availability": "business_hours"}
+  ],
+  "rate_card": [
+    {"activity": "standard_maintenance", "unit": "hour", "rate": 125.00, "currency": "USD"},
+    {"activity": "emergency_repair", "unit": "hour", "rate": 187.50, "currency": "USD"},
+    {"activity": "equipment_installation", "unit": "unit", "rate": 350.00, "currency": "USD"},
+    {"activity": "inspection", "unit": "visit", "rate": 200.00, "currency": "USD"}
+  ]
+}

@@ -52,6 +52,77 @@ export const api = {
 
   // Exceptions
   getActiveExceptions: () => get<ExceptionList>("/exceptions/active"),
+
+  // Explainability
+  explainBlock: (id: string) => get<BlockExplanation>(`/explain/block/${id}`),
+  explainRelease: (id: string) =>
+    get<ReleaseExplanation>(`/explain/release/${id}`),
+  explainCase: (id: string) => get<CaseExplanation>(`/explain/case/${id}`),
+  diffPolicyVersions: (fromId: string, toId: string) =>
+    post<PolicyDiff>("/explain/diff-policy-versions", {
+      from_version: fromId,
+      to_version: toId,
+    }),
+
+  // Demo tenant
+  resetDemo: () => post<DemoResetResult>("/demo/reset"),
+  getDemoScenarios: () => get<DemoScenarioList>("/demo/scenarios"),
+  runScenario: (id: string) => post<DemoScenarioResult>(`/demo/scenarios/${id}/run`),
+  runAllScenarios: () => post<DemoRunAllResult>("/demo/scenarios/run-all"),
+
+  // Journey
+  getJourneySteps: () => get<JourneySteps>("/journey/steps"),
+  startJourney: (org: string, user: string) =>
+    post<JourneyStartResult>("/journey/start", {
+      organisation_name: org,
+      created_by: user,
+    }),
+  journeyConnectSource: (sid: string, name: string, type: string) =>
+    post<Record<string, unknown>>(`/journey/${sid}/connect-source`, {
+      session_id: sid,
+      source_name: name,
+      source_type: type,
+    }),
+  journeyInstallPack: (sid: string) =>
+    post<Record<string, unknown>>(`/journey/${sid}/install-pack`),
+  journeyApplyDefaults: (sid: string) =>
+    post<Record<string, unknown>>(`/journey/${sid}/apply-defaults`),
+  journeyIngestSample: (sid: string) =>
+    post<Record<string, unknown>>(`/journey/${sid}/ingest-sample`),
+  journeyReconcile: (sid: string) =>
+    post<Record<string, unknown>>(`/journey/${sid}/reconcile`),
+  journeyEvidenceSummary: (sid: string) =>
+    get<Record<string, unknown>>(`/journey/${sid}/evidence-summary`),
+  journeyDemonstrateGate: (sid: string) =>
+    post<Record<string, unknown>>(`/journey/${sid}/demonstrate-gate`),
+  journeyAuditReport: (sid: string) =>
+    get<Record<string, unknown>>(`/journey/${sid}/audit-report`),
+
+  // Bulk case operations
+  bulkAssign: (caseIds: string[], assignee: string) =>
+    post<BulkOpResult>("/cases/bulk/assign", {
+      case_ids: caseIds,
+      assigned_to: assignee,
+    }),
+  bulkResolve: (caseIds: string[], resolvedBy: string, note: string) =>
+    post<BulkOpResult>("/cases/bulk/resolve", {
+      case_ids: caseIds,
+      resolved_by: resolvedBy,
+      resolution_note: note,
+    }),
+  bulkSuppress: (caseIds: string[], suppressedBy: string, reason: string) =>
+    post<BulkOpResult>("/cases/bulk/suppress", {
+      case_ids: caseIds,
+      suppressed_by: suppressedBy,
+      reason: reason,
+    }),
+  getCaseWorkload: () => get<CaseWorkload>("/cases/workload"),
+  getCaseAging: () => get<CaseAging>("/cases/aging"),
+
+  // Reports
+  getReport: (reportId: string, window = "30d") =>
+    get<ReportResult>(`/reports/${reportId}?window=${window}`),
+  getReportSummary: () => get<ReportSummary>("/reports/summary"),
 };
 
 // Types
@@ -189,5 +260,167 @@ export interface ExceptionList {
     risk: string;
     expires_at: string;
     requested_by: string;
+  }>;
+}
+
+// Explainability types
+export interface GateExplanation {
+  gate_name: string;
+  outcome: string;
+  detail: string;
+  is_blocking: boolean;
+}
+
+export interface BlockExplanation {
+  request_id: string;
+  action_type: string;
+  origin: string;
+  requested_by: string;
+  requested_at: string;
+  overall_outcome: string;
+  blocking_gate: string | null;
+  blocking_reason: string | null;
+  gates: GateExplanation[];
+  missing_evidence: string[];
+  violated_policies: string[];
+  remediation_steps: string[];
+  evidence_provided: string[];
+  human_summary: string;
+}
+
+export interface ReleaseExplanation {
+  package_id: string;
+  action_type: string;
+  origin: string;
+  requested_by: string;
+  overall_outcome: string;
+  gates_passed: string[];
+  evidence_used: string[];
+  package_hash: string;
+  compiled_at: string;
+  human_summary: string;
+}
+
+export interface CaseExplanation {
+  case_id: string;
+  case_type: string;
+  severity: string;
+  explanation: string;
+  affected_planes: string[];
+  violated_rule: string;
+  remediation: string[];
+  what_this_means: string;
+  what_to_do_next: string;
+}
+
+export interface PolicyDiff {
+  from_version: number;
+  to_version: number;
+  is_breaking_change: boolean;
+  newly_blocked_actions: string[];
+  newly_unblocked_actions: string[];
+  change_summary: string;
+  impact: string;
+  recommendation: string;
+}
+
+// Demo types
+export interface DemoResetResult {
+  status: string;
+  objects: number;
+  nodes: number;
+  edges: number;
+  scenarios_available: number;
+}
+
+export interface DemoScenario {
+  scenario_id: string;
+  title: string;
+  description: string;
+  expected_outcome: string;
+  steps: string[];
+}
+
+export interface DemoScenarioList {
+  scenarios: DemoScenario[];
+}
+
+export interface DemoScenarioResult {
+  scenario_id: string;
+  title: string;
+  expected: string;
+  outcome: string;
+  passed: boolean;
+  [key: string]: unknown;
+}
+
+export interface DemoRunAllResult {
+  total: number;
+  passed: number;
+  failed: number;
+  results: DemoScenarioResult[];
+}
+
+// Journey types
+export interface JourneyStep {
+  step: number;
+  name: string;
+  api: string;
+  description: string;
+}
+
+export interface JourneySteps {
+  total_steps: number;
+  steps: JourneyStep[];
+}
+
+export interface JourneyStartResult {
+  session_id: string;
+  organisation_name: string;
+  current_step: number;
+  step_name: string;
+  next_step: number;
+  next_action: string;
+  message: string;
+}
+
+// Bulk ops types
+export interface BulkOpResult {
+  operation: string;
+  requested: number;
+  succeeded: number;
+  failed: number;
+  results: Array<{ case_id: string; status: string; error?: string }>;
+}
+
+export interface CaseWorkload {
+  total_open: number;
+  by_severity: Record<string, number>;
+  by_assignee: Record<string, number>;
+  unassigned: number;
+}
+
+export interface CaseAging {
+  buckets: Array<{
+    label: string;
+    count: number;
+    oldest_hours: number;
+  }>;
+}
+
+// Report types
+export interface ReportResult {
+  report_id: string;
+  title: string;
+  window: string;
+  generated_at: string;
+  data: Record<string, unknown>;
+}
+
+export interface ReportSummary {
+  available_reports: Array<{
+    report_id: string;
+    title: string;
+    description: string;
   }>;
 }

@@ -12,6 +12,10 @@ const NAV = [
   { href: "/evidence", label: "Evidence Chain", icon: "⬡" },
   { href: "/exceptions", label: "Exceptions", icon: "⊘" },
   { href: "/rules", label: "Rules", icon: "≡" },
+  { href: "/explain", label: "Explain", icon: "?" },
+  { href: "/demo", label: "Demo Tenant", icon: "▷" },
+  { href: "/journey", label: "Journey", icon: "→" },
+  { href: "/reports", label: "Reports", icon: "📊" },
 ];
 
 export function Sidebar() {

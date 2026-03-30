@@ -15,7 +15,12 @@ import hashlib
 import logging
 from dataclasses import dataclass, field
 
-from app.core.inference.models.domain_types import HypothesisType, RejectionReason, ScopeParameters, TypedHypothesis
+from app.core.inference.models.domain_types import (
+    HypothesisType,
+    RejectionReason,
+    ScopeParameters,
+    TypedHypothesis,
+)
 
 logger = logging.getLogger(__name__)
 

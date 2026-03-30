@@ -63,7 +63,41 @@ class ControlGraphStore:
     def node_count(self) -> int:
         return len(self._nodes)
 
-    def add_edge(self, edge: ControlEdge) -> None:
+    def add_edge(self, edge: ControlEdge, release_gate: Any | None = None) -> None:
+        """
+        Add a typed relationship edge to the graph.
+
+        Patent Claim: Referential integrity — no edge without valid terminal nodes.
+
+        GOVERNANCE NOTE: For state-semantic relationship types
+        (SATISFIES, VIOLATES, CONFLICTS, SUPERSEDES), prefer add_governed_edge()
+        which routes through the platform-wide release gate.
+        Calling add_edge() directly with a state-semantic type is permitted
+        but bypasses the evidence-gated release mechanism.
+
+        If release_gate is provided, this method delegates to add_governed_edge().
+        """
+        if release_gate is not None:
+            self.add_governed_edge(edge, asserted_by=edge.asserted_by, release_gate=release_gate)
+            return
+
+        STATE_SEMANTIC_TYPES = {
+            RelationshipType.VIOLATES,
+            RelationshipType.CONFLICTS,
+            RelationshipType.SATISFIES,
+            RelationshipType.SUPERSEDES,
+        }
+        if edge.relationship_type in STATE_SEMANTIC_TYPES:
+            logger.warning(
+                "add_edge() called with state-semantic relationship type '%s' without "
+                "release_gate. Consider using add_governed_edge() to route through the "
+                "platform-wide validation chain. edge_id=%s source=%s target=%s",
+                edge.relationship_type.value,
+                edge.edge_id[:8],
+                edge.source_object_id[:8],
+                edge.target_object_id[:8],
+            )
+
         if edge.source_object_id not in self._nodes:
             raise GraphIntegrityError(f"Source object {edge.source_object_id} not found.")
         if edge.target_object_id not in self._nodes:
@@ -75,6 +109,12 @@ class ControlGraphStore:
         self._edges[edge.edge_id] = edge
         self._outbound[edge.source_object_id].append(edge.edge_id)
         self._inbound[edge.target_object_id].append(edge.edge_id)
+        logger.debug(
+            "Added edge: %s -[%s]-> %s",
+            edge.source_object_id[:8],
+            edge.relationship_type.value,
+            edge.target_object_id[:8],
+        )
 
     def get_edge(self, edge_id: str) -> ControlEdge | None:
         return self._edges.get(edge_id)

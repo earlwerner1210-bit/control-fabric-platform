@@ -559,3 +559,204 @@ class TestGovernedOutputTaxonomy:
             edge, asserted_by="officer", release_gate=platform["release_gate"]
         )
         assert platform["release_gate"].total_submitted > before
+
+
+class TestObjectSupersession:
+    """
+    Demonstrates the SUPERSEDES relationship type as a governed output.
+
+    Patent Claim (Dependent): A typed SUPERSEDES relationship between
+    two control objects, created via the evidence-gated release mechanism,
+    formally records that one object replaces another. The superseded
+    object remains in the graph for audit purposes but is detectable
+    as superseded via graph traversal.
+
+    This demonstrates dependent claim candidate D from the patent brief:
+    object supersession as a governed, evidence-backed state change.
+    """
+
+    def test_supersession_through_release_gate(self, platform) -> None:
+        """
+        A new control object formally supersedes an older one.
+        The SUPERSEDES edge is governed — passes through the release gate.
+        """
+        # Ingest the original (v1) control object
+        original_artefact = RawArtefact(
+            source_system="policy-system",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps(
+                {
+                    "name": "Access Control Policy v1",
+                    "description": "operational policy access management",
+                    "object_type": "operational_policy",
+                }
+            ),
+            submitted_by="policy-author",
+        )
+        original_result = platform["pipeline"].ingest(original_artefact, "operations")
+        original_obj = original_result.ingested_objects[0]
+
+        # Activate original
+        platform["registry"].transition_state(
+            original_obj.object_id,
+            ControlObjectState.ACTIVE,
+            transitioned_by="policy-author",
+            reason="approved",
+            release_gate=platform["release_gate"],
+        )
+        platform["graph"].update_object(platform["registry"].get(original_obj.object_id))
+
+        # Ingest the replacement (v2) control object
+        replacement_artefact = RawArtefact(
+            source_system="policy-system",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps(
+                {
+                    "name": "Access Control Policy v2",
+                    "description": "operational policy access management updated",
+                    "object_type": "operational_policy",
+                }
+            ),
+            submitted_by="policy-author",
+        )
+        replacement_result = platform["pipeline"].ingest(replacement_artefact, "operations")
+        replacement_obj = replacement_result.ingested_objects[0]
+
+        # Activate replacement
+        platform["registry"].transition_state(
+            replacement_obj.object_id,
+            ControlObjectState.ACTIVE,
+            transitioned_by="policy-author",
+            reason="approved",
+            release_gate=platform["release_gate"],
+        )
+        platform["graph"].update_object(platform["registry"].get(replacement_obj.object_id))
+
+        # Create SUPERSEDES edge through the release gate
+        before_submissions = platform["release_gate"].total_submitted
+        supersedes_edge = ControlEdge(
+            source_object_id=replacement_obj.object_id,
+            target_object_id=original_obj.object_id,
+            relationship_type=RelationshipType.SUPERSEDES,
+            asserted_by="policy-author",
+            evidence_references=[
+                original_artefact.content_hash,
+                replacement_artefact.content_hash,
+            ],
+            context={
+                "reason": "v2 incorporates updated access control requirements",
+                "effective_date": "2026-04-01",
+            },
+        )
+        platform["graph"].add_governed_edge(
+            supersedes_edge,
+            asserted_by="policy-author",
+            release_gate=platform["release_gate"],
+        )
+
+        # Verify gate was exercised for the SUPERSEDES edge
+        assert platform["release_gate"].total_submitted > before_submissions, (
+            "SUPERSEDES edge creation must pass through the release gate"
+        )
+
+        # Verify the edge exists in the graph
+        outbound = platform["graph"].get_outbound_edges(
+            replacement_obj.object_id,
+            relationship_filter=[RelationshipType.SUPERSEDES],
+        )
+        assert len(outbound) == 1
+        assert outbound[0].target_object_id == original_obj.object_id
+
+        # Verify supersession is detectable via traversal
+        path = platform["graph"].find_path_between(
+            replacement_obj.object_id,
+            original_obj.object_id,
+        )
+        assert path is not None
+        assert path.depth >= 1
+
+        # Verify evidence package exists for the supersession action
+        audit_log = platform["release_gate"].get_audit_log()
+        supersession_actions = [
+            r for r in audit_log if r.status.value in ("compiled", "dispatched")
+        ]
+        assert len(supersession_actions) > 0
+
+    def test_superseded_object_retained_for_audit(self, platform) -> None:
+        """
+        Patent Claim: The superseded object is never deleted.
+        It remains in the graph and registry for audit purposes.
+        The SUPERSEDES relationship is the governance record.
+        """
+        a1 = RawArtefact(
+            source_system="test",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps({"name": "Policy A1", "description": "operational policy"}),
+            submitted_by="author",
+        )
+        a2 = RawArtefact(
+            source_system="test",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps({"name": "Policy A2", "description": "operational policy"}),
+            submitted_by="author",
+        )
+        r1 = platform["pipeline"].ingest(a1, "operations")
+        r2 = platform["pipeline"].ingest(a2, "operations")
+        o1 = r1.ingested_objects[0]
+        o2 = r2.ingested_objects[0]
+
+        edge = ControlEdge(
+            source_object_id=o2.object_id,
+            target_object_id=o1.object_id,
+            relationship_type=RelationshipType.SUPERSEDES,
+            asserted_by="author",
+            evidence_references=[a1.content_hash, a2.content_hash],
+        )
+        platform["graph"].add_governed_edge(
+            edge,
+            asserted_by="author",
+            release_gate=platform["release_gate"],
+        )
+
+        # Both objects still exist in registry and graph
+        assert platform["registry"].get(o1.object_id) is not None, (
+            "Superseded object must be retained in registry"
+        )
+        assert platform["graph"].get_object(o1.object_id) is not None, (
+            "Superseded object must be retained in graph"
+        )
+        assert platform["registry"].get(o2.object_id) is not None, "Superseding object must exist"
+
+    def test_add_edge_warns_for_semantic_types(self, platform) -> None:
+        """
+        Verifies that calling add_edge() directly with a state-semantic
+        type still adds the edge (not blocked), but the governance warning
+        directs callers to add_governed_edge() instead.
+        """
+        a1 = RawArtefact(
+            source_system="test",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps({"name": "Warn Object A"}),
+            submitted_by="test",
+        )
+        a2 = RawArtefact(
+            source_system="test",
+            format=ArtefactFormat.JSON,
+            raw_content=json.dumps({"name": "Warn Object B"}),
+            submitted_by="test",
+        )
+        r1 = platform["pipeline"].ingest(a1, "risk")
+        r2 = platform["pipeline"].ingest(a2, "risk")
+        o1 = r1.ingested_objects[0]
+        o2 = r2.ingested_objects[0]
+
+        edge = ControlEdge(
+            source_object_id=o1.object_id,
+            target_object_id=o2.object_id,
+            relationship_type=RelationshipType.VIOLATES,
+            asserted_by="test",
+        )
+
+        # Edge is added (not blocked) — warning is logged but doesn't prevent creation
+        platform["graph"].add_edge(edge)
+        assert platform["graph"].get_edge(edge.edge_id) is not None

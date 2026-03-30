@@ -1,6 +1,20 @@
 # Control Fabric Platform
 
-A modular, domain-extensible AI platform for **telecom margin assurance**, **contract intelligence**, and **operational control**. It provides a structured pipeline from document ingestion through entity resolution, control compilation, reconciliation, and inference -- producing auditable, deterministic outputs across multiple domain packs.
+A modular, domain-extensible control fabric platform for **telecom margin assurance**, **contract intelligence**, and **operational control**. It provides a structured pipeline from document ingestion through entity resolution, control compilation, reconciliation, and inference -- producing auditable, deterministic outputs across multiple domain packs.
+
+## What This Is
+
+The Control Fabric Platform is a control-native decision platform
+with policy-bounded model-assisted reasoning.
+
+It is NOT an AI platform. The AI is a subordinate utility.
+The control fabric is the product.
+
+Every output — human, automated, or AI-generated — passes through
+the same deterministic validation chain and evidence-gated release
+before it can affect platform state.
+
+Core principle: cannot violate, not will not violate.
 
 ## Architecture
 

@@ -1,271 +1,159 @@
+"""Reconciliation engine — cross-plane mismatch detection and scoring."""
+
 from __future__ import annotations
 
-import hashlib
-import logging
 import uuid
-from datetime import UTC, datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
-
-from app.core.graph.domain_types import ControlObject, ControlObjectType, RelationshipType
-from app.core.graph.store import ControlGraphStore
-
-logger = logging.getLogger(__name__)
-
-
-class ReconciliationCaseType(str, Enum):
-    GAP = "gap"
-    CONFLICT = "conflict"
-    DUPLICATE = "duplicate"
-    MATCH = "match"
-    ORPHAN = "orphan"
-
-
-class ReconciliationCaseSeverity(str, Enum):
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-
-
-class ReconciliationCaseStatus(str, Enum):
-    OPEN = "open"
-    UNDER_REVIEW = "under_review"
-    RESOLVED = "resolved"
-    ACCEPTED_RISK = "accepted_risk"
+from app.core.control_link import ControlLink
+from app.core.control_object import ControlObject
+from app.core.graph.service import GraphService
+from app.core.reconciliation.rules import DEFAULT_RULES, ReconciliationRule
+from app.core.reconciliation.scoring import score_mismatches
+from app.core.reconciliation.types import (
+    EvidenceBundle,
+    Mismatch,
+    ReconciliationMode,
+    ReconciliationResult,
+    ReconciliationStatus,
+)
+from app.core.registry import FabricRegistry
+from app.core.types import (
+    AuditContext,
+    ControlLinkType,
+    ControlObjectId,
+    ControlState,
+    PlaneType,
+)
 
 
-class ReconciliationCase(BaseModel):
-    case_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    case_type: ReconciliationCaseType
-    severity: ReconciliationCaseSeverity
-    status: ReconciliationCaseStatus = Field(default=ReconciliationCaseStatus.OPEN)
-    title: str
-    description: str
-    affected_object_ids: list[str]
-    affected_planes: list[str]
-    violated_rule_id: str | None = None
-    missing_relationship_type: RelationshipType | None = None
-    conflicting_edge_ids: list[str] = Field(default_factory=list)
-    detected_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    resolved_at: datetime | None = None
-    severity_score: int = Field(default=0)
-    remediation_suggestions: list[str] = Field(default_factory=list)
-    case_hash: str = Field(default="")
+class ReconciliationEngine:
+    """Cross-plane reconciliation: deterministic mismatch detection, scoring, evidence bundles."""
 
-    @model_validator(mode="after")
-    def compute_case_hash(self) -> ReconciliationCase:
-        payload = f"{self.case_type}{self.severity}{sorted(self.affected_object_ids)}{sorted(self.affected_planes)}{self.violated_rule_id}{self.detected_at.isoformat()}"
-        self.case_hash = hashlib.sha256(payload.encode()).hexdigest()
-        return self
-
-
-class ReconciliationRule(BaseModel):
-    rule_id: str
-    domain_pack: str
-    rule_name: str
-    description: str
-    source_plane: str
-    target_plane: str
-    source_object_type: ControlObjectType
-    target_object_type: ControlObjectType
-    required_relationship: RelationshipType
-    severity: ReconciliationCaseSeverity
-    enabled: bool = Field(default=True)
-
-
-def build_core_reconciliation_rules() -> list[ReconciliationRule]:
-    return [
-        ReconciliationRule(
-            rule_id="CORE-001",
-            domain_pack="core",
-            rule_name="risk_control_must_mitigate_vulnerability",
-            description="Every active risk control must mitigate at least one vulnerability",
-            source_plane="risk",
-            target_plane="risk",
-            source_object_type=ControlObjectType.RISK_CONTROL,
-            target_object_type=ControlObjectType.VULNERABILITY,
-            required_relationship=RelationshipType.MITIGATES,
-            severity=ReconciliationCaseSeverity.HIGH,
-        ),
-        ReconciliationRule(
-            rule_id="CORE-002",
-            domain_pack="core",
-            rule_name="technical_control_must_satisfy_compliance",
-            description="Every technical control must satisfy at least one compliance requirement",
-            source_plane="security",
-            target_plane="compliance",
-            source_object_type=ControlObjectType.TECHNICAL_CONTROL,
-            target_object_type=ControlObjectType.COMPLIANCE_REQUIREMENT,
-            required_relationship=RelationshipType.SATISFIES,
-            severity=ReconciliationCaseSeverity.CRITICAL,
-        ),
-        ReconciliationRule(
-            rule_id="CORE-003",
-            domain_pack="core",
-            rule_name="compliance_requirement_must_satisfy_mandate",
-            description="Every compliance requirement must link to a regulatory mandate",
-            source_plane="compliance",
-            target_plane="compliance",
-            source_object_type=ControlObjectType.COMPLIANCE_REQUIREMENT,
-            target_object_type=ControlObjectType.REGULATORY_MANDATE,
-            required_relationship=RelationshipType.SATISFIES,
-            severity=ReconciliationCaseSeverity.CRITICAL,
-        ),
-        ReconciliationRule(
-            rule_id="CORE-004",
-            domain_pack="core",
-            rule_name="security_control_must_implement_policy",
-            description="Every security control must implement an operational policy",
-            source_plane="security",
-            target_plane="operations",
-            source_object_type=ControlObjectType.SECURITY_CONTROL,
-            target_object_type=ControlObjectType.OPERATIONAL_POLICY,
-            required_relationship=RelationshipType.IMPLEMENTS,
-            severity=ReconciliationCaseSeverity.MEDIUM,
-        ),
-    ]
-
-
-class CrossPlaneReconciliationEngine:
     def __init__(
-        self, graph: ControlGraphStore, rules: list[ReconciliationRule] | None = None
+        self,
+        graph_service: GraphService,
+        registry: FabricRegistry | None = None,
+        rules: list[ReconciliationRule] | None = None,
     ) -> None:
-        self._graph = graph
-        self._rules = rules or build_core_reconciliation_rules()
-        self._cases: dict[str, ReconciliationCase] = {}
-        self._case_index_by_object: dict[str, list[str]] = {}
+        self._graph = graph_service
+        self._registry = registry or FabricRegistry()
+        self._rules: list[ReconciliationRule] = rules if rules is not None else list(DEFAULT_RULES)
 
-    def run_full_reconciliation(self) -> list[ReconciliationCase]:
-        new_cases: list[ReconciliationCase] = []
-        for rule in self._rules:
-            if rule.enabled:
-                new_cases.extend(self._evaluate_rule(rule))
-        new_cases.extend(self._detect_conflicts())
-        new_cases.extend(self._detect_orphans())
-        for case in new_cases:
-            self._commit_case(case)
-        return new_cases
+    def add_rule(self, rule: ReconciliationRule) -> None:
+        self._rules.append(rule)
 
-    def _evaluate_rule(self, rule: ReconciliationRule) -> list[ReconciliationCase]:
-        cases = []
-        for source_obj in self._graph.get_objects_by_type(rule.source_object_type.value):
-            if not source_obj.is_active():
-                continue
-            outbound_edges = self._graph.get_outbound_edges(
-                source_obj.object_id, [rule.required_relationship]
-            )
-            has_required_link = any(
-                (target := self._graph.get_object(e.target_object_id)) is not None
-                and target.object_type == rule.target_object_type
-                and target.operational_plane == rule.target_plane
-                and target.is_active()
-                for e in outbound_edges
-            )
-            if not has_required_link:
-                cases.append(
-                    ReconciliationCase(
-                        case_type=ReconciliationCaseType.GAP,
-                        severity=rule.severity,
-                        title=f"GAP: {source_obj.name} lacks required {rule.required_relationship.value} link",
-                        description=f"Rule '{rule.rule_name}': Active {rule.source_object_type.value} '{source_obj.name}' in plane '{rule.source_plane}' has no '{rule.required_relationship.value}' relationship to any active {rule.target_object_type.value} in plane '{rule.target_plane}'.",
-                        affected_object_ids=[source_obj.object_id],
-                        affected_planes=[rule.source_plane, rule.target_plane],
-                        violated_rule_id=rule.rule_id,
-                        missing_relationship_type=rule.required_relationship,
-                        severity_score=self._compute_severity_score(rule.severity, [source_obj]),
-                        remediation_suggestions=[
-                            f"Create a '{rule.required_relationship.value}' relationship from '{source_obj.name}' to an appropriate {rule.target_object_type.value}.",
-                            f"Review whether '{source_obj.name}' should be deprecated if no applicable {rule.target_object_type.value} exists.",
-                        ],
+    def reconcile_pair(
+        self,
+        source: ControlObject,
+        target: ControlObject,
+        rules: list[ReconciliationRule] | None = None,
+    ) -> list[Mismatch]:
+        """Run reconciliation rules against a source/target pair."""
+        active_rules = rules if rules is not None else self._rules
+        mismatches: list[Mismatch] = []
+        for rule in active_rules:
+            mismatches.extend(rule.evaluate(source, target))
+        return mismatches
+
+    def reconcile_cross_plane(
+        self,
+        tenant_id: uuid.UUID,
+        source_plane: PlaneType,
+        target_plane: PlaneType,
+        domain: str,
+    ) -> ReconciliationResult:
+        """Run full cross-plane reconciliation between two planes for a domain."""
+        source_objects = self._graph.list_objects(tenant_id, plane=source_plane, domain=domain)
+        target_objects = self._graph.list_objects(tenant_id, plane=target_plane, domain=domain)
+
+        all_mismatches: list[Mismatch] = []
+        source_ids: list[ControlObjectId] = []
+        target_ids: list[ControlObjectId] = []
+
+        # Find cross-plane linked pairs
+        pairs = self._find_cross_plane_pairs(source_objects, target_objects, tenant_id)
+
+        for src, tgt in pairs:
+            mismatches = self.reconcile_pair(src, tgt)
+            all_mismatches.extend(mismatches)
+            if src.id not in source_ids:
+                source_ids.append(src.id)
+            if tgt.id not in target_ids:
+                target_ids.append(tgt.id)
+
+        score = score_mismatches(all_mismatches)
+
+        evidence_bundle = EvidenceBundle(
+            mismatches=all_mismatches,
+            source_objects=source_ids,
+            target_objects=target_ids,
+            summary=(
+                f"Reconciliation of {source_plane.value}↔{target_plane.value} "
+                f"in domain '{domain}': {len(all_mismatches)} mismatches found"
+            ),
+        )
+
+        result = ReconciliationResult(
+            tenant_id=tenant_id,
+            run_at=datetime.now(UTC),
+            status=ReconciliationStatus.COMPLETED,
+            mode=ReconciliationMode.DETERMINISTIC,
+            source_plane=source_plane,
+            target_plane=target_plane,
+            domain=domain,
+            evidence_bundle=evidence_bundle,
+            score=score,
+        )
+        result.compute_hash()
+
+        # Mark reconciled objects
+        now = datetime.now(UTC)
+        for src_obj in source_objects:
+            if src_obj.state == ControlState.FROZEN:
+                src_obj.mark_reconciled(
+                    AuditContext(
+                        actor="reconciliation_engine",
+                        action="reconciled",
+                        timestamp=now,
                     )
                 )
-        return cases
+                self._graph.repository.store_object(src_obj)
 
-    def _detect_conflicts(self) -> list[ReconciliationCase]:
-        cases = []
-        conflict_rels = [RelationshipType.CONFLICTS, RelationshipType.VIOLATES]
-        for edge_id, edge in self._graph._edges.items():
-            if edge.relationship_type not in conflict_rels or not edge.is_active:
+        return result
+
+    def _find_cross_plane_pairs(
+        self,
+        source_objects: list[ControlObject],
+        target_objects: list[ControlObject],
+        tenant_id: uuid.UUID,
+    ) -> list[tuple[ControlObject, ControlObject]]:
+        """Find object pairs linked across planes."""
+        pairs: list[tuple[ControlObject, ControlObject]] = []
+        source_map = {obj.id: obj for obj in source_objects}
+        target_map = {obj.id: obj for obj in target_objects}
+
+        all_links = self._graph.repository.get_all_links(tenant_id)
+        for link in all_links:
+            if not link.is_cross_plane:
                 continue
-            source = self._graph.get_object(edge.source_object_id)
-            target = self._graph.get_object(edge.target_object_id)
-            if not source or not target or not source.is_active() or not target.is_active():
-                continue
-            cases.append(
-                ReconciliationCase(
-                    case_type=ReconciliationCaseType.CONFLICT,
-                    severity=ReconciliationCaseSeverity.CRITICAL,
-                    title=f"CONFLICT: '{source.name}' {edge.relationship_type.value} '{target.name}'",
-                    description=f"Active conflict: '{source.name}' ({source.operational_plane}) has a '{edge.relationship_type.value}' relationship with '{target.name}' ({target.operational_plane}).",
-                    affected_object_ids=[source.object_id, target.object_id],
-                    affected_planes=list({source.operational_plane, target.operational_plane}),
-                    conflicting_edge_ids=[edge_id],
-                    severity_score=100,
-                    remediation_suggestions=[
-                        f"Review the conflict between '{source.name}' and '{target.name}'.",
-                        "Update one or both objects to resolve the incompatibility.",
-                    ],
-                )
-            )
-        return cases
+            src = source_map.get(link.source_id)
+            tgt = target_map.get(link.target_id)
+            if src and tgt:
+                pairs.append((src, tgt))
+            # Also check reverse
+            src_r = source_map.get(link.target_id)
+            tgt_r = target_map.get(link.source_id)
+            if src_r and tgt_r:
+                pairs.append((src_r, tgt_r))
 
-    def _detect_orphans(self) -> list[ReconciliationCase]:
-        cases = []
-        for obj in self._graph.get_active_objects():
-            if not self._graph.get_outbound_edges(
-                obj.object_id
-            ) and not self._graph.get_inbound_edges(obj.object_id):
-                cases.append(
-                    ReconciliationCase(
-                        case_type=ReconciliationCaseType.ORPHAN,
-                        severity=ReconciliationCaseSeverity.MEDIUM,
-                        title=f"ORPHAN: '{obj.name}' has no governance relationships",
-                        description=f"Active {obj.object_type.value} '{obj.name}' in plane '{obj.operational_plane}' has no relationships.",
-                        affected_object_ids=[obj.object_id],
-                        affected_planes=[obj.operational_plane],
-                        severity_score=40,
-                        remediation_suggestions=[
-                            f"Link '{obj.name}' to at least one related control object.",
-                            f"If '{obj.name}' is no longer relevant, deprecate it.",
-                        ],
-                    )
-                )
-        return cases
+        # Also pair by correlation keys
+        if not pairs:
+            for src in source_objects:
+                for key, val in src.correlation_keys.items():
+                    for tgt in target_objects:
+                        if tgt.correlation_keys.get(key) == val:
+                            pairs.append((src, tgt))
 
-    def _commit_case(self, case: ReconciliationCase) -> None:
-        self._cases[case.case_id] = case
-        for obj_id in case.affected_object_ids:
-            self._case_index_by_object.setdefault(obj_id, []).append(case.case_id)
-
-    @staticmethod
-    def _compute_severity_score(
-        severity: ReconciliationCaseSeverity, objects: list[ControlObject]
-    ) -> int:
-        base = {"critical": 100, "high": 70, "medium": 40, "low": 10}.get(severity.value, 10)
-        return base + len(objects)
-
-    def get_open_cases(self) -> list[ReconciliationCase]:
-        return [c for c in self._cases.values() if c.status == ReconciliationCaseStatus.OPEN]
-
-    def get_cases_by_severity(
-        self, severity: ReconciliationCaseSeverity
-    ) -> list[ReconciliationCase]:
-        return [c for c in self._cases.values() if c.severity == severity]
-
-    def get_cases_for_object(self, object_id: str) -> list[ReconciliationCase]:
-        return [
-            self._cases[cid]
-            for cid in self._case_index_by_object.get(object_id, [])
-            if cid in self._cases
-        ]
-
-    @property
-    def total_cases(self) -> int:
-        return len(self._cases)
-
-    @property
-    def open_case_count(self) -> int:
-        return len(self.get_open_cases())
+        return pairs

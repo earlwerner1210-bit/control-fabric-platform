@@ -15,7 +15,7 @@ from app.core.graph.domain_types import (
     RelationshipType,
 )
 from app.core.graph.store import ControlGraphStore, GraphIntegrityError
-from app.core.reconciliation.engine import (
+from app.core.reconciliation.cross_plane_engine import (
     CrossPlaneReconciliationEngine,
     ReconciliationCaseSeverity,
     ReconciliationCaseType,

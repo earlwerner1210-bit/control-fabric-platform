@@ -1,0 +1,74 @@
+[
+  {
+    "doc_id": "8b1dfcc52ec2b079",
+    "title": "FCA SYSC 8.1",
+    "source": "static_corpus",
+    "domain": "financial_services",
+    "text": "Outsourcing requirements: A firm must take reasonable steps to avoid undue additional operational risk when outsourcing important operational functions. A firm must not undertake the outsourcing of important operational functions in such a way as to impair materially the quality of its internal control and the ability of the FCA to monitor the firm's compliance.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.063998+00:00",
+    "section_refs": [
+      "FCA SYSC 8.1"
+    ]
+  },
+  {
+    "doc_id": "e582f49a12812000",
+    "title": "FCA SYSC 13.9",
+    "source": "static_corpus",
+    "domain": "financial_services",
+    "text": "Information security: A firm should establish and maintain appropriate systems and controls for managing its information security risks, including policies and procedures covering access controls, encryption, and security monitoring.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.064007+00:00",
+    "section_refs": [
+      "FCA SYSC 13.9"
+    ]
+  },
+  {
+    "doc_id": "70c5eb032ef55855",
+    "title": "FCA SYSC 15A",
+    "source": "static_corpus",
+    "domain": "financial_services",
+    "text": "Operational resilience: Firms must identify their important business services, set impact tolerances, and carry out mapping and scenario testing to ensure they can remain within impact tolerances during severe but plausible disruptions.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.064012+00:00",
+    "section_refs": [
+      "FCA SYSC 15A"
+    ]
+  },
+  {
+    "doc_id": "d1da136520f1bfba",
+    "title": "DORA Article 8",
+    "source": "static_corpus",
+    "domain": "financial_services",
+    "text": "ICT risk management framework: Financial entities shall have in place an internal governance and control framework that ensures an effective and prudent management of ICT risk. The management body shall define, approve, oversee and be accountable for the implementation of the ICT risk management framework.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.064016+00:00",
+    "section_refs": [
+      "DORA Article 8"
+    ]
+  },
+  {
+    "doc_id": "ff78c428625510bc",
+    "title": "DORA Article 17",
+    "source": "static_corpus",
+    "domain": "financial_services",
+    "text": "ICT-related incident management: Financial entities shall define, establish and implement an ICT-related incident management process to detect, manage and notify ICT-related incidents. Financial entities shall classify ICT-related incidents according to criteria including the criticality of the services affected and the duration of the incident.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.064019+00:00",
+    "section_refs": [
+      "DORA Article 17"
+    ]
+  },
+  {
+    "doc_id": "f63f3913a354999c",
+    "title": "PRA SS1/21",
+    "source": "static_corpus",
+    "domain": "financial_services",
+    "text": "Operational resilience: Firms should identify their important business services from the perspective of the risk of harm that disruption could cause to consumers, market integrity, or policyholder protection.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.064023+00:00",
+    "section_refs": [
+      "PRA SS1/21"
+    ]
+  }
+]

@@ -1,0 +1,74 @@
+[
+  {
+    "doc_id": "4d9217682c933807",
+    "title": "SRA Code of Conduct 2019 Para 6.1",
+    "source": "static_corpus",
+    "domain": "legal",
+    "text": "Conflicts of interest: You must not act if there is an own interest conflict or a significant risk of such a conflict. You must not act in a matter where there is a conflict between the interests of two or more clients unless the clients have a substantially common interest and the conditions are met.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.481850+00:00",
+    "section_refs": [
+      "SRA Code of Conduct 2019 Para 6.1"
+    ]
+  },
+  {
+    "doc_id": "669e4c9924ac2dd5",
+    "title": "MLR 2017 Regulation 27",
+    "source": "static_corpus",
+    "domain": "legal",
+    "text": "Customer Due Diligence: A relevant person must apply customer due diligence measures when establishing a business relationship, or carrying out an occasional transaction. CDD measures must be applied before carrying out a transaction and before establishing a business relationship.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.481860+00:00",
+    "section_refs": [
+      "MLR 2017 Regulation 27"
+    ]
+  },
+  {
+    "doc_id": "b1e127e62077b8a3",
+    "title": "POCA 2002 Section 330",
+    "source": "static_corpus",
+    "domain": "legal",
+    "text": "Failure to disclose: A person commits an offence if they know or suspect, or have reasonable grounds for knowing or suspecting, that another person is engaged in money laundering, and the information came to them in the course of their work in the regulated sector, and they do not disclose the information to a nominated officer or the National Crime Agency as soon as is practicable.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.481864+00:00",
+    "section_refs": [
+      "POCA 2002 Section 330"
+    ]
+  },
+  {
+    "doc_id": "fae86b4121d1fc4e",
+    "title": "UK GDPR Article 5",
+    "source": "static_corpus",
+    "domain": "legal",
+    "text": "Principles relating to processing of personal data: Personal data shall be processed lawfully, fairly and in a transparent manner. Personal data shall be collected for specified, explicit and legitimate purposes. Personal data shall be adequate, relevant and limited to what is necessary.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.481868+00:00",
+    "section_refs": [
+      "UK GDPR Article 5"
+    ]
+  },
+  {
+    "doc_id": "cd8671d0acb0c2a8",
+    "title": "SRA Accounts Rules 2019 Rule 2.1",
+    "source": "static_corpus",
+    "domain": "legal",
+    "text": "Client money must be kept separate from money belonging to the authorised body. Client money must be kept in a client account. Client accounts must be reconciled at least every five weeks.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.481871+00:00",
+    "section_refs": [
+      "SRA Accounts Rules 2019 Rule 2.1"
+    ]
+  },
+  {
+    "doc_id": "03684100c12cdc14",
+    "title": "SRA Code of Conduct 2019 Para 4.2",
+    "source": "static_corpus",
+    "domain": "legal",
+    "text": "Supervision: You must not act where you are unable to provide competent legal services. You must only act if you have adequate supervision in place.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.481874+00:00",
+    "section_refs": [
+      "SRA Code of Conduct 2019 Para 4.2"
+    ]
+  }
+]

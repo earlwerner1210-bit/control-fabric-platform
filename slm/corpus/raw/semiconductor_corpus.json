@@ -1,0 +1,62 @@
+[
+  {
+    "doc_id": "39d05df070de4498",
+    "title": "ITAR 22 CFR Part 120.33",
+    "source": "static_corpus",
+    "domain": "semiconductor",
+    "text": "Technical data definition and control: Technical data means information required for the design, development, production, or modification of defense articles. Controlled technical data may not be exported or released to a foreign person without a licence or applicable exemption.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:02.399395+00:00",
+    "section_refs": [
+      "ITAR 22 CFR Part 120.33"
+    ]
+  },
+  {
+    "doc_id": "dc41f599d80884f9",
+    "title": "EAR 15 CFR Part 734.13",
+    "source": "static_corpus",
+    "domain": "semiconductor",
+    "text": "Export and deemed export controls: A release of technology subject to the EAR to a foreign national in the United States constitutes a deemed export. Most semiconductor technology classified under ECCN 3E001 requires a licence.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:02.399424+00:00",
+    "section_refs": [
+      "EAR 15 CFR Part 734.13"
+    ]
+  },
+  {
+    "doc_id": "26838bde6a4836bb",
+    "title": "SEMI S2 Section 6",
+    "source": "static_corpus",
+    "domain": "semiconductor",
+    "text": "Equipment change assessment: Changes to semiconductor manufacturing equipment shall be assessed for environmental, health, and safety impact prior to implementation. Documentation and approval by EHS qualified personnel required.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:02.399446+00:00",
+    "section_refs": [
+      "SEMI S2 Section 6"
+    ]
+  },
+  {
+    "doc_id": "d5bc111a5bdeaaa8",
+    "title": "JEDEC JESD47",
+    "source": "static_corpus",
+    "domain": "semiconductor",
+    "text": "Stress-test driven qualification: Components and processes used in semiconductor manufacturing shall be qualified to applicable JEDEC standards before production. Process changes affecting reliability shall trigger requalification.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:02.399471+00:00",
+    "section_refs": [
+      "JEDEC JESD47"
+    ]
+  },
+  {
+    "doc_id": "03cfe3df44b6f86c",
+    "title": "US CHIPS Act Section 9902",
+    "source": "static_corpus",
+    "domain": "semiconductor",
+    "text": "Guardrail provisions: Recipients of CHIPS Act funding shall not engage in any significant transaction involving material expansion of semiconductor manufacturing capacity in a country of concern for a period of 10 years.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:02.399488+00:00",
+    "section_refs": [
+      "US CHIPS Act Section 9902"
+    ]
+  }
+]

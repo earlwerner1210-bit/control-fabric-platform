@@ -1,0 +1,50 @@
+[
+  {
+    "doc_id": "bca3ad73ac061507",
+    "title": "ISO 9001:2015 Clause 8.5.6",
+    "source": "static_corpus",
+    "domain": "manufacturing",
+    "text": "Control of changes: The organization shall review and control changes for production or service provision. Documented information describing the results of the review, the person authorizing the change, and any necessary actions arising from the review must be retained.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:02.012452+00:00",
+    "section_refs": [
+      "ISO 9001:2015 Clause 8.5.6"
+    ]
+  },
+  {
+    "doc_id": "d5f3b7608c40e93f",
+    "title": "IATF 16949:2016 Clause 8.3.4.4",
+    "source": "static_corpus",
+    "domain": "manufacturing",
+    "text": "Product approval process: The organization shall comply with the applicable customer product and manufacturing process approval procedure. Documented product approval before shipment required if specified by the customer.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:02.012462+00:00",
+    "section_refs": [
+      "IATF 16949:2016 Clause 8.3.4.4"
+    ]
+  },
+  {
+    "doc_id": "4dd2c49dfdc06fe0",
+    "title": "IEC 62443-2-3",
+    "source": "static_corpus",
+    "domain": "manufacturing",
+    "text": "Patch management in IACS environment: Patches to industrial automation and control systems shall be assessed before deployment. The assessment shall determine the potential impact on the IACS. Deployment procedures shall include backout plans.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:02.012466+00:00",
+    "section_refs": [
+      "IEC 62443-2-3"
+    ]
+  },
+  {
+    "doc_id": "e312a25fe4260827",
+    "title": "OSHA PSM 29 CFR 1910.119(l)",
+    "source": "static_corpus",
+    "domain": "manufacturing",
+    "text": "Management of change: The employer shall establish and implement written procedures to manage changes to process chemicals, technology, equipment, and procedures. Information must be transmitted to affected employees before startup.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:02.012469+00:00",
+    "section_refs": [
+      "OSHA PSM 29 CFR 1910.119(l)"
+    ]
+  }
+]

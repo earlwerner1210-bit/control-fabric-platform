@@ -1,0 +1,62 @@
+[
+  {
+    "doc_id": "18a88bdff01431b5",
+    "title": "FDA 21 CFR Part 11.10",
+    "source": "static_corpus",
+    "domain": "healthcare",
+    "text": "Controls for closed systems: Persons who use closed systems to create, modify, maintain, or transmit electronic records shall employ procedures and controls designed to ensure the authenticity, integrity, and confidentiality of electronic records. System validation, audit trails, and access controls are required.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.879214+00:00",
+    "section_refs": [
+      "FDA 21 CFR Part 11.10"
+    ]
+  },
+  {
+    "doc_id": "efb17549e03d6255",
+    "title": "FDA 21 CFR Part 820.30",
+    "source": "static_corpus",
+    "domain": "healthcare",
+    "text": "Design controls: Each manufacturer of any class II or class III device shall establish and maintain procedures to control the design of the device. Design input, output, review, verification, validation, transfer, and changes are all required elements.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.879234+00:00",
+    "section_refs": [
+      "FDA 21 CFR Part 820.30"
+    ]
+  },
+  {
+    "doc_id": "d8ea6607f75ea93d",
+    "title": "EU MDR 2017/745 Article 61",
+    "source": "static_corpus",
+    "domain": "healthcare",
+    "text": "Clinical evaluation: Manufacturers shall plan, continuously conduct and document a clinical evaluation. The evaluation shall follow a defined and methodologically sound procedure based on clinical data.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.879239+00:00",
+    "section_refs": [
+      "EU MDR 2017/745 Article 61"
+    ]
+  },
+  {
+    "doc_id": "cd2177fdce90ecf8",
+    "title": "HIPAA Security Rule 45 CFR 164.312",
+    "source": "static_corpus",
+    "domain": "healthcare",
+    "text": "Technical safeguards: A covered entity must implement reasonable and appropriate administrative, physical, and technical safeguards to protect ePHI. Access controls, audit controls, integrity controls, and transmission security required.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.879242+00:00",
+    "section_refs": [
+      "HIPAA Security Rule 45 CFR 164.312"
+    ]
+  },
+  {
+    "doc_id": "d43e12ebb80db13f",
+    "title": "ICH E6(R2) Section 5.5",
+    "source": "static_corpus",
+    "domain": "healthcare",
+    "text": "Quality management: The sponsor is responsible for implementing and maintaining quality assurance and quality control systems with written SOPs to ensure trials are conducted in compliance with the protocol, GCP, and regulatory requirements.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:00.879245+00:00",
+    "section_refs": [
+      "ICH E6(R2) Section 5.5"
+    ]
+  }
+]

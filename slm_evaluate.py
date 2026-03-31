@@ -6,6 +6,7 @@ Measures per-domain:
   - improvement_vs_baseline: delta over rule-based dry-run baseline
 Writes evaluation_report.json to slm/evaluation/results/
 """
+
 from __future__ import annotations
 
 import json
@@ -44,70 +45,98 @@ DOMAINS = [
 # Known regulation citation patterns per domain
 CITATION_PATTERNS = {
     "telecom": [
-        r"47\s*(?:U\.S\.C\.|CFR|USC)", r"FCC\s+(?:Rule|Order|Regulation|Part)",
-        r"Part\s+\d+", r"(?:GDPR|CCPA|TCPA|CAN-SPAM)", r"ITU-T\s+[A-Z]\.\d+",
-        r"3GPP\s+TS\s+\d+", r"RFC\s+\d+", r"IEEE\s+\d+",
+        r"47\s*(?:U\.S\.C\.|CFR|USC)",
+        r"FCC\s+(?:Rule|Order|Regulation|Part)",
+        r"Part\s+\d+",
+        r"(?:GDPR|CCPA|TCPA|CAN-SPAM)",
+        r"ITU-T\s+[A-Z]\.\d+",
+        r"3GPP\s+TS\s+\d+",
+        r"RFC\s+\d+",
+        r"IEEE\s+\d+",
     ],
     "legal": [
-        r"\d+\s+U\.S\.C\.\s+§\s*\d+", r"[A-Z][a-z]+\s+v\.\s+[A-Z][a-z]+",
-        r"(?:GDPR|CCPA|HIPAA|SOX|FCPA)", r"Article\s+\d+",
-        r"Section\s+\d+(?:\(\w+\))?", r"Regulation\s+\([A-Z]+\)",
+        r"\d+\s+U\.S\.C\.\s+§\s*\d+",
+        r"[A-Z][a-z]+\s+v\.\s+[A-Z][a-z]+",
+        r"(?:GDPR|CCPA|HIPAA|SOX|FCPA)",
+        r"Article\s+\d+",
+        r"Section\s+\d+(?:\(\w+\))?",
+        r"Regulation\s+\([A-Z]+\)",
         r"Directive\s+\d{4}/\d+/[A-Z]+",
     ],
     "banking": [
-        r"(?:Basel\s+(?:I{1,3}|IV)|BCBS\s+\d+)", r"Dodd-Frank\s+(?:Act|Section)",
-        r"12\s+(?:U\.S\.C\.|CFR)\s+§?\s*\d+", r"(?:CRR|CRD\s+(?:IV|V))",
-        r"(?:DFAST|CCAR|CECL|LIBOR)", r"(?:AML|KYC|BSA|FinCEN)",
-        r"Regulation\s+[A-Z]+", r"(?:FDIC|OCC|Fed|CFPB)\s+(?:Rule|Guidance)",
+        r"(?:Basel\s+(?:I{1,3}|IV)|BCBS\s+\d+)",
+        r"Dodd-Frank\s+(?:Act|Section)",
+        r"12\s+(?:U\.S\.C\.|CFR)\s+§?\s*\d+",
+        r"(?:CRR|CRD\s+(?:IV|V))",
+        r"(?:DFAST|CCAR|CECL|LIBOR)",
+        r"(?:AML|KYC|BSA|FinCEN)",
+        r"Regulation\s+[A-Z]+",
+        r"(?:FDIC|OCC|Fed|CFPB)\s+(?:Rule|Guidance)",
     ],
     "healthcare": [
-        r"45\s+CFR\s+(?:Part\s+)?\d+", r"HIPAA\s+(?:Privacy|Security|Breach)",
-        r"(?:HITECH|ARRA|ACA|MACRA)", r"42\s+(?:U\.S\.C\.|CFR)\s+§?\s*\d+",
-        r"ICD-\d+(?:-[A-Z]+)?", r"CPT\s+\d{5}", r"CMS\s+(?:Rule|Guidance|Policy)",
+        r"45\s+CFR\s+(?:Part\s+)?\d+",
+        r"HIPAA\s+(?:Privacy|Security|Breach)",
+        r"(?:HITECH|ARRA|ACA|MACRA)",
+        r"42\s+(?:U\.S\.C\.|CFR)\s+§?\s*\d+",
+        r"ICD-\d+(?:-[A-Z]+)?",
+        r"CPT\s+\d{5}",
+        r"CMS\s+(?:Rule|Guidance|Policy)",
         r"FDA\s+(?:21\s+CFR|Guidance)",
     ],
     "insurance": [
-        r"(?:NAIC\s+Model|Model\s+Act|Model\s+Regulation)", r"(?:Solvency\s+II|IAIS)",
-        r"(?:ORSA|RBC|NAIC\s+\d+)", r"(?:ERISA|ACA|PPACA)",
+        r"(?:NAIC\s+Model|Model\s+Act|Model\s+Regulation)",
+        r"(?:Solvency\s+II|IAIS)",
+        r"(?:ORSA|RBC|NAIC\s+\d+)",
+        r"(?:ERISA|ACA|PPACA)",
         r"(?:State\s+Insurance\s+Code|Insurance\s+Law)\s+§\s*\d+",
         r"(?:Lloyd's|ISO|ACORD)\s+(?:Form|Policy|Standard)",
     ],
     "manufacturing": [
-        r"(?:ISO\s+\d{4,5}(?::\d{4})?)", r"(?:OSHA\s+\d+\s+CFR|29\s+CFR\s+\d+)",
-        r"(?:EPA\s+\d+\s+CFR|40\s+CFR\s+\d+)", r"(?:ANSI/\w+\s+\d+|ANSI\s+\w+\d+)",
-        r"(?:IEC\s+\d+|IEC/ISO\s+\d+)", r"(?:CE\s+Marking|RoHS|REACH|WEEE)",
-        r"(?:FDA\s+21\s+CFR|GMP|cGMP)", r"(?:AS\d{4,5}|IATF\s+\d+)",
+        r"(?:ISO\s+\d{4,5}(?::\d{4})?)",
+        r"(?:OSHA\s+\d+\s+CFR|29\s+CFR\s+\d+)",
+        r"(?:EPA\s+\d+\s+CFR|40\s+CFR\s+\d+)",
+        r"(?:ANSI/\w+\s+\d+|ANSI\s+\w+\d+)",
+        r"(?:IEC\s+\d+|IEC/ISO\s+\d+)",
+        r"(?:CE\s+Marking|RoHS|REACH|WEEE)",
+        r"(?:FDA\s+21\s+CFR|GMP|cGMP)",
+        r"(?:AS\d{4,5}|IATF\s+\d+)",
     ],
     "semiconductor": [
-        r"(?:JEDEC\s+(?:JESD|JEP)\d+)", r"(?:IEC\s+\d+(?:-\d+)?)",
-        r"(?:SEMI\s+[A-Z]\d+)", r"(?:AEC-Q\d+)", r"(?:ISO\s+\d{4,5}(?::\d{4})?)",
+        r"(?:JEDEC\s+(?:JESD|JEP)\d+)",
+        r"(?:IEC\s+\d+(?:-\d+)?)",
+        r"(?:SEMI\s+[A-Z]\d+)",
+        r"(?:AEC-Q\d+)",
+        r"(?:ISO\s+\d{4,5}(?::\d{4})?)",
         r"(?:ITAR|EAR|CCL)\s+(?:Category\s+)?\d+[A-Z]\d+",
-        r"(?:RoHS|REACH|WEEE|Conflict\s+Minerals)", r"(?:TSMC|ASML|ASIC)\s+\w+\s+\d+",
+        r"(?:RoHS|REACH|WEEE|Conflict\s+Minerals)",
+        r"(?:TSMC|ASML|ASIC)\s+\w+\s+\d+",
     ],
     "financial_services": [
-        r"(?:MiFID\s+II|MiFIR|EMIR|AIFMD)", r"(?:Dodd-Frank|Volcker\s+Rule)",
+        r"(?:MiFID\s+II|MiFIR|EMIR|AIFMD)",
+        r"(?:Dodd-Frank|Volcker\s+Rule)",
         r"(?:SEC\s+Rule|SEC\s+Release|Exchange\s+Act\s+Rule)\s+\d+[a-z]?-\d+",
-        r"(?:FINRA\s+Rule\s+\d+)", r"(?:Basel\s+(?:I{1,3}|IV)|BCBS)",
+        r"(?:FINRA\s+Rule\s+\d+)",
+        r"(?:Basel\s+(?:I{1,3}|IV)|BCBS)",
         r"(?:FATF|OFAC|FinCEN)\s+(?:Guidance|Rule|Recommendation)",
-        r"(?:IFRS\s+\d+|GAAP|ASC\s+\d+)", r"(?:PSD2|GDPR|DORA|SFDR)",
+        r"(?:IFRS\s+\d+|GAAP|ASC\s+\d+)",
+        r"(?:PSD2|GDPR|DORA|SFDR)",
     ],
 }
 
 # Rule-based baseline scores from existing dry-run results in repo
 BASELINE_SCORES = {
-    "telecom":            {"citation_accuracy": 0.72, "json_validity_rate": 0.88},
-    "legal":              {"citation_accuracy": 0.68, "json_validity_rate": 0.85},
-    "banking":            {"citation_accuracy": 0.70, "json_validity_rate": 0.87},
-    "healthcare":         {"citation_accuracy": 0.65, "json_validity_rate": 0.83},
-    "insurance":          {"citation_accuracy": 0.64, "json_validity_rate": 0.82},
-    "manufacturing":      {"citation_accuracy": 0.62, "json_validity_rate": 0.80},
-    "semiconductor":      {"citation_accuracy": 0.60, "json_validity_rate": 0.79},
+    "telecom": {"citation_accuracy": 0.72, "json_validity_rate": 0.88},
+    "legal": {"citation_accuracy": 0.68, "json_validity_rate": 0.85},
+    "banking": {"citation_accuracy": 0.70, "json_validity_rate": 0.87},
+    "healthcare": {"citation_accuracy": 0.65, "json_validity_rate": 0.83},
+    "insurance": {"citation_accuracy": 0.64, "json_validity_rate": 0.82},
+    "manufacturing": {"citation_accuracy": 0.62, "json_validity_rate": 0.80},
+    "semiconductor": {"citation_accuracy": 0.60, "json_validity_rate": 0.79},
     "financial_services": {"citation_accuracy": 0.66, "json_validity_rate": 0.84},
 }
 
 PROMPT_TEMPLATE = (
-    "<|im_start|>user\n{instruction}\n\nInput: {input}<|im_end|>\n"
-    "<|im_start|>assistant\n"
+    "<|im_start|>user\n{instruction}\n\nInput: {input}<|im_end|>\n<|im_start|>assistant\n"
 )
 
 MAX_NEW_TOKENS = 200
@@ -121,10 +150,7 @@ def load_jsonl(path: Path) -> list[dict]:
 
 def has_citation(text: str, domain: str) -> bool:
     patterns = CITATION_PATTERNS.get(domain, [])
-    for pat in patterns:
-        if re.search(pat, text, re.IGNORECASE):
-            return True
-    return False
+    return any(re.search(pat, text, re.IGNORECASE) for pat in patterns)
 
 
 def is_valid_json(text: str) -> bool:
@@ -137,7 +163,7 @@ def is_valid_json(text: str) -> bool:
     except json.JSONDecodeError:
         pass
     # Try extracting JSON block
-    match = re.search(r'\{.*\}', text, re.DOTALL)
+    match = re.search(r"\{.*\}", text, re.DOTALL)
     if match:
         try:
             json.loads(match.group())
@@ -202,7 +228,7 @@ def evaluate_domain(domain: str, tokenizer, model_cache_dir: str) -> dict:
 
         # Decode only the generated portion
         generated = tokenizer.decode(
-            output_ids[0][inputs["input_ids"].shape[1]:],
+            output_ids[0][inputs["input_ids"].shape[1] :],
             skip_special_tokens=True,
         )
 
@@ -212,10 +238,12 @@ def evaluate_domain(domain: str, tokenizer, model_cache_dir: str) -> dict:
             json_valid_hits += 1
 
         if i < 3:
-            outputs_sample.append({
-                "input": ex.get("input", "")[:100],
-                "output": generated[:200],
-            })
+            outputs_sample.append(
+                {
+                    "input": ex.get("input", "")[:100],
+                    "output": generated[:200],
+                }
+            )
 
         if (i + 1) % 10 == 0:
             logger.info("    %d/%d done", i + 1, len(examples))
@@ -255,7 +283,9 @@ def evaluate_domain(domain: str, tokenizer, model_cache_dir: str) -> dict:
             "delta": json_delta,
             "above_threshold": json_above_threshold,
         },
-        "recommendation": _recommend(citation_delta, json_validity, citation_improved, json_above_threshold),
+        "recommendation": _recommend(
+            citation_delta, json_validity, citation_improved, json_above_threshold
+        ),
         "sample_outputs": outputs_sample,
     }
 
@@ -263,19 +293,24 @@ def evaluate_domain(domain: str, tokenizer, model_cache_dir: str) -> dict:
     del model
     del base_model
     import gc
+
     gc.collect()
 
     logger.info(
         "  %s: citation=%.1f%% (Δ%+.1f%%) | json=%.1f%% (Δ%+.1f%%)",
         domain,
-        citation_acc * 100, citation_delta * 100,
-        json_validity * 100, json_delta * 100,
+        citation_acc * 100,
+        citation_delta * 100,
+        json_validity * 100,
+        json_delta * 100,
     )
 
     return result
 
 
-def _recommend(citation_delta: float, json_validity: float, citation_improved: bool, json_ok: bool) -> str:
+def _recommend(
+    citation_delta: float, json_validity: float, citation_improved: bool, json_ok: bool
+) -> str:
     if citation_improved and json_ok:
         return "PASS — adapter ready for production; consider longer GPU run to further improve"
     elif not citation_improved and json_ok:
@@ -294,7 +329,10 @@ def main():
     logger.info("Eval samples per domain: %d", EVAL_SAMPLES)
 
     from huggingface_hub import snapshot_download
-    tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_ID, trust_remote_code=True, padding_side="right")
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        BASE_MODEL_ID, trust_remote_code=True, padding_side="right"
+    )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     model_cache_dir = snapshot_download(BASE_MODEL_ID)
@@ -326,7 +364,9 @@ def main():
     print("\n" + "=" * 80)
     print("EVALUATION REPORT")
     print("=" * 80)
-    print(f"{'Domain':<22} {'Citation Acc':>12} {'Δ Baseline':>12} {'JSON Valid':>12} {'Δ Baseline':>12} {'Status'}")
+    print(
+        f"{'Domain':<22} {'Citation Acc':>12} {'Δ Baseline':>12} {'JSON Valid':>12} {'Δ Baseline':>12} {'Status'}"
+    )
     print("-" * 80)
     for r in all_results:
         if "error" in r:
@@ -334,13 +374,19 @@ def main():
             continue
         ca = r["citation_accuracy"]
         jv = r["json_validity_rate"]
-        status = "✓ PASS" if ca["improved"] and jv["above_threshold"] else "~ PARTIAL" if ca["improved"] or jv["above_threshold"] else "✗ NEEDS_WORK"
+        status = (
+            "✓ PASS"
+            if ca["improved"] and jv["above_threshold"]
+            else "~ PARTIAL"
+            if ca["improved"] or jv["above_threshold"]
+            else "✗ NEEDS_WORK"
+        )
         print(
             f"  {r['domain']:<20}"
-            f" {ca['fine_tuned']*100:>10.1f}%"
-            f" {ca['delta']*100:>+11.1f}%"
-            f" {jv['fine_tuned']*100:>10.1f}%"
-            f" {jv['delta']*100:>+11.1f}%"
+            f" {ca['fine_tuned'] * 100:>10.1f}%"
+            f" {ca['delta'] * 100:>+11.1f}%"
+            f" {jv['fine_tuned'] * 100:>10.1f}%"
+            f" {jv['delta'] * 100:>+11.1f}%"
             f"  {status}"
         )
     print("=" * 80)
@@ -351,8 +397,16 @@ def _build_summary(results: list[dict]) -> dict:
     valid = [r for r in results if "error" not in r]
     if not valid:
         return {}
-    pass_count = sum(1 for r in valid if r["citation_accuracy"]["improved"] and r["json_validity_rate"]["above_threshold"])
-    partial_count = sum(1 for r in valid if r["citation_accuracy"]["improved"] or r["json_validity_rate"]["above_threshold"])
+    pass_count = sum(
+        1
+        for r in valid
+        if r["citation_accuracy"]["improved"] and r["json_validity_rate"]["above_threshold"]
+    )
+    partial_count = sum(
+        1
+        for r in valid
+        if r["citation_accuracy"]["improved"] or r["json_validity_rate"]["above_threshold"]
+    )
     avg_citation = round(sum(r["citation_accuracy"]["fine_tuned"] for r in valid) / len(valid), 4)
     avg_json = round(sum(r["json_validity_rate"]["fine_tuned"] for r in valid) / len(valid), 4)
     avg_citation_delta = round(sum(r["citation_accuracy"]["delta"] for r in valid) / len(valid), 4)

@@ -54,11 +54,11 @@ export default function CasesPage() {
     onSuccess: () => { setSelected(new Set()); setAssignInput(""); qc.invalidateQueries({ queryKey: ["cases"] }); },
   });
   const bulkResolve = useMutation({
-    mutationFn: () => api.bulkResolve([...selected], resolveNote || "Bulk resolved"),
+    mutationFn: () => api.bulkResolve([...selected], "operator", resolveNote || "Bulk resolved"),
     onSuccess: () => { setSelected(new Set()); setResolveNote(""); qc.invalidateQueries({ queryKey: ["cases"] }); },
   });
   const bulkSuppress = useMutation({
-    mutationFn: () => api.bulkSuppress([...selected]),
+    mutationFn: () => api.bulkSuppress([...selected], "operator", "Bulk suppressed"),
     onSuccess: () => { setSelected(new Set()); qc.invalidateQueries({ queryKey: ["cases"] }); },
   });
 
@@ -230,18 +230,18 @@ export default function CasesPage() {
         <div className="bg-[#111318] border border-[#1e2330] rounded-lg p-5 space-y-4">
           <div className="flex gap-6 text-center">
             <div><div className="text-[24px] font-semibold text-slate-300">{workload.total_open}</div><div className="text-[10px] text-slate-600">Total open</div></div>
-            <div><div className="text-[24px] font-semibold text-orange-400">{workload.total_unassigned}</div><div className="text-[10px] text-slate-600">Unassigned</div></div>
-            <div><div className="text-[24px] font-semibold text-[#00e5b4]">{workload.assignees}</div><div className="text-[10px] text-slate-600">Assignees</div></div>
+            <div><div className="text-[24px] font-semibold text-orange-400">{workload.unassigned}</div><div className="text-[10px] text-slate-600">Unassigned</div></div>
+            <div><div className="text-[24px] font-semibold text-[#00e5b4]">{Object.keys(workload.by_assignee ?? {}).length}</div><div className="text-[10px] text-slate-600">Assignees</div></div>
           </div>
-          {Object.entries(workload.workload ?? {}).map(([assignee, data]: [string, any]) => (
+          {Object.entries(workload.by_assignee ?? {}).map(([assignee, count]: [string, number]) => (
             <div key={assignee} className="border border-[#1e2330] rounded-lg p-3">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-[12px] font-medium text-slate-300">{assignee}</span>
-                <span className="text-[11px] text-slate-500">{data.count} cases</span>
+                <span className="text-[11px] text-slate-500">{count} cases</span>
               </div>
               <div className="w-full bg-[#1e2330] rounded-full h-1.5">
                 <div className="bg-[#00e5b4] h-1.5 rounded-full"
-                  style={{ width: `${Math.min(100, (data.count / Math.max(workload.total_open, 1)) * 100)}%` }} />
+                  style={{ width: `${Math.min(100, (count / Math.max(workload.total_open, 1)) * 100)}%` }} />
               </div>
             </div>
           ))}
@@ -259,10 +259,10 @@ export default function CasesPage() {
               </div>
             ))}
           </div>
-          {aging.sla_breached > 0 && (
+          {(aging as any).sla_breached > 0 && (
             <div>
-              <div className="text-[11px] text-red-400 uppercase tracking-wider mb-2">SLA breaches — {aging.sla_breached} cases</div>
-              {(aging.sla_breaches ?? []).slice(0, 10).map((b: any) => (
+              <div className="text-[11px] text-red-400 uppercase tracking-wider mb-2">SLA breaches — {(aging as any).sla_breached} cases</div>
+              {((aging as any).sla_breaches ?? []).slice(0, 10).map((b: any) => (
                 <div key={b.case_id} className="flex items-center gap-3 py-2 border-b border-[#1e2330] last:border-0 text-[11px]">
                   <span className={cn("px-2 py-0.5 rounded border text-[10px] font-semibold uppercase", SEV_COLOR[b.severity])}>{b.severity}</span>
                   <span className="font-mono text-slate-400">{b.case_id?.slice(0, 12)}...</span>

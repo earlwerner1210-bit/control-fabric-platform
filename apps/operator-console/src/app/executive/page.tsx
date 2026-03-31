@@ -16,15 +16,15 @@ const GRADE_COLOR: Record<string, string> = {
 
 export default function ExecutivePage() {
   const { data: summary } = useQuery({ queryKey: ["report-summary"], queryFn: api.getReportSummary });
-  const { data: blocked } = useQuery({ queryKey: ["report-blocked"], queryFn: () => api.getReport("blocked-unsafe-actions", 30) });
-  const { data: evidence } = useQuery({ queryKey: ["report-evidence"], queryFn: () => api.getReport("evidence-completeness", 30) });
-  const { data: readiness } = useQuery({ queryKey: ["report-readiness"], queryFn: () => api.getReport("audit-readiness", 30) });
+  const { data: blocked } = useQuery({ queryKey: ["report-blocked"], queryFn: () => api.getReport("blocked-unsafe-actions", "30d") as Promise<any> });
+  const { data: evidence } = useQuery({ queryKey: ["report-evidence"], queryFn: () => api.getReport("evidence-completeness", "30d") as Promise<any> });
+  const { data: readiness } = useQuery({ queryKey: ["report-readiness"], queryFn: () => api.getReport("audit-readiness", "30d") as Promise<any> });
   const { data: overview } = useQuery({ queryKey: ["metering-overview"], queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL}/metering/overview`).then(r => r.json()) });
 
   const auditGrade = readiness?.summary?.grade ?? "—";
   const auditScore = readiness?.summary?.score ?? 0;
-  const passRate = summary?.pass_rate_pct ?? 0;
-  const blockedCount = summary?.blocked_count ?? 0;
+  const passRate = (summary as any)?.pass_rate_pct ?? 0;
+  const blockedCount = (summary as any)?.blocked_count ?? 0;
   const completeness = evidence?.summary?.completeness_pct ?? 0;
 
   return (

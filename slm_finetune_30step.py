@@ -4,6 +4,7 @@ Trains all 8 domain SLM adapters using HuggingFace PEFT + LoRA.
 Config: 30 steps, batch_size=1, grad_accum=4 → 120 effective gradient updates.
 Saves real LoRA adapter weights to slm/models/{domain}/domain-lora/
 """
+
 from __future__ import annotations
 
 import json
@@ -46,7 +47,7 @@ LORA_RANK = 16
 LORA_ALPHA = 32
 LORA_DROPOUT = 0.05
 MAX_SEQ_LENGTH = 256
-MAX_TRAIN_EXAMPLES = 120   # 30 steps × batch_size=1 × grad_accum=4
+MAX_TRAIN_EXAMPLES = 120  # 30 steps × batch_size=1 × grad_accum=4
 MAX_EVAL_EXAMPLES = 20
 MAX_STEPS = 30
 LEARNING_RATE = 2e-4
@@ -120,16 +121,20 @@ def finetune_domain(domain: str, tokenizer, model_cache_dir: str) -> dict:
     train_enc = tokenise(train_texts)
     eval_enc = tokenise(eval_texts)
 
-    train_dataset = Dataset.from_dict({
-        "input_ids": train_enc["input_ids"],
-        "attention_mask": train_enc["attention_mask"],
-        "labels": train_enc["input_ids"].clone(),
-    })
-    eval_dataset = Dataset.from_dict({
-        "input_ids": eval_enc["input_ids"],
-        "attention_mask": eval_enc["attention_mask"],
-        "labels": eval_enc["input_ids"].clone(),
-    })
+    train_dataset = Dataset.from_dict(
+        {
+            "input_ids": train_enc["input_ids"],
+            "attention_mask": train_enc["attention_mask"],
+            "labels": train_enc["input_ids"].clone(),
+        }
+    )
+    eval_dataset = Dataset.from_dict(
+        {
+            "input_ids": eval_enc["input_ids"],
+            "attention_mask": eval_enc["attention_mask"],
+            "labels": eval_enc["input_ids"].clone(),
+        }
+    )
 
     # Load base model from local cache (already downloaded)
     logger.info("  Loading base model from cache: %s", model_cache_dir)
@@ -153,7 +158,9 @@ def finetune_domain(domain: str, tokenizer, model_cache_dir: str) -> dict:
     trainable, total = model.get_nb_trainable_parameters()
     logger.info(
         "  Trainable params: %s / %s (%.4f%%)",
-        f"{trainable:,}", f"{total:,}", 100 * trainable / total
+        f"{trainable:,}",
+        f"{total:,}",
+        100 * trainable / total,
     )
 
     # Output path
@@ -224,6 +231,7 @@ def finetune_domain(domain: str, tokenizer, model_cache_dir: str) -> dict:
     del model
     del trainer
     import gc
+
     gc.collect()
 
     return {
@@ -242,18 +250,22 @@ def main():
     logger.info("Control Fabric Platform — PEFT LoRA Fine-Tuning (30-step)")
     logger.info("Base model: %s", BASE_MODEL_ID)
     logger.info("Domains: %s", domains)
-    logger.info("Steps per domain: %d | Batch: %d | GradAccum: %d", MAX_STEPS, BATCH_SIZE, GRAD_ACCUM)
+    logger.info(
+        "Steps per domain: %d | Batch: %d | GradAccum: %d", MAX_STEPS, BATCH_SIZE, GRAD_ACCUM
+    )
     logger.info("CUDA: %s", torch.cuda.is_available())
 
     # Download / locate model cache
     logger.info("Resolving model cache for %s ...", BASE_MODEL_ID)
     from transformers import AutoTokenizer as AT
+
     tokenizer = AT.from_pretrained(BASE_MODEL_ID, trust_remote_code=True, padding_side="right")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
     # Find the local cache path so we can load offline for each domain
     from huggingface_hub import snapshot_download
+
     model_cache_dir = snapshot_download(BASE_MODEL_ID)
     logger.info("Model cache: %s", model_cache_dir)
 
@@ -264,7 +276,9 @@ def main():
             all_results.append(result)
             logger.info(
                 "COMPLETED %s: loss=%.4f time=%.1fs",
-                domain, result["training_loss"], result["training_seconds"]
+                domain,
+                result["training_loss"],
+                result["training_seconds"],
             )
         except Exception as e:
             logger.error("Domain %s FAILED: %s", domain, e, exc_info=True)

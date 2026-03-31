@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 
+from app.core.inference.domain_adapters.model_loader import DomainModelLoader
 from app.core.inference.slm_router import (
     DomainHypothesisEnrichment,
     DomainSLMAdapter,
@@ -94,6 +95,69 @@ class TelecomSLMAdapter(DomainSLMAdapter):
         context: SLMContext,
         control_objects: list[dict],
     ) -> DomainHypothesisEnrichment:
+        # Try fine-tuned model first
+        ft_enrichment = self._try_finetuned_model(hypothesis_text, context)
+        if ft_enrichment is not None:
+            return ft_enrichment
+
+        # Fall back to rule-based enrichment
+        return self._rule_based_enrichment(hypothesis_text, context)
+
+    def _try_finetuned_model(
+        self,
+        hypothesis_text: str,
+        context: SLMContext,
+    ) -> DomainHypothesisEnrichment | None:
+        """Attempt enrichment via fine-tuned domain SLM."""
+        try:
+            loader = DomainModelLoader.instance()
+            model = loader.load("telecom")
+            if not model.is_loaded:
+                return None
+
+            prompt = (
+                f"Assess governance risk for telecom operation:\n"
+                f"Plane: {context.operational_plane}\n"
+                f"Hypothesis: {hypothesis_text}\n"
+                f"Identify: regulatory citations, required evidence,"
+                f" risk level, remediation steps."
+            )
+            result = loader.generate(model, prompt, max_tokens=512)
+            if result is None:
+                return None
+
+            enrichment = DomainHypothesisEnrichment()
+            result_lower = result.lower()
+
+            for key, citation in self.NIS2_MAPPINGS.items():
+                if key in result_lower or key.replace("_", " ") in result_lower:
+                    enrichment.regulation_citations.append(citation)
+
+            for key, citation in self.OFCOM_MAPPINGS.items():
+                if key in result_lower:
+                    enrichment.regulation_citations.append(citation)
+
+            for action_type, evidence_types in self.REQUIRED_EVIDENCE.items():
+                if action_type in result_lower:
+                    enrichment.prescribed_evidence_types.extend(evidence_types)
+
+            if enrichment.regulation_citations:
+                enrichment.specific_clause = enrichment.regulation_citations[0]
+                enrichment.confidence_boost = 0.20
+
+            logger.info("Telecom adapter used fine-tuned model for enrichment")
+            return enrichment
+
+        except Exception as e:
+            logger.warning("Fine-tuned model failed, falling back to rules: %s", e)
+            return None
+
+    def _rule_based_enrichment(
+        self,
+        hypothesis_text: str,
+        context: SLMContext,
+    ) -> DomainHypothesisEnrichment:
+        """Rule-based enrichment (original logic)."""
         enrichment = DomainHypothesisEnrichment()
         text_lower = hypothesis_text.lower()
 

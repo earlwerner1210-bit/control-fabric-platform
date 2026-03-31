@@ -1,0 +1,110 @@
+[
+  {
+    "doc_id": "e259e24599bfabf8",
+    "title": "NIS2 Article 21(2)(b)",
+    "source": "static_corpus",
+    "domain": "telecom",
+    "text": "Incident handling: Essential entities shall adopt appropriate and proportionate technical, operational and organisational measures to manage the risks posed to the security of network and information systems, including incident handling.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:24:38.331954+00:00",
+    "section_refs": [
+      "NIS2 Article 21(2)(b)"
+    ]
+  },
+  {
+    "doc_id": "19c0635fb31fee3e",
+    "title": "NIS2 Article 21(2)(d)",
+    "source": "static_corpus",
+    "domain": "telecom",
+    "text": "Supply chain security: including security-related aspects concerning the relationships between each entity and its direct suppliers or service providers.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:24:38.331963+00:00",
+    "section_refs": [
+      "NIS2 Article 21(2)(d)"
+    ]
+  },
+  {
+    "doc_id": "7cb7f0f93d489535",
+    "title": "NIS2 Article 21(2)(e)",
+    "source": "static_corpus",
+    "domain": "telecom",
+    "text": "Security in network and information systems acquisition, development and maintenance, including vulnerability handling and disclosure.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:24:38.331967+00:00",
+    "section_refs": [
+      "NIS2 Article 21(2)(e)"
+    ]
+  },
+  {
+    "doc_id": "5eec2e0387bf7f11",
+    "title": "NIS2 Article 21(2)(i)",
+    "source": "static_corpus",
+    "domain": "telecom",
+    "text": "The use of multi-factor authentication or continuous authentication solutions, secured voice, video and text communications and secured emergency communication systems within the entity, where appropriate.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:24:38.331971+00:00",
+    "section_refs": [
+      "NIS2 Article 21(2)(i)"
+    ]
+  },
+  {
+    "doc_id": "3506489758bbeceb",
+    "title": "NIS2 Article 23",
+    "source": "static_corpus",
+    "domain": "telecom",
+    "text": "Reporting obligations: Each Member State shall ensure that essential and important entities notify, without undue delay, the CSIRT or competent authority of any significant incident. An early warning within 24 hours, an incident notification within 72 hours, and a final report not later than one month after submission of the incident notification.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:24:38.331975+00:00",
+    "section_refs": [
+      "NIS2 Article 23"
+    ]
+  },
+  {
+    "doc_id": "f5bcbb514ef25142",
+    "title": "Ofcom General Condition C4",
+    "source": "static_corpus",
+    "domain": "telecom",
+    "text": "Network integrity: Communications providers shall take all necessary measures to maintain, to the greatest extent possible, uninterrupted access to emergency organisations and the integrity of the public electronic communications network.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:24:38.331978+00:00",
+    "section_refs": [
+      "Ofcom General Condition C4"
+    ]
+  },
+  {
+    "doc_id": "b8d831dd787d00d5",
+    "title": "Ofcom General Condition C5",
+    "source": "static_corpus",
+    "domain": "telecom",
+    "text": "Security measures: Communications providers shall take appropriate technical and organisational measures to appropriately manage the risks posed to the security of public electronic communications networks and publicly available electronic communications services.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:24:38.331982+00:00",
+    "section_refs": [
+      "Ofcom General Condition C5"
+    ]
+  },
+  {
+    "doc_id": "6f47df3ddb079278",
+    "title": "3GPP TS 32.600",
+    "source": "static_corpus",
+    "domain": "telecom",
+    "text": "Configuration Management (CM): This specification defines the Integration Reference Point for configuration management including network element provisioning, change management, and software management.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:24:38.331988+00:00",
+    "section_refs": [
+      "3GPP TS 32.600"
+    ]
+  },
+  {
+    "doc_id": "fd03246f0f71ef66",
+    "title": "GSMA FS.13",
+    "source": "static_corpus",
+    "domain": "telecom",
+    "text": "Security Accreditation Scheme: Framework for assessing the security of mobile network elements and services. Covers security assessment methodology, risk assessment, and security controls validation.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:24:38.331993+00:00",
+    "section_refs": [
+      "GSMA FS.13"
+    ]
+  }
+]

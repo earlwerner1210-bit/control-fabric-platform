@@ -1,0 +1,8 @@
+{
+  "domain": "telecom",
+  "base_model": "mlx-community/Qwen2-0.5B-Instruct-4bit",
+  "lora_rank": 16,
+  "num_examples": 8000,
+  "dry_run": true,
+  "created_at": "2026-03-31T10:24:38.546252+00:00"
+}

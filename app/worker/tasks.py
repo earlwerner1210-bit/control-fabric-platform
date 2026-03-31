@@ -75,3 +75,18 @@ def alert_on_open_critical_cases() -> dict:
     except Exception as exc:
         logger.error("Alert task failed: %s", exc)
         return {"alerts_sent": 0, "error": str(exc)}
+
+
+@celery_app.task(name="app.worker.tasks.report_usage_to_stripe")
+def report_usage_to_stripe() -> dict:
+    """Push hourly usage records to Stripe for all active tenants."""
+    try:
+        from app.core.metering.meter import metering_engine
+        results = {}
+        for tenant_id in metering_engine.get_all_tenants():
+            results[tenant_id] = metering_engine.report_to_stripe(tenant_id)
+        logger.info("Stripe usage reporting complete: %d tenants", len(results))
+        return {"tenants_reported": len(results), "results": results}
+    except Exception as exc:
+        logger.error("Stripe reporting task failed: %s", exc)
+        return {"error": str(exc)}

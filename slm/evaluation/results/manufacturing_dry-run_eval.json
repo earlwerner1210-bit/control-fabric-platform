@@ -1,0 +1,14 @@
+{
+  "citation_accuracy": 0.0,
+  "evidence_completeness": 1.0,
+  "risk_accuracy": 0.5,
+  "remediation_specificity": 0.96075,
+  "hallucination_rate": 0.0,
+  "avg_latency_ms": 0.018010523002544687,
+  "num_examples": 1000,
+  "overall_score": 64.41125000000001,
+  "grade": "D",
+  "model_id": "dry-run",
+  "domain": "manufacturing",
+  "evaluated_at": "2026-03-31T10:48:02.393363+00:00"
+}

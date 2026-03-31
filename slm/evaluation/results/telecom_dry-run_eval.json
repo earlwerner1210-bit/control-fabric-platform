@@ -1,14 +1,14 @@
 {
   "citation_accuracy": 0.0,
   "evidence_completeness": 0.0,
-  "risk_accuracy": 0.8105,
-  "remediation_specificity": 0.19675,
+  "risk_accuracy": 1.0,
+  "remediation_specificity": 0.72575,
   "hallucination_rate": 0.0,
-  "avg_latency_ms": 0.011459236003929618,
+  "avg_latency_ms": 0.023343754000165973,
   "num_examples": 1000,
-  "overall_score": 39.161249999999995,
+  "overall_score": 50.88625000000001,
   "grade": "F",
   "model_id": "dry-run",
   "domain": "telecom",
-  "evaluated_at": "2026-03-31T10:24:38.564661+00:00"
+  "evaluated_at": "2026-03-31T10:48:00.059110+00:00"
 }

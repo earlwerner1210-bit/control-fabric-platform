@@ -1,0 +1,50 @@
+[
+  {
+    "doc_id": "452a3978b2b74cb7",
+    "title": "BCBS 239 Principle 3",
+    "source": "static_corpus",
+    "domain": "banking",
+    "text": "Accuracy and integrity of risk data: A bank should be able to generate accurate and reliable risk data to meet normal and stress reporting accuracy requirements. Data should be aggregated on a largely automated basis. Automated reconciliation controls should be in place.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:01.256145+00:00",
+    "section_refs": [
+      "BCBS 239 Principle 3"
+    ]
+  },
+  {
+    "doc_id": "59904a0e657d4bee",
+    "title": "SR 11-7 Section II",
+    "source": "static_corpus",
+    "domain": "banking",
+    "text": "Model validation: Validation is a set of processes and activities intended to verify that models are performing as expected, in line with their design objectives and business uses. Independent review is a key mechanism for ensuring that models are conceptually sound.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:01.256155+00:00",
+    "section_refs": [
+      "SR 11-7 Section II"
+    ]
+  },
+  {
+    "doc_id": "c2019c16c543ee35",
+    "title": "Basel III Pillar 2 ICAAP",
+    "source": "static_corpus",
+    "domain": "banking",
+    "text": "Internal capital adequacy assessment: Banks must have a process for assessing their overall capital adequacy in relation to their risk profile and a strategy for maintaining capital levels. Material changes to business model or risk profile require reassessment.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:01.256159+00:00",
+    "section_refs": [
+      "Basel III Pillar 2 ICAAP"
+    ]
+  },
+  {
+    "doc_id": "f21b4aeba47aff2a",
+    "title": "UK SMCR Senior Managers Regime",
+    "source": "static_corpus",
+    "domain": "banking",
+    "text": "Senior managers are personally accountable for the areas of the firm falling within their prescribed responsibilities. Any material regulatory failure within a senior manager's area of responsibility may lead to personal regulatory action.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:01.256163+00:00",
+    "section_refs": [
+      "UK SMCR Senior Managers Regime"
+    ]
+  }
+]

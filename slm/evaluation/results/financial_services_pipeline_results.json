@@ -1,0 +1,56 @@
+{
+  "domain": "financial_services",
+  "dry_run": true,
+  "started_at": "2026-03-31T10:48:00.063834+00:00",
+  "stages": {
+    "corpus": {
+      "documents": 6,
+      "status": "complete"
+    },
+    "generation": {
+      "examples": 10000,
+      "distribution": {
+        "incident_response": 5000,
+        "change_management": 5000
+      },
+      "status": "complete"
+    },
+    "finetune": {
+      "success": true,
+      "model_path": "mlx-community/Qwen2-0.5B-Instruct-4bit",
+      "adapter_path": "slm/models/financial_services/domain-lora",
+      "training_loss": 0.0,
+      "eval_loss": 0.0,
+      "num_examples": 8000,
+      "training_time_seconds": 0.0,
+      "config": {
+        "base_model": "mlx-community/Qwen2-0.5B-Instruct-4bit",
+        "lora_rank": 16,
+        "lora_alpha": 32.0,
+        "learning_rate": 0.0001,
+        "batch_size": 4,
+        "num_epochs": 3,
+        "max_seq_length": 512,
+        "domain": "financial_services"
+      },
+      "error": "",
+      "dry_run": true
+    },
+    "evaluation": {
+      "citation_accuracy": 0.0,
+      "evidence_completeness": 0.21533333333333507,
+      "risk_accuracy": 0.736,
+      "remediation_specificity": 0.82925,
+      "hallucination_rate": 0.0,
+      "avg_latency_ms": 0.022685277000846327,
+      "num_examples": 1000,
+      "overall_score": 51.465416666666705,
+      "grade": "F",
+      "model_id": "dry-run",
+      "domain": "financial_services",
+      "evaluated_at": "2026-03-31T10:48:00.476406+00:00"
+    }
+  },
+  "completed_at": "2026-03-31T10:48:00.477191+00:00",
+  "status": "complete"
+}

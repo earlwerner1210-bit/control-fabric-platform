@@ -1,0 +1,56 @@
+{
+  "domain": "legal",
+  "dry_run": true,
+  "started_at": "2026-03-31T10:48:00.481667+00:00",
+  "stages": {
+    "corpus": {
+      "documents": 6,
+      "status": "complete"
+    },
+    "generation": {
+      "examples": 10000,
+      "distribution": {
+        "data_protection": 5000,
+        "new_client": 5000
+      },
+      "status": "complete"
+    },
+    "finetune": {
+      "success": true,
+      "model_path": "mlx-community/Qwen2-0.5B-Instruct-4bit",
+      "adapter_path": "slm/models/legal/domain-lora",
+      "training_loss": 0.0,
+      "eval_loss": 0.0,
+      "num_examples": 8000,
+      "training_time_seconds": 0.0,
+      "config": {
+        "base_model": "mlx-community/Qwen2-0.5B-Instruct-4bit",
+        "lora_rank": 16,
+        "lora_alpha": 32.0,
+        "learning_rate": 0.0001,
+        "batch_size": 4,
+        "num_epochs": 3,
+        "max_seq_length": 512,
+        "domain": "legal"
+      },
+      "error": "",
+      "dry_run": true
+    },
+    "evaluation": {
+      "citation_accuracy": 0.0,
+      "evidence_completeness": 1.0,
+      "risk_accuracy": 0.5,
+      "remediation_specificity": 0.95875,
+      "hallucination_rate": 0.0,
+      "avg_latency_ms": 0.016856446001270342,
+      "num_examples": 1000,
+      "overall_score": 64.38125000000001,
+      "grade": "D",
+      "model_id": "dry-run",
+      "domain": "legal",
+      "evaluated_at": "2026-03-31T10:48:00.874972+00:00"
+    }
+  },
+  "completed_at": "2026-03-31T10:48:00.876061+00:00",
+  "status": "complete"
+}

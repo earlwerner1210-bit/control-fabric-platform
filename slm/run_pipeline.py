@@ -144,9 +144,21 @@ def show_status() -> None:
                     )
 
 
+ALL_DOMAINS = [
+    "telecom",
+    "financial_services",
+    "legal",
+    "healthcare",
+    "banking",
+    "insurance",
+    "manufacturing",
+    "semiconductor",
+]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="SLM Training Pipeline")
-    parser.add_argument("--domain", default="telecom", help="Domain to train")
+    parser.add_argument("--domain", default="telecom", help="Domain to train (or 'all')")
     parser.add_argument("--dry-run", action="store_true", default=True, help="Dry run mode")
     parser.add_argument("--live", action="store_true", help="Live mode (attempt EUR-Lex fetch)")
     parser.add_argument("--examples", type=int, default=10000, help="Target training examples")
@@ -159,7 +171,10 @@ def main() -> None:
         return
 
     dry_run = not args.live
-    run_pipeline(domain=args.domain, dry_run=dry_run, target_examples=args.examples)
+    domains = ALL_DOMAINS if args.domain == "all" else [args.domain]
+
+    for domain in domains:
+        run_pipeline(domain=domain, dry_run=dry_run, target_examples=args.examples)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,50 @@
+[
+  {
+    "doc_id": "9b9cd6a9b5d21bf0",
+    "title": "Solvency II Article 45",
+    "source": "static_corpus",
+    "domain": "insurance",
+    "text": "Own risk and solvency assessment: Every insurance and reinsurance undertaking shall conduct its own risk and solvency assessment. The assessment shall include overall solvency needs, compliance with capital requirements, and significance of deviations from SCR assumptions.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:01.631466+00:00",
+    "section_refs": [
+      "Solvency II Article 45"
+    ]
+  },
+  {
+    "doc_id": "7b284fb6f7640964",
+    "title": "Solvency II Article 112",
+    "source": "static_corpus",
+    "domain": "insurance",
+    "text": "Internal model approval: Undertakings may calculate the SCR using an internal model. Major changes to the model require prior supervisory approval. The undertaking must have a major and minor model change policy.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:01.631476+00:00",
+    "section_refs": [
+      "Solvency II Article 112"
+    ]
+  },
+  {
+    "doc_id": "9557467a6aad51e3",
+    "title": "Lloyd's Minimum Standards MS14",
+    "source": "static_corpus",
+    "domain": "insurance",
+    "text": "Delegated authority: Managing agents must maintain effective oversight and control of all delegated authority arrangements. Coverholder performance monitoring must be conducted regularly. Coverholder audits must be current.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:01.631480+00:00",
+    "section_refs": [
+      "Lloyd's Minimum Standards MS14"
+    ]
+  },
+  {
+    "doc_id": "0f585ab7529889e3",
+    "title": "FCA ICOBS 8.1",
+    "source": "static_corpus",
+    "domain": "insurance",
+    "text": "Claims handling: A firm must handle claims promptly and fairly. A firm must not unreasonably reject a claim. Where a claim is declined in whole or part, the firm must provide a clear explanation of the reasons.",
+    "url": "",
+    "scraped_at": "2026-03-31T10:48:01.631484+00:00",
+    "section_refs": [
+      "FCA ICOBS 8.1"
+    ]
+  }
+]

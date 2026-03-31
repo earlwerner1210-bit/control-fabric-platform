@@ -160,6 +160,171 @@ STATIC_CORPORA = {
             " consumers, market integrity, or policyholder protection."
         ),
     },
+    "legal": {
+        "SRA Code of Conduct 2019 Para 6.1": (
+            "Conflicts of interest: You must not act if there is an own interest conflict or"
+            " a significant risk of such a conflict. You must not act in a matter where there"
+            " is a conflict between the interests of two or more clients unless the clients"
+            " have a substantially common interest and the conditions are met."
+        ),
+        "MLR 2017 Regulation 27": (
+            "Customer Due Diligence: A relevant person must apply customer due diligence"
+            " measures when establishing a business relationship, or carrying out an occasional"
+            " transaction. CDD measures must be applied before carrying out a transaction and"
+            " before establishing a business relationship."
+        ),
+        "POCA 2002 Section 330": (
+            "Failure to disclose: A person commits an offence if they know or suspect, or have"
+            " reasonable grounds for knowing or suspecting, that another person is engaged in"
+            " money laundering, and the information came to them in the course of their work in"
+            " the regulated sector, and they do not disclose the information to a nominated"
+            " officer or the National Crime Agency as soon as is practicable."
+        ),
+        "UK GDPR Article 5": (
+            "Principles relating to processing of personal data: Personal data shall be"
+            " processed lawfully, fairly and in a transparent manner. Personal data shall be"
+            " collected for specified, explicit and legitimate purposes. Personal data shall be"
+            " adequate, relevant and limited to what is necessary."
+        ),
+        "SRA Accounts Rules 2019 Rule 2.1": (
+            "Client money must be kept separate from money belonging to the authorised body."
+            " Client money must be kept in a client account. Client accounts must be"
+            " reconciled at least every five weeks."
+        ),
+        "SRA Code of Conduct 2019 Para 4.2": (
+            "Supervision: You must not act where you are unable to provide competent legal"
+            " services. You must only act if you have adequate supervision in place."
+        ),
+    },
+    "healthcare": {
+        "FDA 21 CFR Part 11.10": (
+            "Controls for closed systems: Persons who use closed systems to create, modify,"
+            " maintain, or transmit electronic records shall employ procedures and controls"
+            " designed to ensure the authenticity, integrity, and confidentiality of electronic"
+            " records. System validation, audit trails, and access controls are required."
+        ),
+        "FDA 21 CFR Part 820.30": (
+            "Design controls: Each manufacturer of any class II or class III device shall"
+            " establish and maintain procedures to control the design of the device. Design"
+            " input, output, review, verification, validation, transfer, and changes are all"
+            " required elements."
+        ),
+        "EU MDR 2017/745 Article 61": (
+            "Clinical evaluation: Manufacturers shall plan, continuously conduct and document"
+            " a clinical evaluation. The evaluation shall follow a defined and methodologically"
+            " sound procedure based on clinical data."
+        ),
+        "HIPAA Security Rule 45 CFR 164.312": (
+            "Technical safeguards: A covered entity must implement reasonable and appropriate"
+            " administrative, physical, and technical safeguards to protect ePHI. Access"
+            " controls, audit controls, integrity controls, and transmission security required."
+        ),
+        "ICH E6(R2) Section 5.5": (
+            "Quality management: The sponsor is responsible for implementing and maintaining"
+            " quality assurance and quality control systems with written SOPs to ensure trials"
+            " are conducted in compliance with the protocol, GCP, and regulatory requirements."
+        ),
+    },
+    "banking": {
+        "BCBS 239 Principle 3": (
+            "Accuracy and integrity of risk data: A bank should be able to generate accurate"
+            " and reliable risk data to meet normal and stress reporting accuracy requirements."
+            " Data should be aggregated on a largely automated basis. Automated reconciliation"
+            " controls should be in place."
+        ),
+        "SR 11-7 Section II": (
+            "Model validation: Validation is a set of processes and activities intended to"
+            " verify that models are performing as expected, in line with their design"
+            " objectives and business uses. Independent review is a key mechanism for ensuring"
+            " that models are conceptually sound."
+        ),
+        "Basel III Pillar 2 ICAAP": (
+            "Internal capital adequacy assessment: Banks must have a process for assessing"
+            " their overall capital adequacy in relation to their risk profile and a strategy"
+            " for maintaining capital levels. Material changes to business model or risk"
+            " profile require reassessment."
+        ),
+        "UK SMCR Senior Managers Regime": (
+            "Senior managers are personally accountable for the areas of the firm falling"
+            " within their prescribed responsibilities. Any material regulatory failure within"
+            " a senior manager's area of responsibility may lead to personal regulatory action."
+        ),
+    },
+    "insurance": {
+        "Solvency II Article 45": (
+            "Own risk and solvency assessment: Every insurance and reinsurance undertaking"
+            " shall conduct its own risk and solvency assessment. The assessment shall include"
+            " overall solvency needs, compliance with capital requirements, and significance"
+            " of deviations from SCR assumptions."
+        ),
+        "Solvency II Article 112": (
+            "Internal model approval: Undertakings may calculate the SCR using an internal"
+            " model. Major changes to the model require prior supervisory approval. The"
+            " undertaking must have a major and minor model change policy."
+        ),
+        "Lloyd's Minimum Standards MS14": (
+            "Delegated authority: Managing agents must maintain effective oversight and control"
+            " of all delegated authority arrangements. Coverholder performance monitoring must"
+            " be conducted regularly. Coverholder audits must be current."
+        ),
+        "FCA ICOBS 8.1": (
+            "Claims handling: A firm must handle claims promptly and fairly. A firm must not"
+            " unreasonably reject a claim. Where a claim is declined in whole or part, the firm"
+            " must provide a clear explanation of the reasons."
+        ),
+    },
+    "manufacturing": {
+        "ISO 9001:2015 Clause 8.5.6": (
+            "Control of changes: The organization shall review and control changes for"
+            " production or service provision. Documented information describing the results"
+            " of the review, the person authorizing the change, and any necessary actions"
+            " arising from the review must be retained."
+        ),
+        "IATF 16949:2016 Clause 8.3.4.4": (
+            "Product approval process: The organization shall comply with the applicable"
+            " customer product and manufacturing process approval procedure. Documented product"
+            " approval before shipment required if specified by the customer."
+        ),
+        "IEC 62443-2-3": (
+            "Patch management in IACS environment: Patches to industrial automation and"
+            " control systems shall be assessed before deployment. The assessment shall"
+            " determine the potential impact on the IACS. Deployment procedures shall include"
+            " backout plans."
+        ),
+        "OSHA PSM 29 CFR 1910.119(l)": (
+            "Management of change: The employer shall establish and implement written"
+            " procedures to manage changes to process chemicals, technology, equipment, and"
+            " procedures. Information must be transmitted to affected employees before startup."
+        ),
+    },
+    "semiconductor": {
+        "ITAR 22 CFR Part 120.33": (
+            "Technical data definition and control: Technical data means information required"
+            " for the design, development, production, or modification of defense articles."
+            " Controlled technical data may not be exported or released to a foreign person"
+            " without a licence or applicable exemption."
+        ),
+        "EAR 15 CFR Part 734.13": (
+            "Export and deemed export controls: A release of technology subject to the EAR to"
+            " a foreign national in the United States constitutes a deemed export. Most"
+            " semiconductor technology classified under ECCN 3E001 requires a licence."
+        ),
+        "SEMI S2 Section 6": (
+            "Equipment change assessment: Changes to semiconductor manufacturing equipment"
+            " shall be assessed for environmental, health, and safety impact prior to"
+            " implementation. Documentation and approval by EHS qualified personnel required."
+        ),
+        "JEDEC JESD47": (
+            "Stress-test driven qualification: Components and processes used in semiconductor"
+            " manufacturing shall be qualified to applicable JEDEC standards before production."
+            " Process changes affecting reliability shall trigger requalification."
+        ),
+        "US CHIPS Act Section 9902": (
+            "Guardrail provisions: Recipients of CHIPS Act funding shall not engage in any"
+            " significant transaction involving material expansion of semiconductor"
+            " manufacturing capacity in a country of concern for a period of 10 years."
+        ),
+    },
 }
 
 

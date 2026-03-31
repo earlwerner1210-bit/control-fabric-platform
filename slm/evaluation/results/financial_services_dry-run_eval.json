@@ -1,0 +1,14 @@
+{
+  "citation_accuracy": 0.0,
+  "evidence_completeness": 0.21533333333333507,
+  "risk_accuracy": 0.736,
+  "remediation_specificity": 0.82925,
+  "hallucination_rate": 0.0,
+  "avg_latency_ms": 0.022685277000846327,
+  "num_examples": 1000,
+  "overall_score": 51.465416666666705,
+  "grade": "F",
+  "model_id": "dry-run",
+  "domain": "financial_services",
+  "evaluated_at": "2026-03-31T10:48:00.476406+00:00"
+}

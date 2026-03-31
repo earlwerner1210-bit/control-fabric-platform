@@ -201,6 +201,354 @@ SCENARIO_TEMPLATES = {
             ],
         },
     },
+    "legal": {
+        "new_client": {
+            "instructions": [
+                "Assess SRA compliance for this new client onboarding.",
+                "Identify AML obligations for this new matter.",
+                "Determine required evidence for client due diligence.",
+            ],
+            "inputs": [
+                (
+                    "New client matter MAT-{id}: Client onboarding for corporate"
+                    " transaction. CDD status: {test_status}. Conflict check: {approval_status}."
+                ),
+                (
+                    "New client retainer MAT-{id}: High-value property transaction."
+                    " Source of funds: {validation_status}. PEP check: {tested}."
+                ),
+            ],
+            "output_template": (
+                "SRA compliance: {compliance}\n"
+                "AML obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "SRA Code of Conduct 2019",
+                "MLR 2017 Regulation 27",
+                "POCA 2002 Section 330",
+            ],
+        },
+        "data_protection": {
+            "instructions": [
+                "Assess GDPR compliance for this data processing activity.",
+                "Identify data protection obligations for this client matter.",
+                "Determine DSAR response requirements.",
+            ],
+            "inputs": [
+                (
+                    "DSAR received DSAR-{id}: Data subject access request."
+                    " Deadline: {window}. Records identified: {records}."
+                ),
+                (
+                    "Data retention review DR-{id}: Matter files beyond retention"
+                    " period. Records: {records}. Exemptions: {tested}."
+                ),
+            ],
+            "output_template": (
+                "GDPR compliance: {compliance}\n"
+                "Obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "UK GDPR Article 5",
+                "UK GDPR Article 12",
+                "UK GDPR Article 33",
+            ],
+        },
+    },
+    "healthcare": {
+        "software_validation": {
+            "instructions": [
+                "Assess FDA compliance for this software change.",
+                "Identify 21 CFR Part 11 obligations for this system update.",
+                "Determine validation requirements for this release.",
+            ],
+            "inputs": [
+                (
+                    "Software release SWR-{id}: Update to clinical data system."
+                    " Validation: {test_status}. Audit trail: {tested}."
+                ),
+                (
+                    "Software release SWR-{id}: Medical device firmware update."
+                    " 21 CFR Part 11: {approval_status}. IQ/OQ/PQ: {validation_status}."
+                ),
+            ],
+            "output_template": (
+                "FDA compliance: {compliance}\n"
+                "21 CFR Part 11 obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "FDA 21 CFR Part 11.10",
+                "FDA 21 CFR Part 820.30",
+                "EU MDR 2017/745 Article 61",
+            ],
+        },
+        "phi_handling": {
+            "instructions": [
+                "Assess HIPAA compliance for this PHI access request.",
+                "Identify breach notification requirements for this incident.",
+                "Determine BAA requirements for this vendor relationship.",
+            ],
+            "inputs": [
+                (
+                    "PHI access request PHI-{id}: Vendor access to patient records."
+                    " BAA: {approval_status}. Minimum necessary: {tested}."
+                ),
+                (
+                    "Data breach notification BR-{id}: Potential PHI exposure."
+                    " Records affected: {records}. Containment: {containment}."
+                ),
+            ],
+            "output_template": (
+                "HIPAA compliance: {compliance}\n"
+                "Obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "HIPAA 45 CFR 164.502",
+                "HIPAA 45 CFR 164.504(e)",
+                "HIPAA 45 CFR 164.400",
+            ],
+        },
+    },
+    "banking": {
+        "model_risk": {
+            "instructions": [
+                "Assess SR 11-7 compliance for this model change.",
+                "Identify BCBS 239 obligations for this risk data change.",
+                "Determine model validation requirements.",
+            ],
+            "inputs": [
+                (
+                    "Model change MCR-{id}: Update to credit risk model."
+                    " Validation: {validation_status}. Backtesting: {test_status}."
+                ),
+                (
+                    "Model change MCR-{id}: Stress test scenario update."
+                    " MRC approval: {approval_status}. Documentation: {tested}."
+                ),
+            ],
+            "output_template": (
+                "SR 11-7 compliance: {compliance}\n"
+                "Model risk obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "SR 11-7 Section II",
+                "PRA SS3/19",
+                "Basel III / CRR II",
+            ],
+        },
+        "regulatory_reporting": {
+            "instructions": [
+                "Assess BCBS 239 compliance for this risk report.",
+                "Identify data quality obligations for regulatory submission.",
+                "Determine senior manager accountability requirements.",
+            ],
+            "inputs": [
+                (
+                    "Risk report RPT-{id}: Quarterly risk data submission."
+                    " Reconciliation: {test_status}. Data quality: {validation_status}."
+                ),
+                (
+                    "Capital report RPT-{id}: RWA calculation update."
+                    " Senior manager attestation: {approval_status}."
+                ),
+            ],
+            "output_template": (
+                "BCBS 239 compliance: {compliance}\n"
+                "Reporting obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "BCBS 239 Principle 3",
+                "BCBS 239 Principle 6",
+                "UK SMCR",
+            ],
+        },
+    },
+    "insurance": {
+        "model_approval": {
+            "instructions": [
+                "Assess Solvency II compliance for this model change.",
+                "Identify PRA notification requirements for this change.",
+                "Determine ORSA update requirements.",
+            ],
+            "inputs": [
+                (
+                    "Model change IMC-{id}: Internal model update for SCR."
+                    " PRA pre-approval: {approval_status}. Board: {tested}."
+                ),
+                (
+                    "ORSA update ORSA-{id}: Risk profile change assessment."
+                    " Material change: {classification}. Validation: {validation_status}."
+                ),
+            ],
+            "output_template": (
+                "Solvency II compliance: {compliance}\n"
+                "PRA obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "Solvency II Article 112",
+                "Solvency II Article 45",
+                "PRA SS19/15",
+            ],
+        },
+        "product_governance": {
+            "instructions": [
+                "Assess FCA ICOBS compliance for this product change.",
+                "Identify fair value assessment requirements.",
+                "Determine claims handling obligations.",
+            ],
+            "inputs": [
+                (
+                    "Product change PGR-{id}: Insurance product modification."
+                    " Fair value: {validation_status}. Target market: {test_status}."
+                ),
+                (
+                    "Claims procedure CP-{id}: Claims handling process change."
+                    " Compliance sign-off: {approval_status}."
+                ),
+            ],
+            "output_template": (
+                "FCA ICOBS compliance: {compliance}\n"
+                "Obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "FCA ICOBS 2.5",
+                "FCA ICOBS 8",
+                "FCA PS20/16",
+            ],
+        },
+    },
+    "manufacturing": {
+        "production_change": {
+            "instructions": [
+                "Assess ISO 9001 compliance for this production change.",
+                "Identify IATF 16949 obligations for this process update.",
+                "Determine PPAP requirements for this change.",
+            ],
+            "inputs": [
+                (
+                    "Production change ECO-{id}: Manufacturing process modification."
+                    " PFMEA: {test_status}. Control plan: {validation_status}."
+                ),
+                (
+                    "Supplier change SCR-{id}: New supplier qualification."
+                    " Audit: {approval_status}. PPAP: {tested}."
+                ),
+            ],
+            "output_template": (
+                "ISO 9001 compliance: {compliance}\n"
+                "IATF obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "ISO 9001:2015 Clause 8.5.6",
+                "IATF 16949:2016 / AIAG PPAP",
+                "ISO 9001:2015 Clause 8.4",
+            ],
+        },
+        "safety_change": {
+            "instructions": [
+                "Assess OSHA PSM compliance for this process change.",
+                "Identify IEC 62443 obligations for this ICS change.",
+                "Determine PHA update requirements.",
+            ],
+            "inputs": [
+                (
+                    "Safety change MOC-{id}: Process modification in hazardous area."
+                    " PSM MOC: {approval_status}. PHA: {test_status}."
+                ),
+                (
+                    "ICS change ICS-{id}: Patch to industrial control system."
+                    " Security assessment: {validation_status}. Rollback: {rollback}."
+                ),
+            ],
+            "output_template": (
+                "OSHA PSM compliance: {compliance}\n"
+                "Safety obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "OSHA PSM 29 CFR 1910.119(l)",
+                "IEC 62443-2-3",
+                "ISO 45001:2018",
+            ],
+        },
+    },
+    "semiconductor": {
+        "export_control": {
+            "instructions": [
+                "Assess ITAR/EAR compliance for this export transaction.",
+                "Identify deemed export obligations for this disclosure.",
+                "Determine denied party screening requirements.",
+            ],
+            "inputs": [
+                (
+                    "Export transaction EXP-{id}: Technical data transfer to foreign entity."
+                    " ECCN: {classification}. Licence: {approval_status}."
+                ),
+                (
+                    "Deemed export DE-{id}: Foreign national access to controlled technology."
+                    " Screening: {test_status}. Authorisation: {validation_status}."
+                ),
+            ],
+            "output_template": (
+                "Export control compliance: {compliance}\n"
+                "ITAR/EAR obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "ITAR 22 CFR Part 120",
+                "EAR 15 CFR Part 734.13",
+                "EAR 15 CFR Part 744",
+            ],
+        },
+        "ip_governance": {
+            "instructions": [
+                "Assess IP protection requirements for this release.",
+                "Identify patent filing obligations before disclosure.",
+                "Determine NDA requirements for this data sharing.",
+            ],
+            "inputs": [
+                (
+                    "IP release IPR-{id}: Technical disclosure to partner."
+                    " Patent clearance: {approval_status}. NDA: {tested}."
+                ),
+                (
+                    "Process change PCN-{id}: Semiconductor process modification."
+                    " JEDEC PCN: {test_status}. Customer notification: {validation_status}."
+                ),
+            ],
+            "output_template": (
+                "IP governance: {compliance}\n"
+                "Obligations:\n{obligations}\n"
+                "Required evidence: {evidence}\n"
+                "Recommendation: {recommendation}"
+            ),
+            "regulatory_refs": [
+                "USPTO / EPO filing requirements",
+                "UK Trade Secrets Regulations 2018",
+                "JEDEC JEP671",
+            ],
+        },
+    },
 }
 
 FILL_VALUES = {
@@ -235,6 +583,61 @@ FILL_VALUES = {
     "vector": lambda: random.choice(["phishing", "credential stuffing", "zero-day exploit"]),
     "data_status": lambda: random.choice(["no data compromised", "under investigation"]),
     "containment": lambda: random.choice(["contained", "in progress", "not contained"]),
+    "obligations": lambda: random.choice(
+        [
+            "- Complete required documentation\n- Obtain necessary approvals",
+            "- Submit evidence to governance team\n- Notify regulatory body if required",
+            "- Review against applicable regulations\n- Document compliance status",
+        ]
+    ),
+    "evidence": lambda: random.choice(
+        [
+            "change_control_record, approval_sign_off, risk_assessment",
+            "validation_report, compliance_checklist, audit_trail",
+            "impact_assessment, regulatory_notification, sign_off_record",
+        ]
+    ),
+    "recommendation": lambda: random.choice(
+        [
+            "BLOCK until all required evidence is provided",
+            "PROCEED with conditions — evidence must be provided within 48 hours",
+            "ESCALATE to senior governance for review",
+        ]
+    ),
+    "timeline": lambda: random.choice(
+        [
+            "- 24 hours: early warning\n- 72 hours: full notification\n- 1 month: final report",
+            "- Immediate: containment\n- 48 hours: notification\n- 30 days: final report",
+        ]
+    ),
+    "remediation": lambda: random.choice(
+        [
+            "Complete missing documentation and resubmit for approval",
+            "Obtain required sign-offs and update compliance records",
+            "Remediate findings and provide evidence of correction",
+        ]
+    ),
+    "notifications": lambda: random.choice(
+        [
+            "Regulatory authority, affected parties, internal governance",
+            "Board, competent authority, impacted customers",
+        ]
+    ),
+    "notification": lambda: random.choice(
+        [
+            "Required within regulatory timeframe",
+            "Not required at this threshold",
+            "Required — escalate to compliance team",
+        ]
+    ),
+    "missing": lambda: random.choice(
+        [
+            "risk_assessment, approval_record",
+            "validation_report, sign_off",
+            "compliance_checklist, audit_evidence",
+        ]
+    ),
+    "risk": lambda: random.choice(["HIGH", "MEDIUM", "LOW"]),
 }
 
 

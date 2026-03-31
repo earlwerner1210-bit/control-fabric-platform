@@ -1,0 +1,56 @@
+{
+  "domain": "healthcare",
+  "dry_run": true,
+  "started_at": "2026-03-31T10:48:00.879078+00:00",
+  "stages": {
+    "corpus": {
+      "documents": 5,
+      "status": "complete"
+    },
+    "generation": {
+      "examples": 10000,
+      "distribution": {
+        "software_validation": 5000,
+        "phi_handling": 5000
+      },
+      "status": "complete"
+    },
+    "finetune": {
+      "success": true,
+      "model_path": "mlx-community/Qwen2-0.5B-Instruct-4bit",
+      "adapter_path": "slm/models/healthcare/domain-lora",
+      "training_loss": 0.0,
+      "eval_loss": 0.0,
+      "num_examples": 8000,
+      "training_time_seconds": 0.0,
+      "config": {
+        "base_model": "mlx-community/Qwen2-0.5B-Instruct-4bit",
+        "lora_rank": 16,
+        "lora_alpha": 32.0,
+        "learning_rate": 0.0001,
+        "batch_size": 4,
+        "num_epochs": 3,
+        "max_seq_length": 512,
+        "domain": "healthcare"
+      },
+      "error": "",
+      "dry_run": true
+    },
+    "evaluation": {
+      "citation_accuracy": 0.0,
+      "evidence_completeness": 1.0,
+      "risk_accuracy": 0.525,
+      "remediation_specificity": 0.9585,
+      "hallucination_rate": 0.0,
+      "avg_latency_ms": 0.021251202998428198,
+      "num_examples": 1000,
+      "overall_score": 64.87750000000001,
+      "grade": "D",
+      "model_id": "dry-run",
+      "domain": "healthcare",
+      "evaluated_at": "2026-03-31T10:48:01.251016+00:00"
+    }
+  },
+  "completed_at": "2026-03-31T10:48:01.252100+00:00",
+  "status": "complete"
+}

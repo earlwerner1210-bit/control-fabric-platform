@@ -5,15 +5,30 @@ from __future__ import annotations
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from app.core.inference.domain_adapters.banking_adapter import BankingSLMAdapter
 from app.core.inference.domain_adapters.finserv_adapter import FinServSLMAdapter
+from app.core.inference.domain_adapters.healthcare_adapter import HealthcareSLMAdapter
+from app.core.inference.domain_adapters.insurance_adapter import InsuranceSLMAdapter
+from app.core.inference.domain_adapters.legal_adapter import LegalSLMAdapter
+from app.core.inference.domain_adapters.manufacturing_adapter import ManufacturingSLMAdapter
+from app.core.inference.domain_adapters.semiconductor_adapter import SemiconductorSLMAdapter
 from app.core.inference.domain_adapters.telecom_adapter import TelecomSLMAdapter
 from app.core.inference.slm_router import SLMContext, slm_router
 
 router = APIRouter(prefix="/slm", tags=["slm"])
 
-# Register domain adapters at startup
-slm_router.register(TelecomSLMAdapter())
-slm_router.register(FinServSLMAdapter())
+# Register all domain adapters at startup
+for _adapter in [
+    TelecomSLMAdapter(),
+    FinServSLMAdapter(),
+    LegalSLMAdapter(),
+    HealthcareSLMAdapter(),
+    BankingSLMAdapter(),
+    InsuranceSLMAdapter(),
+    ManufacturingSLMAdapter(),
+    SemiconductorSLMAdapter(),
+]:
+    slm_router.register(_adapter)
 
 
 class EnrichRequest(BaseModel):

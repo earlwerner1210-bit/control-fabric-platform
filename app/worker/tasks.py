@@ -81,13 +81,19 @@ def alert_on_open_critical_cases() -> dict:
 def report_usage_to_stripe() -> dict:
     """Push hourly usage records to Stripe for all active tenants."""
     try:
-        from app.core.metering.meter import metering_engine
+        from app.core.billing.stripe_billing import stripe_billing
 
-        results = {}
-        for tenant_id in metering_engine.get_all_tenants():
-            results[tenant_id] = metering_engine.report_to_stripe(tenant_id)
-        logger.info("Stripe usage reporting complete: %d tenants", len(results))
-        return {"tenants_reported": len(results), "results": results}
+        records = stripe_billing.report_all_tenants()
+        reported = sum(1 for r in records if r.stripe_reported)
+        logger.info(
+            "Stripe usage reporting: %d/%d tenants reported",
+            reported,
+            len(records),
+        )
+        return {
+            "tenants_processed": len(records),
+            "tenants_reported_to_stripe": reported,
+        }
     except Exception as exc:
         logger.error("Stripe reporting task failed: %s", exc)
         return {"error": str(exc)}

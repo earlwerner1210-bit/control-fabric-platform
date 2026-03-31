@@ -147,6 +147,19 @@ class CrossPlaneReconciliationEngine:
         new_cases.extend(self._detect_orphans())
         for case in new_cases:
             self._commit_case(case)
+
+        # Meter — never let this block reconciliation
+        try:
+            from app.core.metering.meter import metering_engine
+            from app.core.multitenancy.middleware import TenantContext
+
+            _tenant = TenantContext.get()
+            metering_engine.record("reconciliation_run", _tenant)
+            if new_cases:
+                metering_engine.record("reconciliation_case", _tenant, quantity=len(new_cases))
+        except Exception:
+            pass
+
         return new_cases
 
     def _evaluate_rule(self, rule: ReconciliationRule) -> list[ReconciliationCase]:

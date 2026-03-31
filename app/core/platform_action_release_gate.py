@@ -283,6 +283,21 @@ class PlatformActionReleaseGate:
             package.package_id[:8],
             package.package_hash[:16],
         )
+
+        # Meter — never let this block the gate
+        try:
+            from app.core.metering.meter import metering_engine
+            from app.core.multitenancy.middleware import TenantContext
+
+            _tenant = TenantContext.get()
+            metering_engine.record("gate_submission", _tenant)
+            if result.status.value == "blocked":
+                metering_engine.record("gate_block", _tenant)
+            else:
+                metering_engine.record("gate_release", _tenant)
+        except Exception:
+            pass
+
         return result
 
     def get_package(self, package_id: str) -> EvidencePackage | None:

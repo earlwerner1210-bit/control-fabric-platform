@@ -4,18 +4,24 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { href: "/", label: "Overview", icon: "◈" },
-  { href: "/cases", label: "Case Queue", icon: "⚠" },
-  { href: "/releases", label: "Release Gate", icon: "⊙" },
-  { href: "/graph", label: "Graph Explorer", icon: "◎" },
-  { href: "/objects", label: "Object Registry", icon: "▣" },
-  { href: "/evidence", label: "Evidence Chain", icon: "⬡" },
-  { href: "/exceptions", label: "Exceptions", icon: "⊘" },
-  { href: "/rules", label: "Rules", icon: "≡" },
-  { href: "/explain", label: "Explain", icon: "?" },
-  { href: "/demo", label: "Demo Tenant", icon: "▷" },
-  { href: "/journey", label: "Journey", icon: "→" },
-  { href: "/reports", label: "Reports", icon: "📊" },
+  { href: "/",              label: "Overview",        icon: "◈" },
+  { href: "/cases",         label: "Cases",           icon: "⚠" },
+  { href: "/release-gate",  label: "Release Gate",    icon: "▶" },
+  { href: "/graph",         label: "Graph Explorer",  icon: "⬡" },
+  { href: "/registry",      label: "Object Registry", icon: "☰" },
+  { href: "/evidence",      label: "Evidence Chain",  icon: "⬜" },
+  { href: "/exceptions",    label: "Exceptions",      icon: "⛔" },
+  { href: "/rules",         label: "Rules",           icon: "≡" },
+  { href: "/explain",       label: "Explainability",  icon: "?" },
+  { href: "/compliance",    label: "Compliance",      icon: "✓" },
+  { href: "/analytics",     label: "Analytics",       icon: "↗" },
+  { href: "/executive",     label: "Executive",       icon: "◇" },
+  { href: "/slm",           label: "SLM Status",      icon: "◈" },
+  { href: "/readiness",     label: "Readiness",       icon: "⬡" },
+  { href: "/infrastructure",label: "Infrastructure",  icon: "⬡" },
+  { href: "/journey",       label: "Journey",         icon: "→" },
+  { href: "/reports",       label: "Reports",         icon: "↓" },
+  { href: "/demo",          label: "Demo Tenant",     icon: "▷" },
 ];
 
 export function Sidebar() {

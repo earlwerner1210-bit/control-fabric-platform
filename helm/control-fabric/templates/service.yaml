@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "control-fabric.fullname" . }}-api
+  labels:
+    {{- include "control-fabric.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: {{ .Values.api.service.type }}
+  ports:
+    - port: {{ .Values.api.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "control-fabric.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+---
+{{- if .Values.console.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "control-fabric.fullname" . }}-console
+  labels:
+    {{- include "control-fabric.labels" . | nindent 4 }}
+    app.kubernetes.io/component: console
+spec:
+  type: {{ .Values.console.service.type }}
+  ports:
+    - port: {{ .Values.console.service.port }}
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "control-fabric.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: console
+{{- end }}

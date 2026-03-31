@@ -1,0 +1,27 @@
+Control Fabric Platform has been deployed!
+
+Components:
+  - API:     {{ include "control-fabric.fullname" . }}-api
+  - Worker:  {{ include "control-fabric.fullname" . }}-worker
+  - Beat:    {{ include "control-fabric.fullname" . }}-beat
+{{- if .Values.console.enabled }}
+  - Console: {{ include "control-fabric.fullname" . }}-console
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+Access the platform at:
+{{- range .Values.ingress.hosts }}
+  - https://{{ .host }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.postgresql.enabled }}
+PostgreSQL: {{ include "control-fabric.fullname" . }}-postgresql:5432
+{{- end }}
+
+{{- if .Values.redis.enabled }}
+Redis: {{ include "control-fabric.fullname" . }}-redis-master:6379
+{{- end }}
+
+To check deployment status:
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}

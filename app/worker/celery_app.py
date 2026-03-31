@@ -42,5 +42,9 @@ celery_app.conf.update(
             "task": "app.worker.tasks.alert_on_open_critical_cases",
             "schedule": crontab(minute="*/15"),
         },
+        "report-usage-to-stripe-hourly": {
+            "task": "app.worker.tasks.report_usage_to_stripe",
+            "schedule": crontab(minute=5),
+        },
     },
 )

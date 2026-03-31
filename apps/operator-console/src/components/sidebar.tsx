@@ -18,6 +18,7 @@ const NAV = [
   { href: "/reports", label: "Reports", icon: "📊" },
   { href: "/executive", label: "Executive", icon: "◈" },
   { href: "/slm", label: "SLM Status", icon: "◈" },
+  { href: "/infrastructure", label: "Infrastructure", icon: "⬡" },
 ];
 
 export function Sidebar() {

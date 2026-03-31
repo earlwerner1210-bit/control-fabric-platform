@@ -1,0 +1,39 @@
+{{- if .Values.console.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "control-fabric.fullname" . }}-console
+  labels:
+    {{- include "control-fabric.labels" . | nindent 4 }}
+    app.kubernetes.io/component: console
+spec:
+  replicas: {{ .Values.console.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "control-fabric.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: console
+  template:
+    metadata:
+      labels:
+        {{- include "control-fabric.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: console
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: console
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          image: "{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"
+          imagePullPolicy: {{ .Values.console.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              value: "https://api.control-fabric.example.com"
+            - name: NODE_ENV
+              value: "production"
+          resources:
+            {{- toYaml .Values.console.resources | nindent 12 }}
+{{- end }}

@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "control-fabric.fullname" . }}-config
+  labels:
+    {{- include "control-fabric.labels" . | nindent 4 }}
+data:
+  DATABASE_URL: {{ include "control-fabric.databaseUrl" . | quote }}
+  REDIS_URL: {{ include "control-fabric.redisUrl" . | quote }}
+  CELERY_BROKER_URL: {{ include "control-fabric.celeryBrokerUrl" . | quote }}
+  CELERY_RESULT_BACKEND: {{ printf "%s/2" (include "control-fabric.redisUrl" .) | replace "/0/2" "/2" | quote }}
+  DEFAULT_TENANT_ID: {{ .Values.config.defaultTenantId | quote }}
+  JWT_EXPIRE_MINUTES: {{ .Values.config.jwtExpireMinutes | quote }}
+  ENVIRONMENT: "production"
+  LOG_LEVEL: {{ .Values.api.env.LOG_LEVEL | quote }}
+  OIDC_ISSUER: {{ .Values.config.oidcIssuer | quote }}
+  OIDC_CLIENT_ID: {{ .Values.config.oidcClientId | quote }}
+  OIDC_REDIRECT_URI: {{ .Values.config.oidcRedirectUri | quote }}
+  ALERT_EMAIL_TO: {{ .Values.config.alertEmailTo | quote }}
+  SMTP_HOST: {{ .Values.config.smtpHost | quote }}
+  SMTP_PORT: {{ .Values.config.smtpPort | quote }}
+  SMTP_USER: {{ .Values.config.smtpUser | quote }}

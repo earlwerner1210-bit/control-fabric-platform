@@ -1,0 +1,199 @@
+# ── GLOBAL ─────────────────────────────────────────────────────────────────────
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# ── API ─────────────────────────────────────────────────────────────────────────
+api:
+  image:
+    repository: cfp-api
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  service:
+    type: ClusterIP
+    port: 8000
+  env:
+    JWT_EXPIRE_MINUTES: "480"
+    LOG_LEVEL: "INFO"
+    ENVIRONMENT: "production"
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  livenessProbe:
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 30
+  readinessProbe:
+    path: /ready
+    initialDelaySeconds: 15
+    periodSeconds: 10
+
+# ── WORKER ──────────────────────────────────────────────────────────────────────
+worker:
+  image:
+    repository: cfp-api
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  concurrency: 2
+
+# ── BEAT (scheduler) ────────────────────────────────────────────────────────────
+beat:
+  image:
+    repository: cfp-api
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "250m"
+      memory: "512Mi"
+
+# ── CONSOLE ─────────────────────────────────────────────────────────────────────
+console:
+  enabled: true
+  image:
+    repository: cfp-console
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  service:
+    type: ClusterIP
+    port: 3000
+
+# ── INGRESS ─────────────────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.control-fabric.example.com
+      paths:
+        - path: /
+          service: api
+    - host: console.control-fabric.example.com
+      paths:
+        - path: /
+          service: console
+  tls:
+    - secretName: control-fabric-tls
+      hosts:
+        - api.control-fabric.example.com
+        - console.control-fabric.example.com
+
+# ── SECRETS (override with --set or external secrets operator) ──────────────────
+secrets:
+  create: true
+  jwtSecretKey: "change-me-in-production-minimum-32-chars"
+  slackWebhookUrl: ""
+  githubToken: ""
+  jiraToken: ""
+  snowUser: ""
+  snowPass: ""
+  adoPat: ""
+  stripeSecretKey: ""
+  webhookSigningSecret: "change-me-webhook-secret"
+  oidcClientSecret: ""
+
+# ── CONFIG ──────────────────────────────────────────────────────────────────────
+config:
+  defaultTenantId: "default"
+  jwtExpireMinutes: "480"
+  oidcIssuer: ""
+  oidcClientId: ""
+  oidcRedirectUri: ""
+  alertEmailTo: ""
+  smtpHost: ""
+  smtpPort: "587"
+  smtpUser: ""
+
+# ── POSTGRESQL (Bitnami chart) ───────────────────────────────────────────────────
+postgresql:
+  enabled: true
+  auth:
+    database: control_fabric
+    username: cfp
+    password: cfp_secret
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+
+# ── REDIS (Bitnami chart) ────────────────────────────────────────────────────────
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+
+# ── SERVICE ACCOUNT ──────────────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# ── NETWORK POLICY ───────────────────────────────────────────────────────────────
+networkPolicy:
+  enabled: true
+
+# ── POD SECURITY ─────────────────────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: ["ALL"]

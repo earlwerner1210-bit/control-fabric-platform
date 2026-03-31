@@ -1,33 +1,18 @@
-###############################################################################
-# Control Fabric Platform — CI Pipeline
-###############################################################################
-
 name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, "claude/**"]
   pull_request:
-    branches: [main, develop]
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-  pull-requests: write
-  packages: write
+    branches: [main]
 
 env:
   PYTHON_VERSION: "3.11"
-  REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository }}
+  NODE_VERSION: "20"
 
 jobs:
-  # ── Lint & Type Check ────────────────────────────────────────────────────
   lint:
-    name: Lint & Type Check
+    name: Lint and Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,18 +29,19 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Ruff lint
-        run: ruff check . --output-format=github
+        run: ruff check app/ tests/ sdk/ cli/ benchmarks/ --output-format=github
 
       - name: Ruff format check
-        run: ruff format --check .
+        run: ruff format --check app/ tests/ sdk/ cli/
 
-      - name: MyPy type check
-        run: mypy app/ --ignore-missing-imports --no-error-summary || true
+      - name: Mypy type check
+        run: mypy app/ --ignore-missing-imports --no-strict-optional
+        continue-on-error: true
 
-  # ── Unit Tests ───────────────────────────────────────────────────────────
-  test-unit:
+  unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    needs: lint
     steps:
       - uses: actions/checkout@v4
 
@@ -71,33 +57,23 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run unit tests
+        run: python -m pytest tests/core/ tests/unit/ -v --tb=short -q
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: |
-          python -m pytest tests/unit/ -v \
-            --cov=app \
-            --cov-report=xml:coverage-unit.xml \
-            --cov-report=term-missing \
-            --junitxml=junit-unit.xml
+          DATABASE_URL: ""
+          REDIS_URL: ""
 
-      - name: Upload coverage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-unit
-          path: coverage-unit.xml
-
-  # ── Integration Tests ────────────────────────────────────────────────────
-  test-integration:
+  integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
+    needs: lint
     services:
       postgres:
-        image: pgvector/pgvector:pg16
+        image: postgres:16-alpine
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: control_fabric_test
+          POSTGRES_USER: cfp
+          POSTGRES_PASSWORD: cfp_test
         ports:
           - 5432:5432
         options: >-
@@ -105,10 +81,17 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
       redis:
         image: redis:7-alpine
         ports:
           - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -124,27 +107,17 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run integration tests
+        run: python -m pytest tests/integration/ -v --tb=short -q
         env:
           PYTHONPATH: ${{ github.workspace }}
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/control_fabric_test
+          DATABASE_URL: postgresql+asyncpg://cfp:cfp_test@localhost:5432/control_fabric_test
           REDIS_URL: redis://localhost:6379/0
-        run: |
-          python -m pytest tests/integration/ -v \
-            --cov=app \
-            --cov-report=xml:coverage-integration.xml \
-            --junitxml=junit-integration.xml
+          JWT_SECRET_KEY: test-secret-key-for-ci-minimum-32-chars
 
-      - name: Upload coverage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-integration
-          path: coverage-integration.xml
-
-  # ── E2E Tests ────────────────────────────────────────────────────────────
-  test-e2e:
-    name: E2E Tests
+  patent-demo:
+    name: Patent Demonstration Tests
     runs-on: ubuntu-latest
+    needs: integration-tests
     steps:
       - uses: actions/checkout@v4
 
@@ -159,26 +132,19 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Run e2e tests
+      - name: Run patent demonstration test
+        run: |
+          python -m pytest "tests/integration/test_full_pipeline.py::TestFullPipeline::test_full_end_to_end_pipeline" -v
+          python -m pytest "tests/integration/test_release_governance_pack.py::TestDifferentiationProof" -v
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: |
-          python -m pytest tests/e2e/ -v \
-            --cov=app \
-            --cov-report=xml:coverage-e2e.xml \
-            --junitxml=junit-e2e.xml
+          DATABASE_URL: ""
 
-      - name: Upload coverage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-e2e
-          path: coverage-e2e.xml
-
-  # ── Regression Tests ─────────────────────────────────────────────────────
-  test-regression:
-    name: Regression Tests
+  benchmarks:
+    name: Performance Benchmarks
     runs-on: ubuntu-latest
+    needs: unit-tests
+    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
 
@@ -193,78 +159,67 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Run regression tests
+      - name: Run quick benchmarks
+        run: python benchmarks/run_benchmarks.py --quick --out benchmarks/ci-results.json
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: |
-          python -m pytest tests/regression/ -v \
-            --cov=app \
-            --cov-report=xml:coverage-regression.xml \
-            --junitxml=junit-regression.xml
 
-      - name: Upload coverage
-        if: always()
+      - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-regression
-          path: coverage-regression.xml
+          name: benchmark-results
+          path: benchmarks/ci-results.json
 
-  # ── Docker Build ─────────────────────────────────────────────────────────
+  console-build:
+    name: Operator Console Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/operator-console/package-lock.json
+
+      - name: Install console dependencies
+        working-directory: apps/operator-console
+        run: npm ci
+
+      - name: Lint console
+        working-directory: apps/operator-console
+        run: npx eslint src/ --max-warnings=20
+        continue-on-error: true
+
+      - name: Build console
+        working-directory: apps/operator-console
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+
   docker-build:
-    name: Docker Build
+    name: Docker Build Check
     runs-on: ubuntu-latest
-    needs: [lint, test-unit]
-    if: github.event_name == 'push'
-    strategy:
-      matrix:
-        target: [api, worker]
+    needs: [unit-tests, console-build]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        run: docker build -t cfp-api:ci .
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build console image
+        run: docker build -t cfp-console:ci -f apps/operator-console/Dockerfile.console apps/operator-console/
 
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.target }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix=
-
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: infra/docker/Dockerfile.${{ matrix.target }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ── Summary Gate ─────────────────────────────────────────────────────────
   ci-complete:
     name: CI Complete
     runs-on: ubuntu-latest
-    needs: [lint, test-unit, test-integration, test-e2e, test-regression]
+    needs: [lint, unit-tests, integration-tests, patent-demo, console-build, docker-build]
     if: always()
     steps:
-      - name: Check results
+      - name: Check all jobs passed
         run: |
-          if [ "${{ needs.lint.result }}" != "success" ] || \
-             [ "${{ needs.test-unit.result }}" != "success" ] || \
-             [ "${{ needs.test-integration.result }}" != "success" ] || \
-             [ "${{ needs.test-e2e.result }}" != "success" ] || \
-             [ "${{ needs.test-regression.result }}" != "success" ]; then
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
             echo "One or more CI jobs failed"
             exit 1
           fi

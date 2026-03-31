@@ -288,6 +288,7 @@ class PlatformActionReleaseGate:
         try:
             from app.core.metering.meter import metering_engine
             from app.core.multitenancy.middleware import TenantContext
+
             _tenant = TenantContext.get()
             metering_engine.record("gate_submission", _tenant)
             if result.status.value == "blocked":

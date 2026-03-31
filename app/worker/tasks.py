@@ -82,6 +82,7 @@ def report_usage_to_stripe() -> dict:
     """Push hourly usage records to Stripe for all active tenants."""
     try:
         from app.core.metering.meter import metering_engine
+
         results = {}
         for tenant_id in metering_engine.get_all_tenants():
             results[tenant_id] = metering_engine.report_to_stripe(tenant_id)

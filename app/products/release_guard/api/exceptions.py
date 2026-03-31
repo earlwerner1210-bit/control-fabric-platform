@@ -66,9 +66,7 @@ def get_exception(exception_id: str) -> dict:
 @router.post("/{exception_id}/approve")
 def approve_exception(exception_id: str, body: ExceptionDecisionBody) -> dict:
     try:
-        exc = exception_service.approve_exception(
-            exception_id, body.decided_by, body.note
-        )
+        exc = exception_service.approve_exception(exception_id, body.decided_by, body.note)
         return {
             "exception_id": exception_id,
             "status": exc.status,
@@ -81,9 +79,7 @@ def approve_exception(exception_id: str, body: ExceptionDecisionBody) -> dict:
 @router.post("/{exception_id}/reject")
 def reject_exception(exception_id: str, body: ExceptionDecisionBody) -> dict:
     try:
-        exc = exception_service.reject_exception(
-            exception_id, body.decided_by, body.note
-        )
+        exc = exception_service.reject_exception(exception_id, body.decided_by, body.note)
         return {
             "exception_id": exception_id,
             "status": exc.status,

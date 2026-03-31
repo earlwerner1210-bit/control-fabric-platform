@@ -75,12 +75,8 @@ class TestExceptionService:
             ReleaseRisk.LOW,
             "eng@test.com",
         )
-        rrs.add_evidence(
-            release.release_id, EvidenceType.BUILD_RESULT, "CI", "b1", "", "eng"
-        )
-        rrs.add_evidence(
-            release.release_id, EvidenceType.JIRA_TICKET, "CR-1", "CR-1", "", "eng"
-        )
+        rrs.add_evidence(release.release_id, EvidenceType.BUILD_RESULT, "CI", "b1", "", "eng")
+        rrs.add_evidence(release.release_id, EvidenceType.JIRA_TICKET, "CR-1", "CR-1", "", "eng")
         rrs.submit(release.release_id, PolicyProfileName.STARTUP_DEFAULT)
 
         svc = ExceptionService()

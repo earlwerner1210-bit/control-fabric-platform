@@ -129,9 +129,7 @@ class DemoService:
             "https://snyk.io/results/demo-2026-04-01",
             "bob@demo.com",
         )
-        release_request_service.submit(
-            approved.release_id, PolicyProfileName.STARTUP_DEFAULT
-        )
+        release_request_service.submit(approved.release_id, PolicyProfileName.STARTUP_DEFAULT)
         created.append(
             {
                 "scenario": "approved_release",
@@ -182,9 +180,7 @@ class DemoService:
                 "carol@demo.com",
             )
         release_request_service.submit(pending.release_id, policy_profile)
-        step = approval_service.request(
-            pending.release_id, "manager@demo.com", sla_hours=24
-        )
+        step = approval_service.request(pending.release_id, "manager@demo.com", sla_hours=24)
         created.append(
             {
                 "scenario": "pending_approval",
@@ -269,9 +265,7 @@ class DemoService:
             _releases,
         )
 
-        demo_release_ids = [
-            rid for rid, r in _releases.items() if r.workspace_id == workspace_id
-        ]
+        demo_release_ids = [rid for rid, r in _releases.items() if r.workspace_id == workspace_id]
         for rid in demo_release_ids:
             del _releases[rid]
 

@@ -83,11 +83,7 @@ class DashboardService:
         # Pending approvals
         from app.products.release_guard.services.approval_service import _steps as approval_steps
 
-        all_pending = [
-            s
-            for s in approval_steps.values()
-            if s.status.value == "pending"
-        ]
+        all_pending = [s for s in approval_steps.values() if s.status.value == "pending"]
         workspace_pending = [
             s for s in all_pending if any(r.release_id == s.release_id for r in period_releases)
         ]

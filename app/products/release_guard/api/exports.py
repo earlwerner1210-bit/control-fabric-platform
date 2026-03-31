@@ -34,17 +34,13 @@ def export_releases(body: ExportBody) -> dict:
 
 @router.post("/approvals")
 def export_approvals(body: ExportBody) -> dict:
-    job = export_service.export_approvals(
-        body.workspace_id, body.requested_by, body.format
-    )
+    job = export_service.export_approvals(body.workspace_id, body.requested_by, body.format)
     return asdict(job)
 
 
 @router.post("/exceptions")
 def export_exceptions(body: ExportBody) -> dict:
-    job = export_service.export_exceptions(
-        body.workspace_id, body.requested_by, body.format
-    )
+    job = export_service.export_exceptions(body.workspace_id, body.requested_by, body.format)
     return asdict(job)
 
 
@@ -60,15 +56,11 @@ def download_export(export_id: str) -> Response:
         job = export_service.get_job(export_id)
         content = export_service.get_content(export_id)
         media_type = "text/csv" if job.format == "csv" else "application/json"
-        filename = (
-            f"release-guard-{job.export_type}-{job.export_id[:8]}.{job.format}"
-        )
+        filename = f"release-guard-{job.export_type}-{job.export_id[:8]}.{job.format}"
         return Response(
             content=content,
             media_type=media_type,
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
-            },
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

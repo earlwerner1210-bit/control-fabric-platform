@@ -91,9 +91,7 @@ class ExportService:
                     "decided_at": r.decided_at or "",
                     "blocked_reason": r.blocked_reason or "",
                     "evidence_count": len(r.evidence_items),
-                    "evidence_types": "|".join(
-                        e.evidence_type.value for e in r.evidence_items
-                    ),
+                    "evidence_types": "|".join(e.evidence_type.value for e in r.evidence_items),
                     "package_id": r.package_id or "",
                 }
             )

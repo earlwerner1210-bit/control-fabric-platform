@@ -17,6 +17,7 @@ const NAV = [
   { href: "/journey", label: "Journey", icon: "→" },
   { href: "/reports", label: "Reports", icon: "📊" },
   { href: "/executive", label: "Executive", icon: "◈" },
+  { href: "/slm", label: "SLM Status", icon: "◈" },
 ];
 
 export function Sidebar() {

@@ -1,0 +1,314 @@
+{
+  "generated_at": "2026-03-31T13:03:35.784572+00:00",
+  "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "eval_samples_per_domain": 30,
+  "domains": [
+    {
+      "domain": "telecom",
+      "adapter_type": "peft_lora_hf",
+      "dry_run": false,
+      "training_loss": 3.212,
+      "max_steps": 30,
+      "num_examples": 120,
+      "eval_samples": 30,
+      "citation_accuracy": {
+        "fine_tuned": 0.0,
+        "rule_based_baseline": 0.72,
+        "delta": -0.72,
+        "improved": false
+      },
+      "json_validity_rate": {
+        "fine_tuned": 0.0,
+        "rule_based_baseline": 0.88,
+        "delta": -0.88,
+        "above_threshold": false
+      },
+      "recommendation": "NEEDS_WORK \u2014 rule-based fallback active; recommend 200+ steps on GPU",
+      "sample_outputs": [
+        {
+          "input": "Network change CR-7912: Deploy new firewall rules for VoLTE traffic. Security classification: critic",
+          "output": "Risk assessment: HIGH\nRecommendation:\u6682\u7f13\u6279\u51c6\uff0c\u91cd\u65b0\u8bc4\u4f30\u98ce\u9669\n\u539f\u56e0\uff1a\u672a\u5145\u5206\u8003\u8651\u5b89\u5168\u5f71\u54cd\uff0c\u7f3a\u4e4f\u5fc5\u8981\u7684\u9a8c\u8bc1\u548c\u6d4b\u8bd5\u3002"
+        },
+        {
+          "input": "Security incident SI-3706: DDoS attack on DNS infrastructure. Peak traffic: 100Gbps. Service degrada",
+          "output": "NIS2 classification: High risk\nReporting time frame: Immediate\nAdditional information required: Incident response plan, notification to relevant parties, and evidence retention guidelines"
+        },
+        {
+          "input": "Network change CR-8184: Deploy new firewall rules for VoLTE traffic. Security classification: critic",
+          "output": "Risk assessment: HIGH\nRecommendation:\u6682\u7f13\u90e8\u7f72\nAdditional information: Please provide a security impact analysis and evidence to support your recommendation."
+        }
+      ]
+    },
+    {
+      "domain": "legal",
+      "adapter_type": "peft_lora_hf",
+      "dry_run": false,
+      "training_loss": 3.0394,
+      "max_steps": 30,
+      "num_examples": 120,
+      "eval_samples": 30,
+      "citation_accuracy": {
+        "fine_tuned": 0.5667,
+        "rule_based_baseline": 0.68,
+        "delta": -0.1133,
+        "improved": false
+      },
+      "json_validity_rate": {
+        "fine_tuned": 0.0,
+        "rule_based_baseline": 0.85,
+        "delta": -0.85,
+        "above_threshold": false
+      },
+      "recommendation": "NEEDS_WORK \u2014 rule-based fallback active; recommend 200+ steps on GPU",
+      "sample_outputs": [
+        {
+          "input": "Data retention review DR-3550: Matter files beyond retention period. Records: 50000. Exemptions: par",
+          "output": "Data subject rights: NOT ENOUGH INFORMATION.\nRequired evidence: - Consent from affected parties - Evidence of compliance with applicable laws and regulations - Documentation of risk assessment\nRecomme"
+        },
+        {
+          "input": "New client retainer MAT-1899: High-value property transaction. Source of funds: pending. PEP check: ",
+          "output": "Evidence needed:\n- Bank statements\n- ID documents\n- Police report\n- Financial statements\n- Credit reports\n- Criminal history checks"
+        },
+        {
+          "input": "DSAR received DSAR-3802: Data subject access request. Deadline: Saturday 02:00-06:00. Records identi",
+          "output": "GDPR compliance: COMPLIANT\nReview period: 7 days\nAction required: REVIEW\nRecommendation: REVIEW - evidence must be provided before review can commence"
+        }
+      ]
+    },
+    {
+      "domain": "banking",
+      "adapter_type": "peft_lora_hf",
+      "dry_run": false,
+      "training_loss": 3.0667,
+      "max_steps": 30,
+      "num_examples": 120,
+      "eval_samples": 30,
+      "citation_accuracy": {
+        "fine_tuned": 0.3,
+        "rule_based_baseline": 0.7,
+        "delta": -0.4,
+        "improved": false
+      },
+      "json_validity_rate": {
+        "fine_tuned": 0.0,
+        "rule_based_baseline": 0.87,
+        "delta": -0.87,
+        "above_threshold": false
+      },
+      "recommendation": "NEEDS_WORK \u2014 rule-based fallback active; recommend 200+ steps on GPU",
+      "sample_outputs": [
+        {
+          "input": "Risk report RPT-8977: Quarterly risk data submission. Reconciliation: not started. Data quality: val",
+          "output": "Data Quality Obligations:\n- Compliance with reporting requirements\n- Accuracy of data\n- Timeliness of submission\n- Completeness of required information\n- Review by senior management if necessary"
+        },
+        {
+          "input": "Capital report RPT-9039: RWA calculation update. Senior manager attestation: not requested.",
+          "output": "Data Quality Obligations:\n- Compliance with reporting requirements (RCP)\n- Accuracy verification (ACV)\n- Traceability to historical data (HLD)"
+        },
+        {
+          "input": "Risk report RPT-3020: Quarterly risk data submission. Reconciliation: partial. Data quality: pending",
+          "output": "BCBS 239-compliant:\n- Compliance date: as of 15th April 2024\n- Required evidence: regulatory approval, internal audit, governance review\nRecommendation: update to compliance with required evidence\nAdd"
+        }
+      ]
+    },
+    {
+      "domain": "healthcare",
+      "adapter_type": "peft_lora_hf",
+      "dry_run": false,
+      "training_loss": 2.9967,
+      "max_steps": 30,
+      "num_examples": 120,
+      "eval_samples": 30,
+      "citation_accuracy": {
+        "fine_tuned": 0.0,
+        "rule_based_baseline": 0.65,
+        "delta": -0.65,
+        "improved": false
+      },
+      "json_validity_rate": {
+        "fine_tuned": 0.0,
+        "rule_based_baseline": 0.83,
+        "delta": -0.83,
+        "above_threshold": false
+      },
+      "recommendation": "NEEDS_WORK \u2014 rule-based fallback active; recommend 200+ steps on GPU",
+      "sample_outputs": [
+        {
+          "input": "Software release SWR-2415: Update to clinical data system. Validation: complete. Audit trail: yes.",
+          "output": "21 CFR Part 11 obligations:\n- Notify required parties (e.g., regulatory authorities, stakeholders)\n- Obtain necessary approvals or authorizations\n- Maintain record of changes in compliance\n- Ensure co"
+        },
+        {
+          "input": "Software release SWR-3475: Update to clinical data system. Validation: partial. Audit trail: yes.",
+          "output": "FDA compliance: partially-compliant.\nRecommendation: Review and update with appropriate review approval."
+        },
+        {
+          "input": "Software release SWR-5565: Update to clinical data system. Validation: partial. Audit trail: no.",
+          "output": "21 CFR Part 11 obligations:\n- Notify required parties (e.g., regulatory authorities, stakeholders)\n- Obtain necessary approvals or authorizations\n- Maintain record of changes in compliance\n\nSystem upd"
+        }
+      ]
+    },
+    {
+      "domain": "insurance",
+      "adapter_type": "peft_lora_hf",
+      "dry_run": false,
+      "training_loss": 3.3231,
+      "max_steps": 30,
+      "num_examples": 120,
+      "eval_samples": 30,
+      "citation_accuracy": {
+        "fine_tuned": 0.1,
+        "rule_based_baseline": 0.64,
+        "delta": -0.54,
+        "improved": false
+      },
+      "json_validity_rate": {
+        "fine_tuned": 0.0,
+        "rule_based_baseline": 0.82,
+        "delta": -0.82,
+        "above_threshold": false
+      },
+      "recommendation": "NEEDS_WORK \u2014 rule-based fallback active; recommend 200+ steps on GPU",
+      "sample_outputs": [
+        {
+          "input": "Model change IMC-2258: Internal model update for SCR. PRA pre-approval: pending. Board: yes.",
+          "output": "PRA compliance:\n- Review: NOT REQUIRED\n- Approval: NOT REQUIRED\nRecommendation: COMPLIANT\nAction required: review documentation, obtain necessary approvals"
+        },
+        {
+          "input": "ORSA update ORSA-1520: Risk profile change assessment. Material change: critical. Validation: valida",
+          "output": "Risk: High\nImpact: Moderate\nAction: Review and update as necessary"
+        },
+        {
+          "input": "Product change PGR-7120: Insurance product modification. Fair value: pending. Target market: partial",
+          "output": "FCA ICOBS compliance: COMPLIANT\nRisk assessment: LOW\nRecommendation: NO ACTION\n\nAction:\n- Update risk register\n- Notify regulatory body if required"
+        }
+      ]
+    },
+    {
+      "domain": "manufacturing",
+      "adapter_type": "peft_lora_hf",
+      "dry_run": false,
+      "training_loss": 3.1791,
+      "max_steps": 30,
+      "num_examples": 120,
+      "eval_samples": 30,
+      "citation_accuracy": {
+        "fine_tuned": 0.4333,
+        "rule_based_baseline": 0.62,
+        "delta": -0.1867,
+        "improved": false
+      },
+      "json_validity_rate": {
+        "fine_tuned": 0.0,
+        "rule_based_baseline": 0.8,
+        "delta": -0.8,
+        "above_threshold": false
+      },
+      "recommendation": "NEEDS_WORK \u2014 rule-based fallback active; recommend 200+ steps on GPU",
+      "sample_outputs": [
+        {
+          "input": "Supplier change SCR-3966: New supplier qualification. Audit: pending. PPAP: yes.",
+          "output": "Change requires:\n- Compliance assessment\n- Regulatory review\n- Documentation submission\n- Notification to regulatory authorities"
+        },
+        {
+          "input": "Supplier change SCR-4768: New supplier qualification. Audit: pending. PPAP: no.",
+          "output": "IATF 16949 obligations:\n- Compliance with relevant laws and regulations (e.g., GDPR, HIPAA)\n- Documentation compliance\n- Risk assessment\n- Communication to stakeholders\n- Record-keeping requirements"
+        },
+        {
+          "input": "Supplier change SCR-3121: New supplier qualification. Audit: pending. PPAP: partial.",
+          "output": "ISO 9001 audit status: incomplete\nCompliance assessment: partially compliant\nRecommendation: Additional evidence is required before final approval."
+        }
+      ]
+    },
+    {
+      "domain": "semiconductor",
+      "adapter_type": "peft_lora_hf",
+      "dry_run": false,
+      "training_loss": 3.4372,
+      "max_steps": 30,
+      "num_examples": 120,
+      "eval_samples": 30,
+      "citation_accuracy": {
+        "fine_tuned": 0.0333,
+        "rule_based_baseline": 0.6,
+        "delta": -0.5667,
+        "improved": false
+      },
+      "json_validity_rate": {
+        "fine_tuned": 0.0,
+        "rule_based_baseline": 0.79,
+        "delta": -0.79,
+        "above_threshold": false
+      },
+      "recommendation": "NEEDS_WORK \u2014 rule-based fallback active; recommend 200+ steps on GPU",
+      "sample_outputs": [
+        {
+          "input": "IP release IPR-4295: Technical disclosure to partner. Patent clearance: pending. NDA: partial.",
+          "output": "IP compliance assessment:\n- IP classification: Confidential\n- Risk level: Medium\nRecommendation: Review with legal team for further review or guidance."
+        },
+        {
+          "input": "Export transaction EXP-5665: Technical data transfer to foreign entity. ECCN: high. Licence: pending",
+          "output": "Export control compliance: NOT COMPLIANT\nObligations:\n- Obtain necessary approvals\n- Implement appropriate security controls\n- Monitor compliance status\n- Report any non-compliance promptly"
+        },
+        {
+          "input": "Deemed export DE-4218: Foreign national access to controlled technology. Screening: not started. Aut",
+          "output": "DE-4218: Export control compliance review required. Please provide necessary documentation before proceeding."
+        }
+      ]
+    },
+    {
+      "domain": "financial_services",
+      "adapter_type": "peft_lora_hf",
+      "dry_run": false,
+      "training_loss": 3.067,
+      "max_steps": 30,
+      "num_examples": 120,
+      "eval_samples": 30,
+      "citation_accuracy": {
+        "fine_tuned": 0.3,
+        "rule_based_baseline": 0.66,
+        "delta": -0.36,
+        "improved": false
+      },
+      "json_validity_rate": {
+        "fine_tuned": 0.0,
+        "rule_based_baseline": 0.84,
+        "delta": -0.84,
+        "above_threshold": false
+      },
+      "recommendation": "NEEDS_WORK \u2014 rule-based fallback active; recommend 200+ steps on GPU",
+      "sample_outputs": [
+        {
+          "input": "Incident INC-7668: Cyber attack on internet banking platform. Attack vector: credential stuffing. Da",
+          "output": "FCA notification:\n- Notify the regulatory authorities within 24 hours\n- Provide a detailed report of the incident and its containment efforts\n- Inform stakeholders about the potential impact and remed"
+        },
+        {
+          "input": "Incident INC-3337: Cyber attack on internet banking platform. Attack vector: credential stuffing. Da",
+          "output": "FCA notification:\n- FCA notice: \"Notice of Regulatory Notice\"\n- FCA deadline: 10 days from date of notification\n- FCA response: \"Respond within 28 days\""
+        },
+        {
+          "input": "Change CR-5398: Modify AML transaction monitoring rules. Regulatory driver: regulatory change. Model",
+          "output": "DORA obligations:\n- Notify affected stakeholders (e.g., compliance team, regulators)\n- Implement necessary changes in systems and processes\n- Conduct a risk assessment and mitigation plan\n- Monitor co"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_domains": 8,
+    "pass": 0,
+    "partial": 0,
+    "needs_work": 8,
+    "avg_citation_accuracy": 0.2167,
+    "avg_json_validity_rate": 0.0,
+    "avg_citation_delta_vs_baseline": -0.4421,
+    "domains_recommended_for_gpu_training": [
+      "telecom",
+      "legal",
+      "banking",
+      "healthcare",
+      "insurance",
+      "manufacturing",
+      "semiconductor",
+      "financial_services"
+    ]
+  }
+}

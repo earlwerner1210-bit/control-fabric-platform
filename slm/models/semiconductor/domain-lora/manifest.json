@@ -1,8 +1,13 @@
 {
   "domain": "semiconductor",
-  "base_model": "mlx-community/Qwen2-0.5B-Instruct-4bit",
+  "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
   "lora_rank": 16,
-  "num_examples": 8000,
-  "dry_run": true,
-  "created_at": "2026-03-31T10:48:02.749155+00:00"
+  "lora_alpha": 32,
+  "num_examples": 120,
+  "max_steps": 30,
+  "training_loss": 3.4372,
+  "training_time_seconds": 435.4,
+  "dry_run": false,
+  "adapter_type": "peft_lora_hf",
+  "created_at": "2026-03-31T12:23:55.004612+00:00"
 }

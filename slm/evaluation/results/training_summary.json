@@ -1,0 +1,66 @@
+[
+  {
+    "domain": "telecom",
+    "success": true,
+    "training_loss": 3.212,
+    "training_seconds": 446.3,
+    "num_examples": 120,
+    "adapter_path": "slm/models/telecom/domain-lora"
+  },
+  {
+    "domain": "legal",
+    "success": true,
+    "training_loss": 3.0394,
+    "training_seconds": 461.3,
+    "num_examples": 120,
+    "adapter_path": "slm/models/legal/domain-lora"
+  },
+  {
+    "domain": "banking",
+    "success": true,
+    "training_loss": 3.0667,
+    "training_seconds": 445.9,
+    "num_examples": 120,
+    "adapter_path": "slm/models/banking/domain-lora"
+  },
+  {
+    "domain": "healthcare",
+    "success": true,
+    "training_loss": 2.9967,
+    "training_seconds": 450.8,
+    "num_examples": 120,
+    "adapter_path": "slm/models/healthcare/domain-lora"
+  },
+  {
+    "domain": "insurance",
+    "success": true,
+    "training_loss": 3.3231,
+    "training_seconds": 460.5,
+    "num_examples": 120,
+    "adapter_path": "slm/models/insurance/domain-lora"
+  },
+  {
+    "domain": "manufacturing",
+    "success": true,
+    "training_loss": 3.1791,
+    "training_seconds": 439.9,
+    "num_examples": 120,
+    "adapter_path": "slm/models/manufacturing/domain-lora"
+  },
+  {
+    "domain": "semiconductor",
+    "success": true,
+    "training_loss": 3.4372,
+    "training_seconds": 435.4,
+    "num_examples": 120,
+    "adapter_path": "slm/models/semiconductor/domain-lora"
+  },
+  {
+    "domain": "financial_services",
+    "success": true,
+    "training_loss": 3.067,
+    "training_seconds": 618.8,
+    "num_examples": 120,
+    "adapter_path": "slm/models/financial_services/domain-lora"
+  }
+]

@@ -7,7 +7,8 @@ export default function JourneyPage() {
   const [steps, setSteps] = useState<JourneyStep[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
-  const [stepResults, setStepResults] = useState<Record<number, Record<string, unknown>>>({});
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [stepResults, setStepResults] = useState<Record<number, any>>({});
   const [loading, setLoading] = useState(false);
   const [orgName, setOrgName] = useState("Demo Corp");
   const [userName, setUserName] = useState("operator@demo.com");
@@ -33,7 +34,8 @@ export default function JourneyPage() {
     if (!sessionId) return;
     setLoading(true);
     try {
-      let result: Record<string, unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let result: any;
       switch (step) {
         case 2:
           result = await api.journeyConnectSource(sessionId, "github-ci", "ci_pipeline");

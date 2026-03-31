@@ -29,10 +29,10 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Ruff lint
-        run: ruff check app/ tests/ sdk/ cli/ benchmarks/ --output-format=github
+        run: ruff check app/ tests/ sdk/ cli/ benchmarks/ slm/ --output-format=github
 
       - name: Ruff format check
-        run: ruff format --check app/ tests/ sdk/ cli/
+        run: ruff format --check app/ tests/ sdk/ cli/ slm/
 
       - name: Mypy type check
         run: mypy app/ --ignore-missing-imports --no-strict-optional

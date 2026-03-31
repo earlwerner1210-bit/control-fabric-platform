@@ -5,10 +5,12 @@ import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
 const NAV = [
-  { href: "/dashboard",  label: "Dashboard",   icon: "◈" },
-  { href: "/releases",   label: "Releases",     icon: "▶" },
-  { href: "/approvals",  label: "Approvals",    icon: "✓" },
-  { href: "/settings",   label: "Settings",     icon: "⚙" },
+  { href: "/dashboard",   label: "Dashboard",   icon: "◈" },
+  { href: "/releases",    label: "Releases",    icon: "▶" },
+  { href: "/approvals",   label: "Approvals",   icon: "✓" },
+  { href: "/exceptions",  label: "Exceptions",  icon: "⚠" },
+  { href: "/exports",     label: "Exports",     icon: "↓" },
+  { href: "/settings",    label: "Settings",    icon: "⚙" },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
